@@ -1,0 +1,103 @@
+import uuid
+from datetime import date, datetime
+from fastapi import APIRouter, HTTPException
+from typing import List, Dict, Any, Optional
+
+from user.create.create import UserCreate
+from user.response.response import UserResponse
+from user.rule import Rule
+from user.upsert.upsert import UserUpdate
+from user.workspace import Workspace
+from user.userserviceimpl import UserServiceImpl
+
+router = APIRouter()
+service = UserServiceImpl("config.json")
+
+
+@router.post("/", response_model=UserResponse)
+async def create_user(user: UserCreate):
+    new_user = service.register_user(
+        username=user.username,
+        email=user.email,
+        password=user.password,
+        full_name=user.full_name,
+        birth_date=user.birth_date,
+        phone_number=user.phone_number,
+        status="ACTIVE"
+    )
+
+    if user.workspaces:
+        for ws in user.workspaces:
+            ws_obj = Workspace.create(ws.name, ws.description)
+            for r in ws.rules:
+                ws_obj.add_rule(Rule.create(r.name, r.description, r.type, r.params))
+            new_user.add_workspace(ws_obj)
+
+        service.collection.update_one({"id": str(new_user.id)}, {"$set": new_user.to_dict()})
+
+    return new_user.to_dict()
+
+
+@router.get("/", response_model=List[UserResponse])
+async def list_users():
+    users = service.get_all_users()
+    return [u.to_dict() for u in users]
+
+
+@router.get("/{user_id}", response_model=UserResponse)
+async def get_user(user_id: str):
+    user = service.get_user(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user.to_dict()
+
+
+@router.put("/{user_id}", response_model=UserResponse)
+async def update_user(user_id: str, payload: UserUpdate):
+    updates = payload.dict(exclude_unset=True)
+
+    if "email" in updates:
+        existing = service.get_user_by_email(str(updates["email"]))
+        if existing and str(existing.id) != user_id:
+            raise HTTPException(status_code=400, detail="Email already in use")
+
+    if "birth_date" in updates and updates["birth_date"] is not None:
+        updates["birth_date"] = updates["birth_date"].isoformat()
+
+    if "workspaces" in updates and updates["workspaces"] is not None:
+        ws_dicts: List[Dict[str, Any]] = []
+        now_iso = datetime.now().isoformat()
+        for ws in updates["workspaces"]:
+            ws_id = str(ws.id) if ws.id else str(uuid.uuid4())
+            rules_dicts = []
+            for r in ws.rules:
+                rule_id = str(r.id) if r.id else str(uuid.uuid4())
+                rules_dicts.append({
+                    "id": rule_id,
+                    "name": r.name,
+                    "description": r.description,
+                    "type": r.type,
+                    "params": r.params
+                })
+            ws_dicts.append({
+                "id": ws_id,
+                "name": ws.name,
+                "description": ws.description,
+                "rules": rules_dicts,
+                "created_at": now_iso,
+                "updated_at": now_iso
+            })
+        updates["workspaces"] = ws_dicts
+
+    updated = service.update_user(user_id, updates)
+    if not updated:
+        raise HTTPException(status_code=404, detail="User not found")
+    return updated.to_dict()
+
+
+@router.delete("/{user_id}")
+async def delete_user(user_id: str):
+    success = service.remove_user(user_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"deleted": True}

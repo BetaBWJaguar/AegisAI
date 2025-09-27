@@ -1,0 +1,15 @@
+{
+  "database": {
+    "host": "localhost",
+    "port": 27017,
+    "username": "myuser",
+    "password": "mypassword",
+    "name": "myapp",
+    "authSource": "admin"
+  },
+  "jwt": {
+    "secret_key": "supersecretkey",
+    "algorithm": "HS256",
+    "access_token_expire_minutes": 60
+  }
+}
