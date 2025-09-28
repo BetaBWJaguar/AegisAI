@@ -1,0 +1,9 @@
+from enum import Enum
+
+class RuleType(Enum):
+    SWEAR_FILTER = "SWEAR_FILTER"
+    SPAM_FILTER = "SPAM_FILTER"
+    AGE_LIMIT = "AGE_LIMIT"
+    LINK_BLOCK = "LINK_BLOCK"
+    CAPS_LIMIT = "CAPS_LIMIT"
+    FLOOD_CONTROL = "FLOOD_CONTROL"

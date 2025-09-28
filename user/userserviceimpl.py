@@ -53,7 +53,7 @@ class UserServiceImpl(UserService):
         doc = self.collection.find_one({"id": user_id})
         return User(**doc) if doc else None
 
-    def get_user_by_email(self, email: str) -> Optional[User]:
+    def get_user_by_email(self, email: EmailStr) -> Optional[User]:
         doc = self.collection.find_one({"email": email})
         return User(**doc) if doc else None
 

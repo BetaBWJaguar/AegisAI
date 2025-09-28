@@ -1,8 +1,9 @@
 import uuid
 from datetime import date, datetime
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Dict, Any, Optional
 
+from auth.authcontroller import get_current_user
 from user.create.create import UserCreate
 from user.response.response import UserResponse
 from user.rule import Rule
@@ -15,7 +16,7 @@ service = UserServiceImpl("config.json")
 
 
 @router.post("/", response_model=UserResponse)
-async def create_user(user: UserCreate):
+async def create_user(user: UserCreate, current_user=Depends(get_current_user)):
     new_user = service.register_user(
         username=user.username,
         email=user.email,
@@ -39,13 +40,13 @@ async def create_user(user: UserCreate):
 
 
 @router.get("/", response_model=List[UserResponse])
-async def list_users():
+async def list_users(current_user=Depends(get_current_user)):
     users = service.get_all_users()
     return [u.to_dict() for u in users]
 
 
 @router.get("/{user_id}", response_model=UserResponse)
-async def get_user(user_id: str):
+async def get_user(user_id: str, current_user=Depends(get_current_user)):
     user = service.get_user(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -53,7 +54,7 @@ async def get_user(user_id: str):
 
 
 @router.put("/{user_id}", response_model=UserResponse)
-async def update_user(user_id: str, payload: UserUpdate):
+async def update_user(user_id: str, payload: UserUpdate, current_user=Depends(get_current_user)):
     updates = payload.dict(exclude_unset=True)
 
     if "email" in updates:
@@ -96,7 +97,7 @@ async def update_user(user_id: str, payload: UserUpdate):
 
 
 @router.delete("/{user_id}")
-async def delete_user(user_id: str):
+async def delete_user(user_id: str, current_user=Depends(get_current_user)):
     success = service.remove_user(user_id)
     if not success:
         raise HTTPException(status_code=404, detail="User not found")
