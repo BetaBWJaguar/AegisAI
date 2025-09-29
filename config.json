@@ -1,14 +1,13 @@
 {
   "database": {
     "host": "localhost",
-    "port": 27017,
-    "username": "myuser",
-    "password": "mypassword",
-    "name": "myapp",
+    "port": 27018,
+    "username": "aegisadmin",
+    "password": "aegispassword",
+    "name": "aegisai",
     "authSource": "admin"
   },
   "jwt": {
-    "secret_key": "supersecretkey",
     "algorithm": "HS256",
     "access_token_expire_minutes": 60
   }

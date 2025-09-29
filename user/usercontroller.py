@@ -1,14 +1,10 @@
-import uuid
-from datetime import date, datetime
 from fastapi import APIRouter, HTTPException, Depends
-from typing import List, Dict, Any, Optional
+from typing import List
 
 from auth.authcontroller import get_current_user
 from user.create.create import UserCreate
 from user.response.response import UserResponse
-from user.rule import Rule
 from user.upsert.upsert import UserUpdate
-from user.workspace import Workspace
 from user.userserviceimpl import UserServiceImpl
 
 router = APIRouter()
@@ -26,16 +22,6 @@ async def create_user(user: UserCreate, current_user=Depends(get_current_user)):
         phone_number=user.phone_number,
         status="ACTIVE"
     )
-
-    if user.workspaces:
-        for ws in user.workspaces:
-            ws_obj = Workspace.create(ws.name, ws.description)
-            for r in ws.rules:
-                ws_obj.add_rule(Rule.create(r.name, r.description, r.type, r.params))
-            new_user.add_workspace(ws_obj)
-
-        service.collection.update_one({"id": str(new_user.id)}, {"$set": new_user.to_dict()})
-
     return new_user.to_dict()
 
 
@@ -64,31 +50,6 @@ async def update_user(user_id: str, payload: UserUpdate, current_user=Depends(ge
 
     if "birth_date" in updates and updates["birth_date"] is not None:
         updates["birth_date"] = updates["birth_date"].isoformat()
-
-    if "workspaces" in updates and updates["workspaces"] is not None:
-        ws_dicts: List[Dict[str, Any]] = []
-        now_iso = datetime.now().isoformat()
-        for ws in updates["workspaces"]:
-            ws_id = str(ws.id) if ws.id else str(uuid.uuid4())
-            rules_dicts = []
-            for r in ws.rules:
-                rule_id = str(r.id) if r.id else str(uuid.uuid4())
-                rules_dicts.append({
-                    "id": rule_id,
-                    "name": r.name,
-                    "description": r.description,
-                    "type": r.type,
-                    "params": r.params
-                })
-            ws_dicts.append({
-                "id": ws_id,
-                "name": ws.name,
-                "description": ws.description,
-                "rules": rules_dicts,
-                "created_at": now_iso,
-                "updated_at": now_iso
-            })
-        updates["workspaces"] = ws_dicts
 
     updated = service.update_user(user_id, updates)
     if not updated:
