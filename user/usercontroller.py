@@ -20,7 +20,6 @@ async def create_user(user: UserCreate, current_user=Depends(get_current_user)):
         full_name=user.full_name,
         birth_date=user.birth_date,
         phone_number=user.phone_number,
-        status="ACTIVE"
     )
     return new_user.to_dict()
 

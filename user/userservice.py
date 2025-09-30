@@ -4,6 +4,7 @@ from datetime import date
 
 from pydantic import EmailStr
 
+from user.role import Role
 from user.user import User
 
 class UserService(ABC):
@@ -16,7 +17,7 @@ class UserService(ABC):
                       full_name: str,
                       birth_date: date,
                       phone_number: str,
-                      status: str = "ACTIVE") -> User:
+                      role: Role = Role.USER) -> User:
         pass
 
     @abstractmethod

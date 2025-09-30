@@ -38,6 +38,14 @@ async def update_workspace(user_id: str, workspace_id: str, ws_data: WorkspaceUp
         raise HTTPException(status_code=404, detail="Workspace not found")
     return WorkspaceResponse(**updated.to_dict())
 
+@router.delete("/{user_id}/workspaces/{workspace_id}")
+async def delete_workspace(user_id: str, workspace_id: str, current_user=Depends(get_current_user)):
+    success = workspace_service.remove_workspace(user_id, workspace_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    return {"deleted": True}
+
+
 @router.post("/{user_id}/workspaces/{workspace_id}/rules", response_model=RuleResponse)
 async def add_rule(user_id: str, workspace_id: str, rule_data: RuleCreate, current_user=Depends(get_current_user)):
     rule = Rule.create(rule_data.name, rule_data.description, rule_data.type, rule_data.params)

@@ -24,7 +24,6 @@ class UserServiceImpl(UserService):
                       full_name: str,
                       birth_date: date,
                       phone_number: str,
-                      status: str = "ACTIVE",
                       workspaces: Optional[List[Workspace]] = None) -> User:
         user = User.create(
             username=username,
@@ -33,7 +32,6 @@ class UserServiceImpl(UserService):
             full_name=full_name,
             birth_date=birth_date,
             phone_number=phone_number,
-            status=status
         )
 
 
