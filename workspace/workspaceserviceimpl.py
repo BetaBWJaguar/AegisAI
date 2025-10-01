@@ -3,8 +3,10 @@ from datetime import datetime
 from typing import List, Optional, Dict, Any
 from user.workspace import Workspace
 from user.rule import Rule
+from user.violations import Violation
 from user.userserviceimpl import UserServiceImpl
 from workspace.workspaceservice import WorkspaceService
+
 
 class WorkspaceServiceImpl(WorkspaceService):
     def __init__(self, user_service: UserServiceImpl):
@@ -71,6 +73,51 @@ class WorkspaceServiceImpl(WorkspaceService):
         if len(new_rules) == len(ws.rules):
             return False
         ws.rules = new_rules
+        ws.updated_at = datetime.utcnow()
+        user = self.user_service.get_user(user_id)
+        self.collection.update_one({"id": str(user.id)}, {"$set": user.to_dict()})
+        return True
+
+    def add_violation(self, user_id: str, workspace_id: str, violation: Violation) -> Optional[Violation]:
+        ws = self.get_workspace(user_id, workspace_id)
+        if not ws:
+            return None
+        ws.add_violation(violation)
+        user = self.user_service.get_user(user_id)
+        self.collection.update_one({"id": str(user.id)}, {"$set": user.to_dict()})
+        return violation
+
+    def get_violations(self, user_id: str, workspace_id: str) -> List[Violation]:
+        ws = self.get_workspace(user_id, workspace_id)
+        return ws.violations if ws else []
+
+    def update_violation(self, user_id: str, workspace_id: str, violation_id: str, updates: Dict[str, Any]) -> Optional[Violation]:
+        ws = self.get_workspace(user_id, workspace_id)
+        if not ws:
+            return None
+        for v in ws.violations:
+            if str(v.id) == str(violation_id):
+                v.description = updates.get("description", v.description)
+                v.severity = updates.get("severity", v.severity)
+                if "resolved" in updates:
+                    v.resolved = updates["resolved"]
+                    if v.resolved:
+                        v.resolved_at = datetime.utcnow()
+                        v.resolved_by = updates.get("resolved_by")
+                ws.updated_at = datetime.utcnow()
+                user = self.user_service.get_user(user_id)
+                self.collection.update_one({"id": str(user.id)}, {"$set": user.to_dict()})
+                return v
+        return None
+
+    def remove_violation(self, user_id: str, workspace_id: str, violation_id: str) -> bool:
+        ws = self.get_workspace(user_id, workspace_id)
+        if not ws:
+            return False
+        new_violations = [v for v in ws.violations if str(v.id) != str(violation_id)]
+        if len(new_violations) == len(ws.violations):
+            return False
+        ws.violations = new_violations
         ws.updated_at = datetime.utcnow()
         user = self.user_service.get_user(user_id)
         self.collection.update_one({"id": str(user.id)}, {"$set": user.to_dict()})

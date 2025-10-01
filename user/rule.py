@@ -15,13 +15,13 @@ class Rule:
     updated_at: datetime = field(default_factory=datetime.utcnow)
 
     @staticmethod
-    def create(name: str, description: str, type: RuleType, params: Dict[str, Any]) -> "Rule":
+    def create(name: str, description: str, types: RuleType, params: Dict[str, Any]) -> "Rule":
         now = datetime.utcnow()
         return Rule(
             id=uuid.uuid4(),
             name=name,
             description=description,
-            type=type,
+            type=types,
             params=params,
             created_at=now,
             updated_at=now
