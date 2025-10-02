@@ -4,15 +4,41 @@ import uuid
 from typing import Optional, List, Dict
 
 from dataset_builder.datasettype import DatasetType
+from dataset_builder.entrytype import EntryType
 
 
 @dataclass
 class DatasetEntry:
+    id: uuid.UUID
     text: str
     label: str
+    entry_type: EntryType
+    template_id: Optional[str] = None
+    values: Optional[Dict[str, str]] = None
+    created_at: datetime = field(default_factory=datetime.utcnow)
+
+    @staticmethod
+    def create(text: str, label: str, template_id: Optional[str] = None, values: Optional[Dict[str, str]] = None,
+               entry_type: EntryType = None) -> "DatasetEntry":
+        return DatasetEntry(
+            id=uuid.uuid4(),
+            text=text,
+            label=label,
+            template_id=template_id,
+            values=values,
+            entry_type=entry_type
+        )
 
     def to_dict(self) -> dict:
-        return {"text": self.text, "label": self.label}
+        return {
+            "id": str(self.id),
+            "text": self.text,
+            "label": self.label,
+            "template_id": self.template_id,
+            "values": self.values,
+            "created_at": self.created_at.isoformat()
+        }
+
 
 @dataclass
 class DatasetBuilder:
@@ -38,9 +64,21 @@ class DatasetBuilder:
             entries=[]
         )
 
-    def add_entry(self, text: str, label: str):
-        self.entries.append(DatasetEntry(text=text, label=label))
+    def add_entry(self, text: str, label: str,
+                  template_id: Optional[str] = None,
+                  values: Optional[Dict[str, str]] = None) -> DatasetEntry:
+        entry = DatasetEntry.create(text, label, template_id, values)
+        self.entries.append(entry)
         self.updated_at = datetime.utcnow()
+        return entry
+
+    def remove_entry(self, entry_id: str) -> bool:
+        for e in self.entries:
+            if str(e.id) == entry_id:
+                self.entries.remove(e)
+                self.updated_at = datetime.utcnow()
+                return True
+        return False
 
     def to_dict(self) -> dict:
         data = asdict(self)

@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import List
 
 from auth.authcontroller import get_current_user
+from permcontrol.permissionscontrol import require_perm
 from user.create.create import UserCreate
 from user.response.response import UserResponse
 from user.role import Role
@@ -11,19 +12,11 @@ from user.userserviceimpl import UserServiceImpl
 router = APIRouter()
 service = UserServiceImpl("config.json")
 
-def require_admin(current_user):
-    if current_user.role != Role.ADMIN:
-        raise HTTPException(
-            status_code=403,
-            detail="Only admins can perform this action"
-        )
-    return current_user
 
 
-@router.post("/", response_model=UserResponse)
+@router.post("/", response_model=UserResponse, dependencies=[Depends(require_perm([Role.ADMIN, Role.DEVELOPER]))])
 async def create_user(user: UserCreate, current_user=Depends(get_current_user)):
 
-    await require_admin(current_user)
 
     new_user = service.register_user(
         username=user.username,
@@ -50,10 +43,9 @@ async def get_user(user_id: str, current_user=Depends(get_current_user)):
     return user.to_dict()
 
 
-@router.put("/{user_id}", response_model=UserResponse)
+@router.put("/{user_id}", response_model=UserResponse, dependencies=[Depends(require_perm([Role.ADMIN, Role.DEVELOPER]))])
 async def update_user(user_id: str, payload: UserUpdate, current_user=Depends(get_current_user)):
 
-    await require_admin(current_user)
     updates = payload.dict(exclude_unset=True)
 
     if "email" in updates:
@@ -70,10 +62,9 @@ async def update_user(user_id: str, payload: UserUpdate, current_user=Depends(ge
     return updated.to_dict()
 
 
-@router.delete("/{user_id}")
+@router.delete("/{user_id}", dependencies=[Depends(require_perm([Role.ADMIN, Role.DEVELOPER]))])
 async def delete_user(user_id: str, current_user=Depends(get_current_user)):
 
-    await require_admin(current_user)
     success = service.remove_user(user_id)
     if not success:
         raise HTTPException(status_code=404, detail="User not found")
