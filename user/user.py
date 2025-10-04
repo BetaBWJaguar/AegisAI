@@ -2,6 +2,8 @@ from dataclasses import dataclass, asdict, field
 from datetime import datetime, date
 import uuid
 from typing import List, Optional
+
+from bson import ObjectId
 from pydantic import EmailStr
 
 from user.workspace import Workspace
@@ -21,7 +23,7 @@ class User:
     status: str
     role: Role = Role.USER
     workspaces: List[Workspace] = field(default_factory=list)
-    _id: Optional[str] = None
+    _id: str = field(default_factory=lambda: str(ObjectId()))
 
     @staticmethod
     def create(username: str, email: EmailStr, password: str,

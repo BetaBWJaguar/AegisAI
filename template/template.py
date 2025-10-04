@@ -3,6 +3,8 @@ from datetime import datetime
 import uuid
 from typing import Optional, Dict
 
+from bson import ObjectId
+
 
 @dataclass
 class Template:
@@ -12,7 +14,7 @@ class Template:
     description: Optional[str] = None
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
-    _id: Optional[str] = None
+    _id: str = field(default_factory=lambda: str(ObjectId()))
 
     @staticmethod
     def create(name: str, pattern: str, description: str = "") -> "Template":

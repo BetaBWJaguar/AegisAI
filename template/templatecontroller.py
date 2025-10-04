@@ -5,10 +5,10 @@ from template.create.create import TemplateCreate
 from template.response.response import TemplateResponse
 from template.templateserviceimpl import TemplateServiceImpl
 from template.upsert.upsert import TemplateUpsert
-from auth.permissions import require_perm
-from auth.roles import Role
+from permcontrol.permissionscontrol import require_perm
+from user.role import Role
 
-router = APIRouter(prefix="/templates", tags=["templates"])
+router = APIRouter()
 
 service = TemplateServiceImpl()
 

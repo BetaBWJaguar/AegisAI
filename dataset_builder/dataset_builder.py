@@ -3,6 +3,8 @@ from datetime import datetime
 import uuid
 from typing import Optional, List, Dict
 
+from bson import ObjectId
+
 from dataset_builder.datasettype import DatasetType
 from dataset_builder.entrytype import EntryType
 
@@ -49,7 +51,7 @@ class DatasetBuilder:
     created_at: datetime
     updated_at: datetime
     entries: List[DatasetEntry] = field(default_factory=list)
-    _id: Optional[str] = None
+    _id: str = field(default_factory=lambda: str(ObjectId()))
 
     @staticmethod
     def create(name: str, description: str, dataset_type: DatasetType) -> "DatasetBuilder":
