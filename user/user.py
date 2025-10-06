@@ -6,6 +6,7 @@ from typing import List, Optional
 from bson import ObjectId
 from pydantic import EmailStr
 
+from user.validationmixin import ValidationMixin
 from user.workspace import Workspace
 from user.role import Role
 
@@ -23,12 +24,22 @@ class User:
     status: str
     role: Role = Role.USER
     workspaces: List[Workspace] = field(default_factory=list)
+    email_verified: bool = False
+    email_verification_token: Optional[str] = None
+    email_verified_at: Optional[datetime] = None
     _id: str = field(default_factory=lambda: str(ObjectId()))
 
     @staticmethod
     def create(username: str, email: EmailStr, password: str,
                full_name: str, birth_date: date, phone_number: str,
-               status: str = "ACTIVE", role: Role = Role.USER) -> "User":
+               status: str = "PENDING_VERIFICATION", role: Role = Role.USER) -> "User":
+
+
+        ValidationMixin.validate_username(username)
+        ValidationMixin.validate_email(email)
+        ValidationMixin.validate_password(password)
+        ValidationMixin.validate_birth_date(birth_date)
+
         now = datetime.utcnow()
         return User(
             id=uuid.uuid4(),
@@ -49,6 +60,18 @@ class User:
         self.workspaces.append(workspace)
         self.updated_at = datetime.utcnow()
 
+
+    def set_verification_token(self, token: str):
+        self.email_verification_token = token
+        self.updated_at = datetime.utcnow()
+
+    def mark_email_verified(self):
+        self.email_verified = True
+        self.email_verified_at = datetime.utcnow()
+        self.email_verification_token = None
+        self.status = "ACTIVE"
+        self.updated_at = datetime.utcnow()
+
     def to_dict(self) -> dict:
         data = asdict(self)
         data["id"] = str(self.id)
@@ -59,8 +82,10 @@ class User:
             data["created_at"] = self.created_at.isoformat()
         if isinstance(self.updated_at, datetime):
             data["updated_at"] = self.updated_at.isoformat()
+        if self.email_verified_at:
+            data["email_verified_at"] = self.email_verified_at.isoformat()
 
         data["role"] = self.role.value
-
         data["workspaces"] = [ws.to_dict() for ws in self.workspaces]
+
         return data

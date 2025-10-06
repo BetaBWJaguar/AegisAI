@@ -1,12 +1,11 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, EmailStr
-
-from config_loader import ConfigLoader
-from user.userserviceimpl import UserServiceImpl
 from datetime import datetime, timedelta, date
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordBearer
+from config_loader import ConfigLoader
+from user.userserviceimpl import UserServiceImpl
 
 router = APIRouter()
 service = UserServiceImpl("config.json")
@@ -85,13 +84,28 @@ async def register(req: RegisterRequest):
         birth_date=req.birth_date,
         phone_number=req.phone_number
     )
-    return {"message": "User registered successfully", "user": new_user.to_dict()}
+
+
+    #EmailVerificationUtility().send_verification_email(...)
+
+    return {"message": "User registered successfully. Please verify your email before login.", "user": new_user.to_dict()}
+
 
 @router.post("/login", response_model=TokenResponse)
 async def login(req: LoginRequest):
     user = service.get_user_by_email(req.email)
-    if not user or not verify_password(req.password, user.password):
+
+    if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    if not verify_password(req.password, user.password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    if not getattr(user, "email_verified", False):
+        raise HTTPException(
+            status_code=403,
+            detail="Email not verified. Please check your inbox to verify your account."
+        )
 
     token = create_access_token(data={"sub": user.id})
     return TokenResponse(access_token=token)
