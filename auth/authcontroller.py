@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel, EmailStr
 from datetime import datetime, timedelta, date
 from jose import JWTError, jwt
@@ -6,6 +6,7 @@ from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordBearer
 from config_loader import ConfigLoader
 from user.userserviceimpl import UserServiceImpl
+from utility.emailverificationutility import EmailVerificationUtility
 
 router = APIRouter()
 service = UserServiceImpl("config.json")
@@ -82,13 +83,29 @@ async def register(req: RegisterRequest):
         password=hashed_pw,
         full_name=req.full_name,
         birth_date=req.birth_date,
-        phone_number=req.phone_number
+        phone_number=req.phone_number,
+        email_verified=False
     )
 
+    try:
+        email_util = EmailVerificationUtility(service)
+        token = email_util.create_verification_token(str(new_user.id))
 
-    #EmailVerificationUtility().send_verification_email(...)
+        service.set_verification_token(str(new_user.id), token)
 
-    return {"message": "User registered successfully. Please verify your email before login.", "user": new_user.to_dict()}
+        email_util.send_verification_email(
+            to_email=req.email,
+            username=req.username,
+            user_id=str(new_user.id)
+        )
+
+        return {
+            "message": "User registered successfully. Verification email sent.",
+            "user": new_user.to_dict()
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"User created but verification email failed: {e}")
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -109,3 +126,25 @@ async def login(req: LoginRequest):
 
     token = create_access_token(data={"sub": user.id})
     return TokenResponse(access_token=token)
+
+
+@router.get("/verify-email")
+async def verify_email(token: str = Query(...)):
+    try:
+        email_util = EmailVerificationUtility(service)
+        user_id = email_util.decode_verification_token(token)
+
+        user = service.get_user(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        if getattr(user, "email_verified", False):
+            return {"message": "Email already verified."}
+
+        service.mark_email_verified(user_id)
+        return {"message": "Email verified successfully!"}
+
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Verification failed: {str(e)}")

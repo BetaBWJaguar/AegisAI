@@ -17,14 +17,18 @@ class UserServiceImpl(UserService):
         self.db = self.client[config["name"]]
         self.collection = self.db["users"]
 
-    def register_user(self,
-                      username: str,
-                      email: EmailStr,
-                      password: str,
-                      full_name: str,
-                      birth_date: date,
-                      phone_number: str,
-                      workspaces: Optional[List[Workspace]] = None) -> User:
+    def register_user(
+            self,
+            username: str,
+            email: EmailStr,
+            password: str,
+            full_name: str,
+            birth_date: date,
+            phone_number: str,
+            workspaces: Optional[List[Workspace]] = None,
+            email_verified: bool = False,
+            verification_token: Optional[str] = None
+    ) -> User:
         user = User.create(
             username=username,
             email=email,
@@ -34,6 +38,9 @@ class UserServiceImpl(UserService):
             phone_number=phone_number,
         )
 
+        user.email_verified = email_verified
+        if verification_token:
+            user.set_verification_token(verification_token)
 
         if workspaces:
             for ws in workspaces:
@@ -67,4 +74,36 @@ class UserServiceImpl(UserService):
             return_document=True
         )
         return User(**result) if result else None
+
+    def set_verification_token(self, user_id: str, token: str) -> Optional[User]:
+        user = self.get_user(user_id)
+        if not user:
+            return None
+        user.set_verification_token(token)
+        self.collection.update_one(
+            {"id": str(user_id)},
+            {"$set": {
+                "email_verification_token": token,
+                "updated_at": datetime.utcnow()
+            }}
+        )
+        return user
+
+    def mark_email_verified(self, user_id: str) -> Optional[User]:
+        user = self.get_user(user_id)
+        if not user:
+            return None
+
+        user.mark_email_verified()
+        self.collection.update_one(
+            {"id": str(user_id)},
+            {"$set": {
+                "email_verified": True,
+                "email_verification_token": None,
+                "email_verified_at": datetime.utcnow(),
+                "status": "ACTIVE",
+                "updated_at": datetime.utcnow()
+            }}
+        )
+        return user
 

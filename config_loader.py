@@ -27,6 +27,9 @@ class ConfigLoader:
         jwt_cfg["secret_key"] = secret_key
         return jwt_cfg
 
+    def get_smtp_config(self):
+        return self.config.get("smtp", {})
+
     def get_blocked_domains(self) -> list:
         try:
             blocked_path = Path("config/blocked-domains.json")

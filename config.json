@@ -10,5 +10,12 @@
   "jwt": {
     "algorithm": "HS256",
     "access_token_expire_minutes": 60
+  },
+  "smtp": {
+    "host": "smtp.yandex.com",
+    "port": 465,
+    "username": "",
+    "password": "",
+    "frontend_url": "localhost:8080"
   }
 }
