@@ -40,3 +40,10 @@ class ConfigLoader:
                 return data.get("blocked_domains", [])
         except Exception as e:
             raise RuntimeError(f"Error reading blocked domains: {e}")
+
+    def get_scrapper_config(self, site: str) -> dict:
+        scrapper_cfg = self.config.get("scrapper", {})
+        site_cfg = scrapper_cfg.get(site, {})
+        if not site_cfg:
+            raise KeyError(f"Scrapper config for '{site}' not found in config.json")
+        return site_cfg

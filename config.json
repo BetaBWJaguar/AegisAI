@@ -17,5 +17,12 @@
     "username": "",
     "password": "",
     "frontend_url": "localhost:8080"
+  },
+  "scrapper": {
+    "reddit": {
+      "client_id": "",
+      "client_secret": "",
+      "user_agent": ""
+    }
   }
 }

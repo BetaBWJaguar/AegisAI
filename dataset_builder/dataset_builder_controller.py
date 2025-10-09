@@ -163,7 +163,7 @@ async def remove_entry(dataset_id: str, entry_id: str):
     except ExpectionHandler:
         raise
     except Exception as e:
-        raise ExpectionHadnler(
+        raise ExpectionHandler(
             message="Failed to remove entry from dataset.",
             error_type=ErrorType.DATABASE_ERROR,
             detail=str(e)
