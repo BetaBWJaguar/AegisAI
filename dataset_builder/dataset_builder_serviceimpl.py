@@ -1,5 +1,7 @@
+import csv
+import json
 import uuid
-from typing import List, Optional
+from typing import List, Optional, io
 from datetime import datetime
 from pymongo import MongoClient
 from dataset_builder.dataset_builder import DatasetBuilder, DatasetEntry, DatasetType
@@ -171,3 +173,34 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
     def delete_dataset(self, dataset_id: str) -> bool:
         result = self.collection.delete_one({"id": dataset_id})
         return result.deleted_count > 0
+
+
+    def export_format(self, dataset_id: str, export_type: str) -> Optional[bytes]:
+        dataset = self.get_dataset(dataset_id)
+        if not dataset:
+            return None
+
+        export_type = export_type.lower().strip()
+        buffer = io.BytesIO()
+
+        if export_type == "json":
+            data = json.dumps(dataset.to_dict(), ensure_ascii=False, indent=4)
+            buffer.write(data.encode("utf-8"))
+
+        elif export_type == "csv":
+            text_stream = io.StringIO()
+            writer = csv.writer(text_stream)
+            writer.writerow(["id", "text", "label"])
+            for e in dataset.entries:
+                writer.writerow([e.id, e.text, e.label])
+            buffer.write(text_stream.getvalue().encode("utf-8"))
+
+        elif export_type == "txt":
+            content = "\n".join([f"[{e.label}] {e.text}" for e in dataset.entries])
+            buffer.write(content.encode("utf-8"))
+
+        else:
+            raise ValueError("Unsupported export type. Use 'json', 'csv', or 'txt'.")
+
+        buffer.seek(0)
+        return buffer.read()

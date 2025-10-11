@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Response
 from typing import List, Optional
 
 from dataset_builder.dataset_builder_serviceimpl import DatasetBuilderServiceImpl
@@ -189,6 +189,43 @@ async def delete_dataset(dataset_id: str):
     except Exception as e:
         raise ExpectionHandler(
             message="Error occurred while deleting dataset.",
+            error_type=ErrorType.DATABASE_ERROR,
+            detail=str(e)
+        )
+
+
+@router.get(
+    "/{dataset_id}/export/{export_type}",
+    dependencies=[Depends(require_perm([Role.DEVELOPER, Role.ADMIN]))]
+)
+async def export_dataset(dataset_id: str, export_type: str):
+    try:
+        data = service.export_format(dataset_id, export_type)
+        if not data:
+            raise ExpectionHandler(
+                message=f"Dataset with ID '{dataset_id}' not found.",
+                error_type=ErrorType.NOT_FOUND
+            )
+
+        media_types = {
+            "json": "application/json",
+            "csv": "text/csv",
+            "txt": "text/plain"
+        }
+
+        return Response(
+            content=data,
+            media_type=media_types.get(export_type.lower(), "application/octet-stream"),
+            headers={
+                "Content-Disposition": f'attachment; filename="{dataset_id}.{export_type}"'
+            }
+        )
+
+    except ExpectionHandler:
+        raise
+    except Exception as e:
+        raise ExpectionHandler(
+            message=f"Failed to export dataset as {export_type}.",
             error_type=ErrorType.DATABASE_ERROR,
             detail=str(e)
         )

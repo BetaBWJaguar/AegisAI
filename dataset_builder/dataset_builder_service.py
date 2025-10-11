@@ -28,3 +28,7 @@ class DatasetBuilderService(ABC):
     @abstractmethod
     def delete_dataset(self, dataset_id: str) -> bool:
         pass
+
+    @abstractmethod
+    def export_format(self, dataset_id: str, export_type: str) -> Optional[bytes]:
+        pass
