@@ -16,14 +16,10 @@ router = APIRouter()
 user_service = UserServiceImpl("config.json")
 workspace_service = WorkspaceServiceImpl(user_service)
 
-@router.post("/{user_id}/workspaces", response_model=WorkspaceResponse)
+@router.post("/{user_id}/add", response_model=WorkspaceResponse)
 async def add_workspace(user_id: str, ws_data: WorkspaceCreate, current_user=Depends(get_current_user)):
     try:
         ws = Workspace.create(ws_data.name, ws_data.description)
-
-        for r in ws_data.rules:
-            ws.add_rule(Rule.create(r.name, r.description, r.type, r.params))
-
         added = workspace_service.add_workspace(user_id, ws)
         if not added:
             raise ExpectionHandler(
@@ -55,7 +51,7 @@ async def list_workspaces(user_id: str, current_user=Depends(get_current_user)):
         )
 
 
-@router.put("/{user_id}/workspaces/{workspace_id}", response_model=WorkspaceResponse)
+@router.put("/{user_id}/update/{workspace_id}", response_model=WorkspaceResponse)
 async def update_workspace(user_id: str, workspace_id: str, ws_data: WorkspaceUpsert, current_user=Depends(get_current_user)):
     try:
         updates = ws_data.dict(exclude_unset=True)
@@ -76,7 +72,7 @@ async def update_workspace(user_id: str, workspace_id: str, ws_data: WorkspaceUp
         )
 
 
-@router.delete("/{user_id}/workspaces/{workspace_id}")
+@router.delete("/{user_id}/delete/{workspace_id}")
 async def delete_workspace(user_id: str, workspace_id: str, current_user=Depends(get_current_user)):
     try:
         success = workspace_service.remove_workspace(user_id, workspace_id)
@@ -96,7 +92,7 @@ async def delete_workspace(user_id: str, workspace_id: str, current_user=Depends
         )
 
 
-@router.post("/{user_id}/workspaces/{workspace_id}/rules", response_model=RuleResponse)
+@router.post("/{user_id}/{workspace_id}/rules", response_model=RuleResponse)
 async def add_rule(user_id: str, workspace_id: str, rule_data: RuleCreate, current_user=Depends(get_current_user)):
     try:
         rule = Rule.create(rule_data.name, rule_data.description, rule_data.type, rule_data.params)
@@ -117,7 +113,7 @@ async def add_rule(user_id: str, workspace_id: str, rule_data: RuleCreate, curre
         )
 
 
-@router.delete("/{user_id}/workspaces/{workspace_id}/rules/{rule_id}")
+@router.delete("/{user_id}/{workspace_id}/rules/{rule_id}")
 async def delete_rule(user_id: str, workspace_id: str, rule_id: str, current_user=Depends(get_current_user)):
     try:
         success = workspace_service.remove_rule(user_id, workspace_id, rule_id)
@@ -137,7 +133,7 @@ async def delete_rule(user_id: str, workspace_id: str, rule_id: str, current_use
         )
 
 
-@router.post("/{user_id}/workspaces/{workspace_id}/violations")
+@router.post("/{user_id}/{workspace_id}/violations")
 async def add_violation(user_id: str, workspace_id: str, violation_data: dict, current_user=Depends(get_current_user)):
     try:
         violation = Violation.create(
@@ -163,7 +159,7 @@ async def add_violation(user_id: str, workspace_id: str, violation_data: dict, c
         )
 
 
-@router.get("/{user_id}/workspaces/{workspace_id}/violations")
+@router.get("/{user_id}/{workspace_id}/violations")
 async def list_violations(user_id: str, workspace_id: str, current_user=Depends(get_current_user)):
     try:
         violations = workspace_service.get_violations(user_id, workspace_id)
@@ -176,7 +172,7 @@ async def list_violations(user_id: str, workspace_id: str, current_user=Depends(
         )
 
 
-@router.put("/{user_id}/workspaces/{workspace_id}/violations/{violation_id}")
+@router.put("/{user_id}/{workspace_id}/violations/{violation_id}")
 async def update_violation(user_id: str, workspace_id: str, violation_id: str, updates: dict, current_user=Depends(get_current_user)):
     try:
         updated = workspace_service.update_violation(user_id, workspace_id, violation_id, updates)
@@ -196,7 +192,7 @@ async def update_violation(user_id: str, workspace_id: str, violation_id: str, u
         )
 
 
-@router.delete("/{user_id}/workspaces/{workspace_id}/violations/{violation_id}")
+@router.delete("/{user_id}/{workspace_id}/violations/{violation_id}")
 async def delete_violation(user_id: str, workspace_id: str, violation_id: str, current_user=Depends(get_current_user)):
     try:
         success = workspace_service.remove_violation(user_id, workspace_id, violation_id)

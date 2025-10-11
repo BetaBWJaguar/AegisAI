@@ -8,6 +8,7 @@ import uuid
 class AuditLog:
     id: uuid.UUID
     user_id: uuid.UUID
+    workspace_id: uuid.UUID
     action: str
     target: Optional[str]
     details: Optional[str]
@@ -17,6 +18,7 @@ class AuditLog:
     @staticmethod
     def create(
             user_id: uuid.UUID,
+            workspace_id: uuid.UUID,
             action: str,
             target: Optional[str] = None,
             details: Optional[str] = None,
@@ -25,6 +27,7 @@ class AuditLog:
         return AuditLog(
             id=uuid.uuid4(),
             user_id=user_id,
+            workspace_id=workspace_id,
             action=action,
             target=target,
             details=details,
@@ -35,5 +38,6 @@ class AuditLog:
         data = asdict(self)
         data["id"] = str(self.id)
         data["user_id"] = str(self.user_id)
+        data["workspace_id"] = str(self.workspace_id)
         data["created_at"] = self.created_at.isoformat()
         return data

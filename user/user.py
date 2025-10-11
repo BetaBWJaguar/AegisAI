@@ -85,7 +85,8 @@ class User:
         if self.email_verified_at:
             data["email_verified_at"] = self.email_verified_at.isoformat()
 
-        data["role"] = self.role.value
+        if isinstance(data.get("role"), str):
+            data["role"] = Role[data["role"]]
         data["workspaces"] = [ws.to_dict() for ws in self.workspaces]
 
         return data
