@@ -12,7 +12,7 @@ from permcontrol.permissionscontrol import require_perm
 from user.role import Role
 
 router = APIRouter()
-service = AuditLogServiceImpl()
+service = AuditLogServiceImpl(config_file="config.json")
 access_service = UserAccessService(config_file="config.json")
 
 

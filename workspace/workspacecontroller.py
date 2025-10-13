@@ -1,5 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from typing import List
+
+from auditmanager.auditlogserviceimpl import AuditLogServiceImpl
 from auth.authcontroller import get_current_user
 from error.errortypes import ErrorType
 from error.expectionhandler import ExpectionHandler
@@ -14,7 +16,8 @@ from workspace.response.workspace_response import WorkspaceResponse, RuleRespons
 
 router = APIRouter()
 user_service = UserServiceImpl("config.json")
-workspace_service = WorkspaceServiceImpl(user_service)
+audit_log_service = AuditLogServiceImpl("config.json")
+workspace_service = WorkspaceServiceImpl(user_service, audit_log_service)
 
 @router.post("/{user_id}/add", response_model=WorkspaceResponse)
 async def add_workspace(user_id: str, ws_data: WorkspaceCreate, current_user=Depends(get_current_user)):

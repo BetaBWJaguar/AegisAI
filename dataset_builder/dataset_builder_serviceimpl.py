@@ -204,3 +204,56 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
 
         buffer.seek(0)
         return buffer.read()
+
+    def add_entries_bulk(self, dataset_id: str, entries: List[dict]) -> List[DatasetEntry]:
+        dataset = self.get_dataset(dataset_id)
+        if not dataset:
+            return []
+
+        added_entries = []
+        now = datetime.utcnow()
+
+        for entry_data in entries:
+            text = entry_data.get("text")
+            label = entry_data.get("label")
+            entry_type = entry_data.get("entry_type")
+            template_id = entry_data.get("template_id")
+            values = entry_data.get("values")
+
+            if not text or not label or not entry_type:
+                raise ValueError("Each entry must include 'text', 'label', and 'entry_type' fields.")
+
+            entry = DatasetEntry.create(
+                text=text,
+                label=label,
+                entry_type=EntryType(entry_type),
+                template_id=template_id,
+                values=values
+            )
+            added_entries.append(entry)
+
+        self.collection.update_one(
+            {"id": dataset_id},
+            {
+                "$push": {"entries": {"$each": [e.to_dict() for e in added_entries]}},
+                "$set": {"updated_at": now.isoformat()}
+            }
+        )
+        return added_entries
+
+
+    def search_entries(self, dataset_id: str, query: Optional[str] = None,
+                       label: Optional[str] = None) -> List[DatasetEntry]:
+        dataset = self.get_dataset(dataset_id)
+        if not dataset:
+            return []
+
+        results = []
+        for entry in dataset.entries:
+            if query and query.lower() not in entry.text.lower():
+                continue
+            if label and entry.label.lower() != label.lower():
+                continue
+            results.append(entry)
+        return results
+

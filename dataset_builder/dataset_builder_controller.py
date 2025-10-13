@@ -229,3 +229,54 @@ async def export_dataset(dataset_id: str, export_type: str):
             error_type=ErrorType.DATABASE_ERROR,
             detail=str(e)
         )
+
+@router.post(
+    "/{dataset_id}/entries/bulk",
+    response_model=dict,
+    dependencies=[Depends(require_perm([Role.DEVELOPER, Role.ADMIN]))]
+)
+async def add_entries_bulk(dataset_id: str, entries: List[dict]):
+    try:
+        added_entries = service.add_entries_bulk(dataset_id, entries)
+        if not added_entries:
+            raise ExpectionHandler(
+                message=f"Dataset with ID '{dataset_id}' not found.",
+                error_type=ErrorType.NOT_FOUND
+            )
+
+        return {
+            "status": "success",
+            "count": len(added_entries),
+            "entries": [e.to_dict() for e in added_entries]
+        }
+
+    except ValueError as e:
+        raise ExpectionHandler(
+            message="Invalid entry data provided.",
+            error_type=ErrorType.VALIDATION_ERROR,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise ExpectionHandler(
+            message="Failed to add entries in bulk.",
+            error_type=ErrorType.DATABASE_ERROR,
+            detail=str(e)
+        )
+
+
+@router.get(
+    "/{dataset_id}/entries/search",
+    response_model=List[dict],
+    dependencies=[Depends(require_perm([Role.DEVELOPER, Role.ADMIN]))]
+)
+async def search_entries(dataset_id: str, query: Optional[str] = None, label: Optional[str] = None):
+    try:
+        results = service.search_entries(dataset_id, query=query, label=label)
+        return [e.to_dict() for e in results]
+    except Exception as e:
+        raise ExpectionHandler(
+            message="Failed to search entries.",
+            error_type=ErrorType.DATABASE_ERROR,
+            detail=str(e)
+        )
+

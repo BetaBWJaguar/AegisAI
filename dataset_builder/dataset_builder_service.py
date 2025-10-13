@@ -32,3 +32,12 @@ class DatasetBuilderService(ABC):
     @abstractmethod
     def export_format(self, dataset_id: str, export_type: str) -> Optional[bytes]:
         pass
+
+    @abstractmethod
+    def add_entries_bulk(self, dataset_id: str, entries: List[dict]) -> List[DatasetEntry]:
+        pass
+
+    @abstractmethod
+    def search_entries(self, dataset_id: str, query: Optional[str] = None,
+                       label: Optional[str] = None) -> List[DatasetEntry]:
+        pass

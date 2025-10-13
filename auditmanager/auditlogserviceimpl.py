@@ -9,7 +9,7 @@ from config_loader import ConfigLoader
 
 
 class AuditLogServiceImpl(AuditLogService):
-    def __init__(self, config_file: str = "config.json"):
+    def __init__(self, config_file: str):
         cfg = ConfigLoader(config_file).get_database_config()
 
         uri = f"mongodb://{cfg['username']}:{cfg['password']}@" \
