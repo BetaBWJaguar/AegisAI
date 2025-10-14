@@ -7,6 +7,7 @@ from user.user import User
 from user.userservice import UserService
 from config_loader import ConfigLoader
 from user.workspace import Workspace
+from utility.emailverificationutility import EmailVerificationUtility
 
 
 class UserServiceImpl(UserService):
@@ -67,13 +68,41 @@ class UserServiceImpl(UserService):
         return result.deleted_count > 0
 
     def update_user(self, user_id: str, updates: dict) -> Optional[User]:
-        updates["updated_at"] = datetime.now()
+        user = self.get_user(user_id)
+        if not user:
+            return None
+
+        if "email" in updates and updates["email"] != str(user.email):
+            updates["email_verified"] = False
+            updates["email_verification_token"] = None
+            updates["email_verified_at"] = None
+            updates["status"] = "PENDING_VERIFICATION"
+
+            email_utility = EmailVerificationUtility(self)
+            token = email_utility.create_verification_token(user_id)
+            email_utility.send_verification_email(
+                to_email=updates["email"],
+                username=user.username,
+                user_id=user_id
+            )
+
+            updates["email_verification_token"] = token
+
+        updates["updated_at"] = datetime.utcnow()
+
         result = self.collection.find_one_and_update(
             {"id": str(user_id)},
             {"$set": updates},
             return_document=True
         )
-        return User(**result) if result else None
+
+        if not result:
+            return None
+
+        updated_user = User(**result)
+
+
+        return updated_user
 
     def set_verification_token(self, user_id: str, token: str) -> Optional[User]:
         user = self.get_user(user_id)
