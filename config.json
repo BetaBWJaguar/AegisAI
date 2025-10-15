@@ -14,9 +14,9 @@
   "smtp": {
     "host": "smtp.yandex.com",
     "port": 465,
-    "username": "",
-    "password": "",
-    "frontend_url": "localhost:8080"
+    "auth": true,
+    "ssl_enable": true,
+    "url": "localhost:8000"
   },
   "scrapper": {
     "reddit": {

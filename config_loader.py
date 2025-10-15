@@ -16,6 +16,14 @@ class ConfigLoader:
         with open(self.config_file, "r", encoding="utf-8") as f:
             self.config = json.load(f)
 
+            smtp_user = os.getenv("SMTP_USER")
+            smtp_pass = os.getenv("SMTP_PASS")
+
+            if smtp_user:
+                self.config["smtp"]["username"] = smtp_user
+            if smtp_pass:
+                self.config["smtp"]["password"] = smtp_pass
+
     def get_database_config(self) -> dict:
         return self.config["database"]
 

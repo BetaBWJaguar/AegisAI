@@ -1,18 +1,17 @@
 # -*- coding: utf-8 -*-
+import smtplib
+import ssl
+import os
+import logging
 from fastapi import HTTPException
 from jose import jwt, JWTError
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-import smtplib
-import os
-import logging
-
 from pydantic import EmailStr
 
 
 class EmailVerificationUtility:
-
     def __init__(self, service, config_path="config.json"):
         from config_loader import ConfigLoader
 
@@ -25,12 +24,13 @@ class EmailVerificationUtility:
         self.smtp_user = smtp_config["username"]
         self.smtp_pass = smtp_config["password"]
         self.frontend_url = smtp_config["url"]
+
+        self.auth_enabled = str(smtp_config.get("auth"))
+        self.ssl_enabled = str(smtp_config.get("ssl_enable"))
         self.secret_key = jwt_config["secret_key"]
         self.algorithm = jwt_config["algorithm"]
         self.service = service
-
         self.template_path = os.path.join(os.path.dirname(__file__), "email-template.html")
-
         self.logger = logging.getLogger("EmailVerificationUtility")
 
     def create_verification_token(self, user_id: str) -> str:
@@ -66,7 +66,6 @@ class EmailVerificationUtility:
             self.logger.error(f"Template rendering failed: {e}")
             raise HTTPException(status_code=500, detail="Template rendering failed")
 
-
     def send_verification_email(self, to_email: EmailStr, username: str, user_id: str):
         token = self.create_verification_token(user_id)
         verify_link = f"{self.frontend_url}/verify-email?token={token}"
@@ -78,19 +77,21 @@ class EmailVerificationUtility:
         msg["To"] = str(to_email)
         msg.attach(MIMEText(html_content, "html"))
 
+        context = ssl.create_default_context()
+
         try:
-            self.logger.info(f"Connecting to SMTP server: {self.smtp_host}:{self.smtp_port}")
-            with smtplib.SMTP_SSL(self.smtp_host, self.smtp_port, timeout=10) as server:
-                server.login(self.smtp_user, self.smtp_pass)
-                server.sendmail(
-                    from_addr=self.smtp_user,
-                    to_addrs=[str(to_email)],
-                    msg=msg.as_string()
-                )
-                self.logger.info(f"Verification email sent successfully to {to_email}")
+            self.logger.info(f"Connecting to {self.smtp_host}:{self.smtp_port} (SSL Mode)")
+            with smtplib.SMTP_SSL(self.smtp_host, self.smtp_port, context=context, timeout=20) as server:
+                server.ehlo()
+                if self.auth_enabled:
+                    self.logger.info("Authenticating user...")
+                    server.login(self.smtp_user, self.smtp_pass)
+                self.logger.info(f"Sending email to {to_email}...")
+                server.send_message(msg)
+                self.logger.info(f"✅ Email sent successfully to {to_email}")
         except smtplib.SMTPException as e:
-            self.logger.error(f"SMTP error: {e}")
+            self.logger.error(f"❌ SMTP error: {e}")
             raise HTTPException(status_code=500, detail=f"SMTP error: {str(e)}")
         except Exception as e:
-            self.logger.error(f"Email sending failed: {e}")
+            self.logger.error(f"❌ Email sending failed: {e}")
             raise HTTPException(status_code=500, detail=f"Email sending failed: {str(e)}")
