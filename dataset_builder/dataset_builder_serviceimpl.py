@@ -1,7 +1,8 @@
+import io
 import csv
 import json
 import uuid
-from typing import List, Optional, io
+from typing import List, Optional
 from datetime import datetime
 from pymongo import MongoClient
 from dataset_builder.dataset_builder import DatasetBuilder, DatasetEntry, DatasetType
@@ -256,4 +257,48 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
                 continue
             results.append(entry)
         return results
+
+
+    def merge_datasets(self, primary_id: str, secondary_id: str, remove_dupes: bool,new_dataset: bool) -> Optional[DatasetBuilder]:
+        primary = self.get_dataset(primary_id)
+        secondary = self.get_dataset(secondary_id)
+
+        if not primary or not secondary:
+            return None
+
+
+        all_entries = primary.entries + secondary.entries
+
+
+        for e in all_entries:
+            if e.values is None:
+                e.values = {}
+
+        if remove_dupes:
+            unique_map = {}
+            for e in all_entries:
+                key = (e.text.strip().lower(), e.label.lower())
+                if key not in unique_map:
+                    unique_map[key] = e
+            merged_entries = list(unique_map.values())
+        else:
+            merged_entries = all_entries
+
+
+        primary.entries = merged_entries
+        primary.updated_at = datetime.utcnow()
+
+
+        self.collection.update_one(
+            {"id": primary_id},
+            {
+                "$set": {
+                    "entries": [e.to_dict() for e in merged_entries],
+                    "updated_at": primary.updated_at.isoformat(),
+                }
+            }
+        )
+
+        return primary
+
 

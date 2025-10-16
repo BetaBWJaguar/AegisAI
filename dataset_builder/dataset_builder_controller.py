@@ -1,5 +1,9 @@
+import io
+import tempfile
+
 from fastapi import APIRouter, HTTPException, Depends, Response
 from typing import List, Optional
+from starlette.responses import StreamingResponse, FileResponse
 
 from dataset_builder.dataset_builder_serviceimpl import DatasetBuilderServiceImpl
 from dataset_builder.entrytype import EntryType
@@ -279,4 +283,35 @@ async def search_entries(dataset_id: str, query: Optional[str] = None, label: Op
             error_type=ErrorType.DATABASE_ERROR,
             detail=str(e)
         )
+
+@router.post(
+    "/merge",
+    response_model=DatasetResponse,
+    dependencies=[Depends(require_perm([Role.DEVELOPER, Role.ADMIN]))]
+)
+async def merge_datasets(
+        primary_id: str,
+        secondary_id: str,
+        remove_dupes: bool,
+        new_datasets: bool
+):
+    try:
+        merged = service.merge_datasets(primary_id, secondary_id, remove_dupes,new_datasets)
+        if not merged:
+            raise ExpectionHandler(
+                message="One or both datasets could not be found.",
+                error_type=ErrorType.NOT_FOUND
+            )
+
+        return DatasetResponse(**merged.to_dict())
+
+    except ExpectionHandler:
+        raise
+    except Exception as e:
+        raise ExpectionHandler(
+            message="Failed to merge datasets.",
+            error_type=ErrorType.DATABASE_ERROR,
+            detail=str(e)
+        )
+
 

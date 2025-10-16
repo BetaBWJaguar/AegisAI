@@ -41,3 +41,7 @@ class DatasetBuilderService(ABC):
     def search_entries(self, dataset_id: str, query: Optional[str] = None,
                        label: Optional[str] = None) -> List[DatasetEntry]:
         pass
+
+    @abstractmethod
+    def merge_datasets(self, primary_id: str, secondary_id: str, remove_dupes: bool,new_dataset: bool) -> Optional[DatasetBuilder]:
+        pass
