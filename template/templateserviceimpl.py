@@ -22,7 +22,9 @@ class TemplateServiceImpl(TemplateService):
         tpl = Template.create(
             name=data.name,
             pattern=data.pattern,
-            description=data.description
+            description=data.description,
+            category=data.category,
+            version=data.version
         )
         doc = tpl.to_dict()
         result = self.collection.insert_one(doc)
@@ -37,7 +39,9 @@ class TemplateServiceImpl(TemplateService):
             id=uuid.UUID(doc["id"]),
             name=doc["name"],
             pattern=doc["pattern"],
-            description=doc["description"],
+            description=doc.get("description"),
+            category=doc.get("category"),
+            version=doc.get("version", 1),
             created_at=datetime.fromisoformat(doc["created_at"]),
             updated_at=datetime.fromisoformat(doc["updated_at"]),
             _id=str(doc["_id"])
@@ -51,7 +55,9 @@ class TemplateServiceImpl(TemplateService):
                     id=uuid.UUID(doc["id"]),
                     name=doc["name"],
                     pattern=doc["pattern"],
-                    description=doc["description"],
+                    description=doc.get("description"),
+                    category=doc.get("category"),
+                    version=doc.get("version", 1),
                     created_at=datetime.fromisoformat(doc["created_at"]),
                     updated_at=datetime.fromisoformat(doc["updated_at"]),
                     _id=str(doc["_id"])
@@ -70,6 +76,10 @@ class TemplateServiceImpl(TemplateService):
             tpl.pattern = data.pattern
         if data.description is not None:
             tpl.description = data.description
+        if data.category is not None:
+            tpl.category = data.category
+        if data.version is not None:
+            tpl.version = data.version
 
         tpl.updated_at = datetime.utcnow()
         self.collection.update_one(

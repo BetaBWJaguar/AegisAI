@@ -293,10 +293,15 @@ async def merge_datasets(
         primary_id: str,
         secondary_id: str,
         remove_dupes: bool,
-        new_datasets: bool
+        new_dataset: bool,
+        new_dataset_info: Optional[DatasetCreate] = None
 ):
     try:
-        merged = service.merge_datasets(primary_id, secondary_id, remove_dupes,new_datasets)
+        if new_dataset and new_dataset_info:
+            service.temp_new_dataset_info = new_dataset_info
+
+        merged = service.merge_datasets(primary_id, secondary_id, remove_dupes, new_dataset)
+
         if not merged:
             raise ExpectionHandler(
                 message="One or both datasets could not be found.",

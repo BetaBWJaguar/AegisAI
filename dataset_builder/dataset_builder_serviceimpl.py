@@ -22,6 +22,7 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
         self.db = self.client[cfg["name"]]
         self.collection = self.db["datasets"]
         self.template_service = TemplateServiceImpl()
+        self.temp_new_dataset_info = None
 
 
     def create_dataset(self, name: str, description: str, dataset_type: DatasetType) -> DatasetBuilder:
@@ -259,16 +260,20 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
         return results
 
 
-    def merge_datasets(self, primary_id: str, secondary_id: str, remove_dupes: bool,new_dataset: bool) -> Optional[DatasetBuilder]:
+    def merge_datasets(
+            self,
+            primary_id: str,
+            secondary_id: str,
+            remove_dupes: bool,
+            new_dataset: bool
+    ) -> Optional[DatasetBuilder]:
         primary = self.get_dataset(primary_id)
         secondary = self.get_dataset(secondary_id)
 
         if not primary or not secondary:
             return None
 
-
         all_entries = primary.entries + secondary.entries
-
 
         for e in all_entries:
             if e.values is None:
@@ -284,10 +289,29 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
         else:
             merged_entries = all_entries
 
+        if new_dataset:
+            if not self.temp_new_dataset_info:
+                raise ValueError("Missing new_dataset_info data. Please set via controller before calling merge_datasets().")
+
+            info = self.temp_new_dataset_info
+
+            new_id = uuid.uuid4()
+            new_dataset_obj = DatasetBuilder(
+                id=new_id,
+                name=info.name,
+                description=info.description,
+                dataset_type=info.dataset_type,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+                entries=merged_entries,
+            )
+
+            self.collection.insert_one(new_dataset_obj.to_dict())
+            self.temp_new_dataset_info = None
+            return new_dataset_obj
 
         primary.entries = merged_entries
         primary.updated_at = datetime.utcnow()
-
 
         self.collection.update_one(
             {"id": primary_id},
