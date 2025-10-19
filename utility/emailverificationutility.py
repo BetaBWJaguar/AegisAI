@@ -21,8 +21,8 @@ class EmailVerificationUtility:
 
         self.smtp_host = smtp_config["host"]
         self.smtp_port = smtp_config["port"]
-        self.smtp_user = smtp_config["username"]
-        self.smtp_pass = smtp_config["password"]
+        self.smtp_user = os.getenv("SMTP_USER")
+        self.smtp_pass = os.getenv("SMTP_PASS")
         self.frontend_url = smtp_config["url"]
 
         self.auth_enabled = str(smtp_config.get("auth"))
