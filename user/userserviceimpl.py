@@ -1,3 +1,4 @@
+import uuid
 from datetime import date, datetime
 from typing import List, Optional
 
@@ -55,9 +56,31 @@ class UserServiceImpl(UserService):
         docs = self.collection.find()
         return [User(**doc) for doc in docs]
 
-    def get_user(self, user_id: str) -> Optional[User]:
-        doc = self.collection.find_one({"id": user_id})
-        return User(**doc) if doc else None
+    def get_user(self, user_id: str):
+        doc = self.collection.find_one({"id": str(user_id)})
+        if not doc:
+            return None
+
+        from user.workspace import Workspace
+        from user.rule import Rule
+        from user.violations import Violation
+
+        doc["workspaces"] = [
+            Workspace(
+                id=uuid.UUID(ws["id"]),
+                name=ws["name"],
+                description=ws.get("description", ""),
+                rules=[Rule(**r) if isinstance(r, dict) else r for r in ws.get("rules", [])],
+                violations=[Violation(**v) if isinstance(v, dict) else v for v in ws.get("violations", [])],
+                language=ws.get("language", "tr"),
+                created_at=datetime.fromisoformat(ws["created_at"]) if "created_at" in ws else datetime.utcnow(),
+                updated_at=datetime.fromisoformat(ws["updated_at"]) if "updated_at" in ws else datetime.utcnow(),
+            )
+            for ws in doc.get("workspaces", [])
+        ]
+
+        return User(**doc)
+
 
     def get_user_by_email(self, email: EmailStr) -> Optional[User]:
         doc = self.collection.find_one({"email": email})

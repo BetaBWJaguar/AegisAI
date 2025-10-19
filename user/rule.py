@@ -34,7 +34,17 @@ class Rule:
     def to_dict(self) -> dict:
         data = asdict(self)
         data["id"] = str(self.id)
-        data["type"] = self.type.value  # Enum → string
-        data["created_at"] = self.created_at.isoformat()
-        data["updated_at"] = self.updated_at.isoformat()
+        data["type"] = getattr(self.type, "value", self.type)
+
+        if isinstance(self.created_at, datetime):
+            data["created_at"] = self.created_at.isoformat()
+        else:
+            data["created_at"] = str(self.created_at)
+
+        if isinstance(self.updated_at, datetime):
+            data["updated_at"] = self.updated_at.isoformat()
+        else:
+            data["updated_at"] = str(self.updated_at)
+
         return data
+

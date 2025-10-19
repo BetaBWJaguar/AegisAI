@@ -139,27 +139,49 @@ async def delete_rule(user_id: str, workspace_id: str, rule_id: str, current_use
 @router.post("/{user_id}/{workspace_id}/violations")
 async def add_violation(user_id: str, workspace_id: str, violation_data: dict, current_user=Depends(get_current_user)):
     try:
+        required_fields = ["description", "severity", "metadata"]
+        missing_fields = [f for f in required_fields if f not in violation_data or not violation_data[f]]
+        if missing_fields:
+            raise ExpectionHandler(
+                message=f"Missing required field(s): {', '.join(missing_fields)}",
+                error_type=ErrorType.VALIDATION_ERROR
+            )
+
         violation = Violation.create(
-            user_id=violation_data["user_id"],
-            rule_id=violation_data["rule_id"],
             description=violation_data["description"],
-            severity=violation_data.get("severity")
+            severity=violation_data["severity"],
+            metadata=violation_data["metadata"]
         )
+
         added = workspace_service.add_violation(user_id, workspace_id, violation)
         if not added:
             raise ExpectionHandler(
                 message=f"Workspace with ID '{workspace_id}' not found.",
                 error_type=ErrorType.NOT_FOUND
             )
-        return added.to_dict()
+
+        return {
+            "success": True,
+            "message": "Violation added successfully.",
+            "data": added.to_dict()
+        }
+
     except ExpectionHandler:
         raise
+
+    except ValueError as e:
+        raise ExpectionHandler(
+            message=str(e),
+            error_type=ErrorType.VALIDATION_ERROR
+        )
+
     except Exception as e:
         raise ExpectionHandler(
             message="Error occurred while adding violation.",
             error_type=ErrorType.DATABASE_ERROR,
             detail=str(e)
         )
+
 
 
 @router.get("/{user_id}/{workspace_id}/violations")

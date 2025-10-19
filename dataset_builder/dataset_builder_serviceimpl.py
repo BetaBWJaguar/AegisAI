@@ -290,10 +290,9 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
             merged_entries = all_entries
 
         if new_dataset:
-            if not self.temp_new_dataset_info:
-                raise ValueError("Missing new_dataset_info data. Please set via controller before calling merge_datasets().")
-
-            info = self.temp_new_dataset_info
+            info = getattr(self, "temp_new_dataset_info", None)
+            if not info:
+                raise ValueError("new_dataset=True but no dataset info provided.")
 
             new_id = uuid.uuid4()
             new_dataset_obj = DatasetBuilder(

@@ -69,16 +69,18 @@ class WorkspaceServiceImpl(WorkspaceService):
         user = self.user_service.get_user(user_id)
         if not user:
             return False
-        new_workspaces = [ws for ws in user.workspaces if str(ws.id) != str(workspace_id)]
-        if len(new_workspaces) == len(user.workspaces):
-            return False
-        user.workspaces = new_workspaces
-        user.updated_at = datetime.utcnow()
-        self.collection.update_one({"id": str(user.id)}, {"$set": user.to_dict()})
 
         workspace = next((ws for ws in user.workspaces if str(ws.id) == str(workspace_id)), None)
         if not workspace:
             return False
+
+        user.workspaces = [ws for ws in user.workspaces if str(ws.id) != str(workspace_id)]
+        user.updated_at = datetime.utcnow()
+
+        result = self.collection.update_one(
+            {"id": str(user.id)},
+            {"$set": {"workspaces": [w.to_dict() for w in user.workspaces]}}
+        )
 
         self.audit_log_service.create_log(
             user_id=uuid.UUID(user_id),
@@ -88,14 +90,23 @@ class WorkspaceServiceImpl(WorkspaceService):
             details=f"Workspace '{workspace.name}' was deleted by {user.username}."
         )
 
-        return True
+        return result.modified_count > 0
+
 
     def add_rule(self, user_id: str, workspace_id: str, rule: Rule) -> Optional[Rule]:
         ws = self.get_workspace(user_id, workspace_id)
         if not ws:
             return None
+
         ws.add_rule(rule)
+
         user = self.user_service.get_user(user_id)
+
+        for i, w in enumerate(user.workspaces):
+            if str(w.id) == str(workspace_id):
+                user.workspaces[i] = ws
+                break
+
         self.collection.update_one({"id": str(user.id)}, {"$set": user.to_dict()})
 
         self.audit_log_service.create_log(
@@ -119,7 +130,14 @@ class WorkspaceServiceImpl(WorkspaceService):
 
         ws.rules = [r for r in ws.rules if str(r.id) != str(rule_id)]
         ws.updated_at = datetime.utcnow()
+
         user = self.user_service.get_user(user_id)
+
+        for i, w in enumerate(user.workspaces):
+            if str(w.id) == str(workspace_id):
+                user.workspaces[i] = ws
+                break
+
         self.collection.update_one({"id": str(user.id)}, {"$set": user.to_dict()})
 
         self.audit_log_service.create_log(
@@ -136,9 +154,14 @@ class WorkspaceServiceImpl(WorkspaceService):
         ws = self.get_workspace(user_id, workspace_id)
         if not ws:
             return None
+
         ws.add_violation(violation)
         user = self.user_service.get_user(user_id)
-        self.collection.update_one({"id": str(user.id)}, {"$set": user.to_dict()})
+
+        self.collection.update_one(
+            {"id": str(user.id), "workspaces.id": str(ws.id)},
+            {"$set": {"workspaces.$": ws.to_dict()}}
+        )
 
         self.audit_log_service.create_log(
             user_id=uuid.UUID(user_id),
@@ -154,23 +177,43 @@ class WorkspaceServiceImpl(WorkspaceService):
         ws = self.get_workspace(user_id, workspace_id)
         return ws.violations if ws else []
 
-    def update_violation(self, user_id: str, workspace_id: str, violation_id: str, updates: Dict[str, Any]) -> Optional[Violation]:
+    def update_violation(
+            self,
+            user_id: str,
+            workspace_id: str,
+            violation_id: str,
+            updates: Dict[str, Any]
+    ) -> Optional[Violation]:
         ws = self.get_workspace(user_id, workspace_id)
         if not ws:
             return None
+
         for v in ws.violations:
             if str(v.id) == str(violation_id):
                 prev_status = v.resolved
                 v.description = updates.get("description", v.description)
                 v.severity = updates.get("severity", v.severity)
+
+                if "metadata" in updates and isinstance(updates["metadata"], dict):
+                    if hasattr(v, "metadata") and isinstance(v.metadata, dict):
+                        v.metadata.update(updates["metadata"])
+                    else:
+                        v.metadata = updates["metadata"]
+
                 if "resolved" in updates:
                     v.resolved = updates["resolved"]
                     if v.resolved:
                         v.resolved_at = datetime.utcnow()
                         v.resolved_by = updates.get("resolved_by")
+
                 ws.updated_at = datetime.utcnow()
+
                 user = self.user_service.get_user(user_id)
-                self.collection.update_one({"id": str(user.id)}, {"$set": user.to_dict()})
+
+                self.collection.update_one(
+                    {"id": str(user.id), "workspaces.id": str(ws.id)},
+                    {"$set": {"workspaces.$": ws.to_dict()}}
+                )
 
                 status = "resolved" if v.resolved and not prev_status else "updated"
                 self.audit_log_service.create_log(
@@ -194,8 +237,13 @@ class WorkspaceServiceImpl(WorkspaceService):
 
         ws.violations = [v for v in ws.violations if str(v.id) != str(violation_id)]
         ws.updated_at = datetime.utcnow()
+
         user = self.user_service.get_user(user_id)
-        self.collection.update_one({"id": str(user.id)}, {"$set": user.to_dict()})
+
+        result = self.collection.update_one(
+            {"id": str(user.id), "workspaces.id": str(ws.id)},
+            {"$set": {"workspaces.$": ws.to_dict()}}
+        )
 
         self.audit_log_service.create_log(
             user_id=uuid.UUID(user_id),
@@ -205,4 +253,6 @@ class WorkspaceServiceImpl(WorkspaceService):
             details=f"Violation '{violation.description}' removed from workspace '{ws.name}'."
         )
 
-        return True
+
+        return result.modified_count > 0
+
