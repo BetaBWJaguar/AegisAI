@@ -7,6 +7,7 @@ from user.workspace import Workspace
 from user.rule import Rule
 from user.violations import Violation
 from user.userserviceimpl import UserServiceImpl
+from utility.client import ClientIPStorage
 from workspace.workspaceservice import WorkspaceService
 
 
@@ -16,7 +17,7 @@ class WorkspaceServiceImpl(WorkspaceService):
         self.collection = user_service.collection
         self.audit_log_service = audit_log_service
 
-    def add_workspace(self, user_id: str, workspace: Workspace) -> Workspace:
+    def add_workspace(self, user_id: str, workspace: Workspace,) -> Workspace:
         user = self.user_service.get_user(user_id)
         if not user:
             return None
@@ -28,7 +29,8 @@ class WorkspaceServiceImpl(WorkspaceService):
             workspace_id=workspace.id,
             action="WORKSPACE_CREATED",
             target=workspace.name,
-            details=f"Workspace '{workspace.name}' created by user {user.username}."
+            details=f"Workspace '{workspace.name}' created by user {user.username}.",
+            ip_address=ClientIPStorage.get()
         )
 
         return workspace
@@ -60,7 +62,8 @@ class WorkspaceServiceImpl(WorkspaceService):
                     workspace_id=uuid.UUID(workspace_id),
                     action="WORKSPACE_UPDATED",
                     target=ws.name,
-                    details=f"Workspace '{old_name}' updated. New name: '{ws.name}'."
+                    details=f"Workspace '{old_name}' updated. New name: '{ws.name}'.",
+                    ip_address=ClientIPStorage.get()
                 )
                 return ws
         return None
@@ -87,7 +90,8 @@ class WorkspaceServiceImpl(WorkspaceService):
             workspace_id=uuid.UUID(workspace_id),
             action="WORKSPACE_DELETED",
             target=workspace.name,
-            details=f"Workspace '{workspace.name}' was deleted by {user.username}."
+            details=f"Workspace '{workspace.name}' was deleted by {user.username}.",
+            ip_address=ClientIPStorage.get()
         )
 
         return result.modified_count > 0
@@ -114,7 +118,8 @@ class WorkspaceServiceImpl(WorkspaceService):
             workspace_id=uuid.UUID(workspace_id),
             action="RULE_ADDED",
             target=rule.name,
-            details=f"Rule '{rule.name}' added to workspace '{ws.name}'."
+            details=f"Rule '{rule.name}' added to workspace '{ws.name}'.",
+            ip_address=ClientIPStorage.get()
         )
 
         return rule
@@ -145,7 +150,8 @@ class WorkspaceServiceImpl(WorkspaceService):
             workspace_id=uuid.UUID(workspace_id),
             action="RULE_REMOVED",
             target=rule.name,
-            details=f"Rule '{rule.name}' removed from workspace '{ws.name}'."
+            details=f"Rule '{rule.name}' removed from workspace '{ws.name}'.",
+            ip_address=ClientIPStorage.get()
         )
 
         return True
@@ -168,7 +174,8 @@ class WorkspaceServiceImpl(WorkspaceService):
             workspace_id=uuid.UUID(workspace_id),
             action="VIOLATION_ADDED",
             target=violation.description,
-            details=f"Violation added in workspace '{ws.name}' with severity '{violation.severity}'."
+            details=f"Violation added in workspace '{ws.name}' with severity '{violation.severity}'.",
+            ip_address=ClientIPStorage.get()
         )
 
         return violation
@@ -221,7 +228,8 @@ class WorkspaceServiceImpl(WorkspaceService):
                     workspace_id=uuid.UUID(workspace_id),
                     action=f"VIOLATION_{status.upper()}",
                     target=v.description,
-                    details=f"Violation '{v.description}' was {status} in workspace '{ws.name}'."
+                    details=f"Violation '{v.description}' was {status} in workspace '{ws.name}'.",
+                    ip_address=ClientIPStorage.get()
                 )
                 return v
         return None
@@ -250,7 +258,8 @@ class WorkspaceServiceImpl(WorkspaceService):
             workspace_id=uuid.UUID(workspace_id),
             action="VIOLATION_REMOVED",
             target=violation.description,
-            details=f"Violation '{violation.description}' removed from workspace '{ws.name}'."
+            details=f"Violation '{violation.description}' removed from workspace '{ws.name}'.",
+            ip_address=ClientIPStorage.get()
         )
 
 

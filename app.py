@@ -6,6 +6,7 @@ from error.expectionhandler import ExpectionHandler, expection_handler, validati
 from ratelimit.ratelimit import RateLimitMiddleware
 from user.usercontroller import router as user_router
 from auth.authcontroller import router as auth_router
+from utility.client_ip_middleware import ClientIPMiddleware
 from workspace.workspacecontroller import router as workspace_router
 from dataset_builder.dataset_builder_controller import router as dataset_router
 from template.templatecontroller import router as template_router
@@ -15,6 +16,7 @@ from auditmanager.auditlog_controller import router as audit_router
 
 app = FastAPI()
 app.add_middleware(RateLimitMiddleware, max_requests=5, window_seconds=10)
+app.add_middleware(ClientIPMiddleware)
 
 app.add_exception_handler(ExpectionHandler, expection_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
