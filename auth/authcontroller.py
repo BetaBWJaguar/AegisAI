@@ -1,10 +1,11 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query,Request
 from pydantic import BaseModel, EmailStr
 from datetime import datetime, timedelta, date
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordBearer
 from config_loader import ConfigLoader
+from user.devicemanager.devicemanager import DeviceManager
 from user.userserviceimpl import UserServiceImpl
 from utility.emailverificationutility import EmailVerificationUtility
 
@@ -72,7 +73,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 
 
 @router.post("/register")
-async def register(req: RegisterRequest):
+async def register(req: RegisterRequest, request: Request):
     if service.get_user_by_email(req.email):
         raise HTTPException(status_code=400, detail="Email already registered")
 
@@ -87,10 +88,16 @@ async def register(req: RegisterRequest):
         email_verified=False
     )
 
+    ip = request.client.host
+    user_agent = request.headers.get("User-Agent", "Unknown")
+    device_name = req.username + " Device"
+    DeviceManager.add_or_update_device(new_user, device_name, ip, user_agent)
+
+    service.update_user(new_user)
+
     try:
         email_util = EmailVerificationUtility(service)
         token = email_util.create_verification_token(str(new_user.id))
-
         service.set_verification_token(str(new_user.id), token)
 
         email_util.send_verification_email(
@@ -109,22 +116,26 @@ async def register(req: RegisterRequest):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(req: LoginRequest):
+async def login(req: LoginRequest, request: Request):
     user = service.get_user_by_email(req.email)
 
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-
-    if not verify_password(req.password, user.password):
+    if not user or not verify_password(req.password, user.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     if not getattr(user, "email_verified", False):
-        raise HTTPException(
-            status_code=403,
-            detail="Email not verified. Please check your inbox to verify your account."
-        )
+        raise HTTPException(status_code=403, detail="Email not verified.")
 
-    token = create_access_token(data={"sub": user.id})
+    ip = request.client.host
+    user_agent = request.headers.get("User-Agent", "Unknown")
+    device_name = req.email + " Device"
+
+    DeviceManager.add_or_update_device(user, device_name, ip, user_agent)
+    service.update_user(
+        user_id=str(user.id),
+        updates={"devices": [d.to_dict() for d in user.devices], "updated_at": datetime.utcnow()}
+    )
+
+    token = create_access_token(data={"sub": str(user.id)})
     return TokenResponse(access_token=token)
 
 

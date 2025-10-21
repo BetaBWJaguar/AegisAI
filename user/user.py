@@ -6,6 +6,7 @@ from typing import List, Optional
 from bson import ObjectId
 from pydantic import EmailStr
 
+from user.device import Device
 from user.validationmixin import ValidationMixin
 from user.workspace import Workspace
 from user.role import Role
@@ -26,7 +27,8 @@ class User:
     workspaces: List[Workspace] = field(default_factory=list)
     email_verified: bool = False
     email_verification_token: Optional[str] = None
-    email_verified_at: Optional[datetime] = None
+    email_verified_at: Optional[datetime] = None,
+    devices: List[Device] = field(default_factory=list)
     _id: str = field(default_factory=lambda: str(ObjectId()))
 
     @staticmethod

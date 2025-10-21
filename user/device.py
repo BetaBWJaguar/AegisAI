@@ -1,8 +1,7 @@
 import uuid
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, asdict
 from datetime import datetime
 from typing import Optional
-
 
 @dataclass
 class Device:
@@ -19,7 +18,7 @@ class Device:
     def create(device_name: str, ip_address: str, user_agent: str) -> "Device":
         now = datetime.utcnow()
         return Device(
-            id=uuid.UUID(str(uuid.uuid4())),
+            id=uuid.uuid4(),
             device_name=device_name or "Unknown Device",
             ip_address=ip_address or "0.0.0.0",
             user_agent=user_agent or "Unknown",
@@ -38,7 +37,4 @@ class Device:
     def to_dict(self) -> dict:
         data = asdict(self)
         data["id"] = str(self.id)
-        data["login_time"] = self.login_time.isoformat()
-        data["last_active"] = self.last_active.isoformat()
-        data["logout_time"] = self.logout_time.isoformat() if self.logout_time else None
         return data
