@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Query,Request
+from fastapi import APIRouter, HTTPException, Depends, Query, Request, Body
 from pydantic import BaseModel, EmailStr
 from datetime import datetime, timedelta, date
 from jose import JWTError, jwt
@@ -8,9 +8,12 @@ from config_loader import ConfigLoader
 from user.devicemanager.devicemanager import DeviceManager
 from user.userserviceimpl import UserServiceImpl
 from utility.emailverificationutility import EmailVerificationUtility
+from user.verifymanagement.verifyresponse import VerifyResponse
+from user.verifymanagement.verifymanager import  VerifyManager
 
 router = APIRouter()
 service = UserServiceImpl("config.json")
+verify_manager = VerifyManager(service)
 
 
 config = ConfigLoader("config.json").get_jwt_config()
@@ -139,23 +142,12 @@ async def login(req: LoginRequest, request: Request):
     return TokenResponse(access_token=token)
 
 
-@router.get("/verify-email")
+@router.get("/verify-email", response_model=VerifyResponse)
 async def verify_email(token: str = Query(...)):
-    try:
-        email_util = EmailVerificationUtility(service)
-        user_id = email_util.decode_verification_token(token)
+    result = verify_manager.verify_email(token)
+    return VerifyResponse(**result)
 
-        user = service.get_user(user_id)
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-
-        if getattr(user, "email_verified", False):
-            return {"message": "Email already verified."}
-
-        service.mark_email_verified(user_id)
-        return {"message": "Email verified successfully!"}
-
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Verification failed: {str(e)}")
+@router.post("/resend-verification-email", response_model=VerifyResponse)
+async def resend_verification(email: EmailStr = Body(..., embed=True)):
+    result = verify_manager.resend_verification(email)
+    return VerifyResponse(**result)

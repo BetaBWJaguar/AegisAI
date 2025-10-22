@@ -68,7 +68,7 @@ class EmailVerificationUtility:
 
     def send_verification_email(self, to_email: EmailStr, username: str, user_id: str):
         token = self.create_verification_token(user_id)
-        verify_link = f"{self.frontend_url}/verify-email?token={token}"
+        verify_link = f"{self.frontend_url}/auth/verify-email?token={token}"
         html_content = self.render_template(username, verify_link)
 
         msg = MIMEMultipart("alternative")
