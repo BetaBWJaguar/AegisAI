@@ -9,22 +9,22 @@ class Device:
     device_name: str
     ip_address: str
     user_agent: str
-    login_time: datetime
-    last_active: datetime
+    login_time: Optional[datetime] = None
+    last_active: Optional[datetime] = None
     is_active: bool = True
     logout_time: Optional[datetime] = None
 
     @staticmethod
-    def create(device_name: str, ip_address: str, user_agent: str) -> "Device":
+    def create(device_name: str, ip_address: str, user_agent: str,is_active: bool) -> "Device":
         now = datetime.utcnow()
         return Device(
             id=uuid.uuid4(),
             device_name=device_name or "Unknown Device",
             ip_address=ip_address or "0.0.0.0",
             user_agent=user_agent or "Unknown",
-            login_time=now,
-            last_active=now,
-            is_active=True
+            login_time=None,
+            last_active=None,
+            is_active=is_active
         )
 
     def mark_logout(self):

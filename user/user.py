@@ -27,7 +27,7 @@ class User:
     workspaces: List[Workspace] = field(default_factory=list)
     email_verified: bool = False
     email_verification_token: Optional[str] = None
-    email_verified_at: Optional[datetime] = None,
+    email_verified_at: Optional[datetime] = None
     devices: List[Device] = field(default_factory=list)
     _id: str = field(default_factory=lambda: str(ObjectId()))
 
@@ -90,5 +90,6 @@ class User:
         if isinstance(data.get("role"), str):
             data["role"] = Role[data["role"]]
         data["workspaces"] = [ws.to_dict() for ws in self.workspaces]
+        data["devices"] = [d.to_dict() for d in self.devices]
 
         return data

@@ -93,10 +93,8 @@ async def register(req: RegisterRequest, request: Request):
 
     ip = request.client.host
     user_agent = request.headers.get("User-Agent", "Unknown")
-    device_name = req.username + " Device"
-    DeviceManager.add_or_update_device(new_user, device_name, ip, user_agent)
-
-    service.update_user(new_user)
+    device_name = DeviceManager.extract_device_name(user_agent)
+    DeviceManager.add_or_update_device(str(new_user.id),service, device_name, ip, user_agent,False)
 
     try:
         email_util = EmailVerificationUtility(service)
@@ -130,9 +128,9 @@ async def login(req: LoginRequest, request: Request):
 
     ip = request.client.host
     user_agent = request.headers.get("User-Agent", "Unknown")
-    device_name = req.email + " Device"
+    device_name = DeviceManager.extract_device_name(user_agent)
 
-    DeviceManager.add_or_update_device(user, device_name, ip, user_agent)
+    DeviceManager.add_or_update_device(str(user.id),service, device_name, ip, user_agent,True)
     service.update_user(
         user_id=str(user.id),
         updates={"devices": [d.to_dict() for d in user.devices], "updated_at": datetime.utcnow()}
@@ -142,7 +140,7 @@ async def login(req: LoginRequest, request: Request):
     return TokenResponse(access_token=token)
 
 
-@router.get("/verify-email", response_model=VerifyResponse)
+@router.post("/verify-email", response_model=VerifyResponse)
 async def verify_email(token: str = Query(...)):
     result = verify_manager.verify_email(token)
     return VerifyResponse(**result)
