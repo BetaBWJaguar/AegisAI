@@ -15,7 +15,7 @@ class Violation:
     resolved_at: Optional[datetime] = None
 
     @staticmethod
-    def create(description: str, severity: str = "LOW", metadata: Optional[Dict[str, Any]] = None) -> "Violation":
+    def create(description: str, severity: str, metadata: Optional[Dict[str, Any]] = None) -> "Violation":
         now = datetime.utcnow()
         return Violation(
             id=uuid.uuid4(),

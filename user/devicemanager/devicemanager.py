@@ -61,3 +61,29 @@ class DeviceManager:
                 "devices": updated_devices,
                 "updated_at": now
             })
+
+    @staticmethod
+    def set_inactive_all(user_id: str, service):
+        user = service.get_user(user_id)
+        if not user:
+            return None
+
+        now = datetime.utcnow()
+        devices = []
+        for dev in user.devices or []:
+            dev.is_active = False
+            dev.logout_time = now
+            dev.last_active = now
+            devices.append(dev.to_dict())
+
+        service.collection.update_one(
+            {"id": str(user_id)},
+            {
+                "$set": {
+                    "devices": devices,
+                    "updated_at": now
+                }
+            }
+        )
+        return True
+

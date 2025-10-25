@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, HTTPException, Depends, Query, Request, Body
 from pydantic import BaseModel, EmailStr
 from datetime import datetime, timedelta, date
@@ -5,6 +7,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordBearer
 from config_loader import ConfigLoader
+from revokedtokenservice.revoked_token_service import RevokedTokenService
 from user.devicemanager.devicemanager import DeviceManager
 from user.userserviceimpl import UserServiceImpl
 from utility.emailverificationutility import EmailVerificationUtility
@@ -14,6 +17,7 @@ from user.verifymanagement.verifymanager import  VerifyManager
 router = APIRouter()
 service = UserServiceImpl("config.json")
 verify_manager = VerifyManager(service)
+revoked_service = RevokedTokenService("config.json")
 
 
 config = ConfigLoader("config.json").get_jwt_config()
@@ -53,17 +57,32 @@ def verify_password(password: str, hashed: str) -> bool:
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()
+
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
-    to_encode.update({"exp": expire})
+    jti = str(uuid.uuid4())
+
+    to_encode.update({
+        "exp": expire,
+        "sub": data.get("sub"),
+        "jti": jti
+    })
+
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 def decode_token(token: str) -> UserTokenData:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: str = payload.get("sub")
-        if user_id is None:
-            raise HTTPException(status_code=401, detail="Invalid token")
+        jti: str = payload.get("jti")
+
+        if not user_id or not jti:
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+        if revoked_service.is_token_revoked(jti):
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
+
         return UserTokenData(user_id=user_id)
+
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
@@ -149,3 +168,32 @@ async def verify_email(token: str = Query(...)):
 async def resend_verification(email: EmailStr = Body(..., embed=True)):
     result = verify_manager.resend_verification(email)
     return VerifyResponse(**result)
+
+@router.post("/logout")
+async def logout(request: Request, token: str = Depends(oauth2_scheme, use_cache=False)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        jti = payload.get("jti")
+        exp_ts = payload.get("exp")
+
+        if not user_id:
+            return {"message": "Invalid token or user not found."}
+
+        user = service.get_user(user_id)
+        if not user:
+            return {"message": "User session already invalid or does not exist."}
+
+        was_revoked = revoked_service.revoke_token(jti, str(user.id), datetime.utcfromtimestamp(exp_ts))
+        if not was_revoked:
+            return {"message": "Token already revoked or session already closed."}
+
+        DeviceManager.set_inactive_all(str(user.id), service)
+
+        return {"message": "Logged out successfully."}
+
+    except Exception:
+        return {"message": "User is already logged out or no valid session found."}
+
+
+

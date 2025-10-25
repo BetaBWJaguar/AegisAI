@@ -159,6 +159,7 @@ class UserServiceImpl(UserService):
                         old_dev.login_time = datetime.utcnow()
                         old_dev.is_active = True
                         old_dev.logout_time = None
+                        old_dev.last_active = None
 
                         merged_devices.append(old_dev.to_dict())
                         found = True
