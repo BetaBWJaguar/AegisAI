@@ -87,3 +87,33 @@ class DeviceManager:
         )
         return True
 
+
+    @staticmethod
+    def set_inactive_single(user_id: str, service, device_name: str):
+        user = service.get_user(user_id)
+        if not user:
+            return None
+
+        now = datetime.utcnow()
+        updated_devices = []
+
+        for dev in user.devices or []:
+            if dev.device_name == device_name:
+                dev.is_active = False
+                dev.logout_time = now
+                dev.last_active = now
+            updated_devices.append(dev.to_dict())
+
+        service.collection.update_one(
+            {"id": str(user_id)},
+            {
+                "$set": {
+                    "devices": updated_devices,
+                    "updated_at": now
+                }
+            }
+        )
+
+        return True
+
+

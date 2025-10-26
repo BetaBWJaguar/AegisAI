@@ -7,6 +7,8 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordBearer
 from config_loader import ConfigLoader
+from error.errortypes import ErrorType
+from error.expectionhandler import ExpectionHandler
 from revokedtokenservice.revoked_token_service import RevokedTokenService
 from user.devicemanager.devicemanager import DeviceManager
 from user.userserviceimpl import UserServiceImpl
@@ -96,43 +98,48 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 
 @router.post("/register")
 async def register(req: RegisterRequest, request: Request):
-    if service.get_user_by_email(req.email):
-        raise HTTPException(status_code=400, detail="Email already registered")
-
-    hashed_pw = hash_password(req.password)
-    new_user = service.register_user(
-        username=req.username,
-        email=req.email,
-        password=hashed_pw,
-        full_name=req.full_name,
-        birth_date=req.birth_date,
-        phone_number=req.phone_number,
-        email_verified=False
-    )
-
-    ip = request.client.host
-    user_agent = request.headers.get("User-Agent", "Unknown")
-    device_name = DeviceManager.extract_device_name(user_agent)
-    DeviceManager.add_or_update_device(str(new_user.id),service, device_name, ip, user_agent,False)
-
     try:
+        if service.get_user_by_email(req.email):
+            raise ExpectionHandler(
+                message="Email already registered",
+                error_type=ErrorType.VALIDATION_ERROR
+            )
+
+        new_user = service.register_user(
+            username=req.username,
+            email=req.email,
+            password=hash_password(req.password),
+            full_name=req.full_name,
+            birth_date=req.birth_date,
+            phone_number=req.phone_number,
+            email_verified=False
+        )
+
+        ip = request.client.host
+        user_agent = request.headers.get("User-Agent", "Unknown")
+        device_name = DeviceManager.extract_device_name(user_agent)
+        DeviceManager.add_or_update_device(str(new_user.id),service, device_name, ip, user_agent,False)
+
         email_util = EmailVerificationUtility(service)
         token = email_util.create_verification_token(str(new_user.id))
         service.set_verification_token(str(new_user.id), token)
-
-        email_util.send_verification_email(
-            to_email=req.email,
-            username=req.username,
-            user_id=str(new_user.id)
-        )
+        email_util.send_verification_email(req.email, req.username, str(new_user.id))
 
         return {
-            "message": "User registered successfully. Verification email sent.",
-            "user": new_user.to_dict()
+            "success": True,
+            "message": "User registered. Verification email sent."
         }
 
+    except ExpectionHandler:
+        raise
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"User created but verification email failed: {e}")
+        raise ExpectionHandler(
+            message="An unexpected error occurred during registration.",
+            error_type=ErrorType.INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -140,10 +147,10 @@ async def login(req: LoginRequest, request: Request):
     user = service.get_user_by_email(req.email)
 
     if not user or not verify_password(req.password, user.password):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise ExpectionHandler("Invalid credentials", ErrorType.AUTH_ERROR)
 
-    if not getattr(user, "email_verified", False):
-        raise HTTPException(status_code=403, detail="Email not verified.")
+    if not user.email_verified:
+        raise ExpectionHandler("Email not verified", ErrorType.PERMISSION_DENIED)
 
     ip = request.client.host
     user_agent = request.headers.get("User-Agent", "Unknown")
@@ -178,22 +185,41 @@ async def logout(request: Request, token: str = Depends(oauth2_scheme, use_cache
         exp_ts = payload.get("exp")
 
         if not user_id:
-            return {"message": "Invalid token or user not found."}
+            raise ExpectionHandler(
+                message="Invalid token or user not found.",
+                error_type=ErrorType.AUTH_ERROR
+            )
 
         user = service.get_user(user_id)
         if not user:
-            return {"message": "User session already invalid or does not exist."}
+            raise ExpectionHandler(
+                message="User session already invalid or does not exist.",
+                error_type=ErrorType.NOT_FOUND
+            )
 
         was_revoked = revoked_service.revoke_token(jti, str(user.id), datetime.utcfromtimestamp(exp_ts))
         if not was_revoked:
-            return {"message": "Token already revoked or session already closed."}
+            raise ExpectionHandler(
+                message="Token already revoked or session already closed.",
+                error_type=ErrorType.AUTH_ERROR
+            )
 
         DeviceManager.set_inactive_all(str(user.id), service)
 
-        return {"message": "Logged out successfully."}
+        return {
+            "success": True,
+            "message": "Logged out successfully."
+        }
 
-    except Exception:
-        return {"message": "User is already logged out or no valid session found."}
+    except ExpectionHandler:
+        raise
+
+    except Exception as e:
+        raise ExpectionHandler(
+            message="Unexpected error during logout.",
+            error_type=ErrorType.INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
 
 
