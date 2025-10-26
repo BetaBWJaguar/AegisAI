@@ -11,6 +11,7 @@ from error.errortypes import ErrorType
 from error.expectionhandler import ExpectionHandler
 from revokedtokenservice.revoked_token_service import RevokedTokenService
 from user.devicemanager.devicemanager import DeviceManager
+from user.failedloginattempt import FailedLoginAttempt
 from user.userserviceimpl import UserServiceImpl
 from utility.emailverificationutility import EmailVerificationUtility
 from user.verifymanagement.verifyresponse import VerifyResponse
@@ -146,24 +147,61 @@ async def register(req: RegisterRequest, request: Request):
 async def login(req: LoginRequest, request: Request):
     user = service.get_user_by_email(req.email)
 
-    if not user or not verify_password(req.password, user.password):
+    ip = request.client.host
+    user_agent = request.headers.get("User-Agent", "Unknown")
+
+    if not user:
+        raise ExpectionHandler("Invalid credentials", ErrorType.AUTH_ERROR)
+
+    if not verify_password(req.password, user.password):
+
+        failed_log = FailedLoginAttempt(
+            timestamp=datetime.utcnow(),
+            ip_address=ip,
+            user_agent=user_agent,
+            reason="Invalid credentials"
+        )
+
+        if not hasattr(user, "failed_login_attempts") or user.failed_login_attempts is None:
+            user.failed_login_attempts = []
+
+        user.failed_login_attempts.append(failed_log)
+
+
+        failed_logs = [
+            f.to_dict() if hasattr(f, "to_dict") else f
+            for f in user.failed_login_attempts
+        ]
+
+        service.update_user(
+            user_id=str(user.id),
+            updates={
+                "failed_login_attempts": failed_logs,
+                "updated_at": datetime.utcnow()
+            }
+        )
+
         raise ExpectionHandler("Invalid credentials", ErrorType.AUTH_ERROR)
 
     if not user.email_verified:
         raise ExpectionHandler("Email not verified", ErrorType.PERMISSION_DENIED)
 
-    ip = request.client.host
-    user_agent = request.headers.get("User-Agent", "Unknown")
     device_name = DeviceManager.extract_device_name(user_agent)
+    DeviceManager.add_or_update_device(str(user.id), service, device_name, ip, user_agent, True)
 
-    DeviceManager.add_or_update_device(str(user.id),service, device_name, ip, user_agent,True)
     service.update_user(
         user_id=str(user.id),
-        updates={"devices": [d.to_dict() for d in user.devices], "updated_at": datetime.utcnow()}
+        updates={
+            "devices": [d.to_dict() for d in user.devices],
+            "updated_at": datetime.utcnow()
+        }
     )
 
     token = create_access_token(data={"sub": str(user.id)})
     return TokenResponse(access_token=token)
+
+
+
 
 
 @router.post("/verify-email", response_model=VerifyResponse)

@@ -6,12 +6,14 @@ from error.expectionhandler import ExpectionHandler, expection_handler, validati
 from ratelimit.ratelimit import RateLimitMiddleware
 from user.usercontroller import router as user_router
 from auth.authcontroller import router as auth_router
+from user.utility.failedloginattempt_service import FailedLoginAttemptService
 from utility.client_ip_middleware import ClientIPMiddleware
 from workspace.workspacecontroller import router as workspace_router
 from dataset_builder.dataset_builder_controller import router as dataset_router
 from template.templatecontroller import router as template_router
 from data_scraper.scrapper_controller import router as scrapper_router
 from auditmanager.auditlog_controller import router as audit_router
+from device.devicecontroller import router as device_router
 from revokedtokenservice.revoked_token_service import RevokedTokenService
 
 
@@ -29,6 +31,7 @@ app.include_router(dataset_router, prefix="/datasets", tags=["datasets"])
 app.include_router(template_router,prefix="/templates", tags=["templates"])
 app.include_router(scrapper_router, prefix="/scrapper", tags=["scrapper"])
 app.include_router(audit_router,prefix="/auditlog", tags=["auditlog"])
+app.include_router(device_router, prefix="/devices", tags=["devices"])
 
 revoked_service = RevokedTokenService("config.json")
 scheduler = BackgroundScheduler()
@@ -36,10 +39,9 @@ scheduler = BackgroundScheduler()
 @app.on_event("startup")
 def start_scheduler():
     scheduler.add_job(revoked_service.cleanup_expired, "interval", hours=1)
+    scheduler.add_job(FailedLoginAttemptService.remove_expired_attempts_for_all_users,"interval", minutes=10)
     scheduler.start()
-    print("✅ Token cleanup scheduler started (runs every 1 hour)")
 
 @app.on_event("shutdown")
 def shutdown_scheduler():
     scheduler.shutdown()
-    print("🛑 Token cleanup scheduler stopped")

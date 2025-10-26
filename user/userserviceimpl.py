@@ -6,6 +6,7 @@ from pydantic import EmailStr
 from pymongo import MongoClient
 
 from user.device import Device
+from user.failedloginattempt import FailedLoginAttempt
 from user.user import User
 from user.userservice import UserService
 from config_loader import ConfigLoader
@@ -103,6 +104,19 @@ class UserServiceImpl(UserService):
         else:
             doc["devices"] = []
 
+        if "failed_login_attempts" in doc and doc["failed_login_attempts"]:
+            doc["failed_login_attempts"] = [
+                FailedLoginAttempt(
+                    timestamp=datetime.fromisoformat(f["timestamp"]) if isinstance(f["timestamp"], str) else f["timestamp"],
+                    ip_address=f["ip_address"],
+                    user_agent=f.get("user_agent", ""),
+                    reason=f.get("reason", "Unknown")
+                )
+                for f in doc["failed_login_attempts"]
+            ]
+        else:
+            doc["failed_login_attempts"] = []
+
 
         return User(**doc)
 
@@ -127,6 +141,11 @@ class UserServiceImpl(UserService):
         user = self.get_user(user_id)
         if not user:
             return None
+
+        if "failed_login_attempts" in updates:
+            updates["failed_login_attempts"] = [
+                f.to_dict() if hasattr(f, "to_dict") else f for f in updates["failed_login_attempts"]
+            ]
 
         if "email" in updates and updates["email"] != str(user.email):
             updates["email_verified"] = False

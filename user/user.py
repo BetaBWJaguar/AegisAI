@@ -7,6 +7,7 @@ from bson import ObjectId
 from pydantic import EmailStr
 
 from user.device import Device
+from user.failedloginattempt import FailedLoginAttempt
 from user.validationmixin import ValidationMixin
 from user.workspace import Workspace
 from user.role import Role
@@ -29,6 +30,7 @@ class User:
     email_verification_token: Optional[str] = None
     email_verified_at: Optional[datetime] = None
     devices: List[Device] = field(default_factory=list)
+    failed_login_attempts: List[FailedLoginAttempt] = field(default_factory=list)
     _id: str = field(default_factory=lambda: str(ObjectId()))
 
     @staticmethod
@@ -91,5 +93,6 @@ class User:
             data["role"] = Role[data["role"]]
         data["workspaces"] = [ws.to_dict() for ws in self.workspaces]
         data["devices"] = [d.to_dict() for d in self.devices]
+        data["failed_login_attempts"] = [f.to_dict() for f in self.failed_login_attempts]
 
         return data
