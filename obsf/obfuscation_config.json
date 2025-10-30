@@ -1,0 +1,10 @@
+{
+  "normalize_unicode": true,
+  "to_lowercase": true,
+  "reduce_symbol_repetition": true,
+  "symbol_repetition_threshold": 2,
+  "clean_extra_spaces": true,
+  "apply_space_trim": true,
+  "default_language": "tr",
+  "languages_enabled": ["tr"]
+}
