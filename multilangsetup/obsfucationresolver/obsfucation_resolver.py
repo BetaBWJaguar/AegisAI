@@ -1,5 +1,7 @@
 import re
 import unicodedata
+
+from multilangsetup.normalizers.turkish_normalizer import TurkishNormalizer
 from obsf.obfuscation_config_loader import ObfuscationConfigLoader
 from multilangsetup.obsfucationresolver.obsfucation_helper import ObfuscationHelper
 from multilangsetup.obsfucationresolver.obsfucation_util import ObfuscationUtil
@@ -18,8 +20,6 @@ class ObfuscationResolver:
 
         enabled_langs = global_cfg.get("languages_enabled", [])
         default_lang = global_cfg.get("default_language", "tr")
-
-
         lang = (lang or default_lang).lower()
 
         if lang not in enabled_langs:
@@ -32,7 +32,6 @@ class ObfuscationResolver:
 
         settings = lang_cfg.get("settings", {})
         special_rules = lang_cfg.get("special_rules", {})
-
         merged_cfg = {**global_cfg, **settings}
 
         if merged_cfg.get("normalize_unicode", True):
@@ -43,11 +42,13 @@ class ObfuscationResolver:
         text = ObfuscationResolver._apply_language_specific_rules(text, lang, special_rules)
         text = ObfuscationHelper.clean_redundant_symbols(text)
 
+        if lang == "tr" and merged_cfg.get("apply_turkish_normalizer", True):
+            text = TurkishNormalizer.normalize_all(text, to_lower=False)
+
         if merged_cfg.get("to_lowercase", True):
-            text = text.lower()
+            text = TurkishNormalizer.to_lower_turkish(text) if lang == "tr" else text.lower()
 
         return text.strip()
-
 
     @staticmethod
     def _apply_language_specific_rules(text: str, lang: str, rules: dict) -> str:
@@ -77,5 +78,11 @@ class ObfuscationResolver:
 
         if rules.get("convert_q_to_k", False):
             text = re.sub(r"q", "k", text, flags=re.IGNORECASE)
+
+        if rules.get("normalize_spacing", True):
+            text = TurkishNormalizer.normalize_spacing(text)
+
+        if rules.get("normalize_quotes", True):
+            text = TurkishNormalizer.normalize_quotes(text)
 
         return text

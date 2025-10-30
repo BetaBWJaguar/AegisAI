@@ -13,11 +13,11 @@ class TurkishNormalizer:
             "i̇": "i",
             "I": "ı",
             "İ": "i",
-            "g": "g", "G": "G",
             "ş": "ş", "Ş": "Ş",
             "ç": "ç", "Ç": "Ç",
             "ö": "ö", "Ö": "Ö",
             "ü": "ü", "Ü": "Ü",
+            "ğ": "ğ", "Ğ": "Ğ",
         }
         for k, v in replacements.items():
             text = text.replace(k, v)
@@ -37,9 +37,18 @@ class TurkishNormalizer:
         text = text.replace("‘", "'").replace("’", "'")
         return text
 
+    @staticmethod
+    def to_lower_turkish(text: str) -> str:
+        if not isinstance(text, str):
+            return ""
+        trans_table = str.maketrans("Iİ", "ıi")
+        return text.translate(trans_table).lower()
+
     @classmethod
-    def normalize_all(cls, text: str) -> str:
+    def normalize_all(cls, text: str, to_lower=True) -> str:
         text = cls.normalize_characters(text)
         text = cls.normalize_spacing(text)
         text = cls.normalize_quotes(text)
-        return text
+        if to_lower:
+            text = cls.to_lower_turkish(text)
+        return text.strip()
