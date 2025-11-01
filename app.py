@@ -15,6 +15,7 @@ from data_scraper.scrapper_controller import router as scrapper_router
 from auditmanager.auditlog_controller import router as audit_router
 from device.devicecontroller import router as device_router
 from revokedtokenservice.revoked_token_service import RevokedTokenService
+from multilangsetup.multilang_controller import router as multilang_router
 
 
 app = FastAPI()
@@ -24,6 +25,7 @@ app.add_middleware(ClientIPMiddleware)
 app.add_exception_handler(ExpectionHandler, expection_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
+app.include_router(multilang_router, prefix="/multilang", tags=["multilang"])
 app.include_router(user_router, prefix="/users", tags=["users"])
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(workspace_router, prefix="/workspaces", tags=["workspaces"])
