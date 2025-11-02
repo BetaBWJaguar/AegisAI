@@ -1,4 +1,4 @@
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, List, Any, Sequence
 from functools import lru_cache
 
 from multilangsetup.multilang_processor import MultiLangProcessor, SUPPORTED_LANGUAGES
@@ -7,7 +7,7 @@ from multilangsetup.multilang_service import MultiLangService
 class MultiLangServiceImpl(MultiLangService):
 
     @lru_cache(maxsize=1024)
-    def prepare(self, text: str, lang: Optional[str] = None, pipeline: Optional[List[str]] = None) -> Dict:
+    def prepare(self, text: str, lang: Optional[str] = None, pipeline: Optional[Sequence[str]] = None) -> Dict:
 
         if pipeline is None:
             pipeline = ['normalize', 'detect_language', 'lang_normalize', 'analyze']
@@ -43,6 +43,10 @@ class MultiLangServiceImpl(MultiLangService):
         if 'linguistics' in pipeline and language_supported:
             linguistic_features = MultiLangProcessor.extract_linguistic_features(processed_text, detected_lang)
             result["linguistic_features"] = linguistic_features
+
+        if 'keywords' in pipeline and language_supported:
+            keywords = MultiLangProcessor.extract_keywords(processed_text, detected_lang)
+            result["keywords"] = keywords
 
         result["ready_for_detection"] = True
         return result

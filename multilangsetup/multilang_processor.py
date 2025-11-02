@@ -2,6 +2,7 @@ import re
 import langdetect
 import spacy
 from functools import lru_cache
+import yake
 from multilangsetup.normalizers.turkish_normalizer import TurkishNormalizer
 
 
@@ -12,15 +13,12 @@ NORMALIZERS = {
 
 @lru_cache(maxsize=len(SUPPORTED_LANGUAGES))
 def get_spacy_model(lang: str):
-    model_map = {
-        "tr": "tr_core_news_sm",
-    }
+    model_map = {}
     model_name = model_map.get(lang)
     if model_name:
         try:
             return spacy.load(model_name)
         except OSError:
-            print(f"SpaCy model '{model_name}' not found. Please run: python -m spacy download {model_name}")
             return None
     return None
 
@@ -92,3 +90,9 @@ class MultiLangProcessor:
             "lemmas": lemmas,
             "entities": entities
         }
+
+    @staticmethod
+    def extract_keywords(text: str, lang: str) -> dict:
+        kw_extractor = yake.KeywordExtractor(lan=lang, n=3, dedupLim=0.9, top=10)
+        keywords = kw_extractor.extract_keywords(text)
+        return {"keywords": [{"term": kw, "score": score} for kw, score in keywords]}

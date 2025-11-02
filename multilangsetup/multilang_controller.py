@@ -11,6 +11,7 @@ from error.errortypes import ErrorType
 from error.expectionhandler import ExpectionHandler
 from permcontrol.permissionscontrol import require_perm
 from user.role import Role
+from fastapi.responses import JSONResponse
 
 
 router = APIRouter()
@@ -34,7 +35,11 @@ async def prepare_text(data: PrepareRequest):
             except Exception as e:
                 print(f"[WARN] ObfuscationResolver failed: {e}")
 
-        result = service.prepare(text=text, lang=lang, pipeline=pipeline)
+        if isinstance(pipeline, set):
+            pipeline = list(pipeline)
+        pipeline_tuple = tuple(pipeline) if pipeline is not None else None
+
+        result = service.prepare(text=text, lang=lang, pipeline=pipeline_tuple)
         return PrepareResponse(**result)
 
     except ValueError as e:
@@ -51,9 +56,9 @@ async def prepare_text(data: PrepareRequest):
         )
 
 
+
 @router.post(
     "/bulk",
-    response_model=Dict[str, List[Dict]],
     dependencies=[Depends(require_perm([Role.DEVELOPER, Role.ADMIN]))]
 )
 async def prepare_bulk(payload: Dict[str, List[str]]):
@@ -66,18 +71,20 @@ async def prepare_bulk(payload: Dict[str, List[str]]):
             )
 
         results = []
+        default_pipeline = ("normalize", "detect_language", "lang_normalize", "analyze", "linguistics")
+
         for text in texts:
             try:
                 processed = service.prepare(
                     text=text,
                     lang=None,
-                    pipeline=["normalize", "detect_language", "lang_normalize", "analyze", "linguistics"]
+                    pipeline=default_pipeline
                 )
                 results.append(processed)
             except Exception as e:
                 results.append({"text": text, "error": str(e)})
 
-        return {"count": len(results), "results": results}
+        return JSONResponse(content={"count": len(results), "results": results})
 
     except ExpectionHandler:
         raise
@@ -87,4 +94,5 @@ async def prepare_bulk(payload: Dict[str, List[str]]):
             error_type=ErrorType.INTERNAL_SERVER_ERROR,
             detail=str(e)
         )
+
 
