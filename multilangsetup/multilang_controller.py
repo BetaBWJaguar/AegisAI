@@ -56,7 +56,6 @@ async def prepare_text(data: PrepareRequest):
         )
 
 
-
 @router.post(
     "/bulk",
     dependencies=[Depends(require_perm([Role.DEVELOPER, Role.ADMIN]))]
@@ -64,6 +63,9 @@ async def prepare_text(data: PrepareRequest):
 async def prepare_bulk(payload: Dict[str, List[str]]):
     try:
         texts = payload.get("texts", [])
+        apply_resolver = payload.get("apply_obfuscation_resolver", False)
+        lang = payload.get("lang", None)
+
         if not texts:
             raise ExpectionHandler(
                 message="No texts provided.",
@@ -75,9 +77,15 @@ async def prepare_bulk(payload: Dict[str, List[str]]):
 
         for text in texts:
             try:
+                if apply_resolver:
+                    try:
+                        text = ObfuscationResolver.resolve_all(text, lang or "tr")
+                    except Exception as e:
+                        print(f"[WARN] ObfuscationResolver failed for '{text[:30]}...': {e}")
+
                 processed = service.prepare(
                     text=text,
-                    lang=None,
+                    lang=lang,
                     pipeline=default_pipeline
                 )
                 results.append(processed)
