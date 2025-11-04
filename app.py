@@ -16,6 +16,8 @@ from auditmanager.auditlog_controller import router as audit_router
 from device.devicecontroller import router as device_router
 from revokedtokenservice.revoked_token_service import RevokedTokenService
 from multilangsetup.multilang_controller import router as multilang_router
+from trainer.base_trainer.base_trainer_controller import router as base_trainer_router
+from trainer.finetune_trainer.finetune_trainer_controller import router as finetune_trainer_router
 
 
 app = FastAPI()
@@ -34,6 +36,8 @@ app.include_router(template_router,prefix="/templates", tags=["templates"])
 app.include_router(scrapper_router, prefix="/scrapper", tags=["scrapper"])
 app.include_router(audit_router,prefix="/auditlog", tags=["auditlog"])
 app.include_router(device_router, prefix="/devices", tags=["devices"])
+app.include_router(base_trainer_router, prefix="/trainer", tags=["base-trainer"])
+app.include_router(finetune_trainer_router, prefix="/trainer", tags=["fine-tune-trainer"])
 
 revoked_service = RevokedTokenService("config.json")
 scheduler = BackgroundScheduler()
