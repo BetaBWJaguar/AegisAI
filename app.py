@@ -18,6 +18,8 @@ from revokedtokenservice.revoked_token_service import RevokedTokenService
 from multilangsetup.multilang_controller import router as multilang_router
 from trainer.base_trainer.base_trainer_controller import router as base_trainer_router
 from trainer.finetune_trainer.finetune_trainer_controller import router as finetune_trainer_router
+from huggingface.huggingface_controller import router as hf_router
+from corpusmanagement.corpus_controller import router as corpus_router
 
 
 app = FastAPI()
@@ -38,6 +40,9 @@ app.include_router(audit_router,prefix="/auditlog", tags=["auditlog"])
 app.include_router(device_router, prefix="/devices", tags=["devices"])
 app.include_router(base_trainer_router, prefix="/trainer", tags=["base-trainer"])
 app.include_router(finetune_trainer_router, prefix="/trainer", tags=["fine-tune-trainer"])
+app.include_router(hf_router, prefix="/huggingface", tags=["huggingface"])
+app.include_router(corpus_router, prefix="/corpus", tags=["corpus"])
+
 
 revoked_service = RevokedTokenService("config.json")
 scheduler = BackgroundScheduler()
