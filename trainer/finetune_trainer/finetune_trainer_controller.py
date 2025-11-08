@@ -20,15 +20,16 @@ async def fine_tune_model(
         model_path: str,
         dataset_id: str,
         output_dir: str,
-        num_labels: int
+        training_args: Dict[str, Any]
 ):
     try:
-        result = trainer.fine_tune(model_path, dataset_id, output_dir, num_labels)
+        result = trainer.fine_tune(model_path, dataset_id, output_dir, training_args)
         return {
             "success": True,
             "task": "fine_tuning",
             **result
         }
+
     except FileNotFoundError as e:
         raise ExpectionHandler(
             message=f"Model or file not found: {str(e)}",
@@ -36,6 +37,7 @@ async def fine_tune_model(
             detail="The model path or one of the required files for fine-tuning does not exist.",
             context={"model_path": model_path}
         )
+
     except ValueError as e:
         raise ExpectionHandler(
             message=str(e),
@@ -43,6 +45,7 @@ async def fine_tune_model(
             detail="Invalid dataset or label information was provided.",
             context={"dataset_id": dataset_id}
         )
+
     except Exception as e:
         raise ExpectionHandler(
             message="An unexpected error occurred during fine-tuning.",

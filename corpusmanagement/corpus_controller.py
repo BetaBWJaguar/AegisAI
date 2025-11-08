@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends
 from typing import Optional
 from huggingface.huggingfacemanager import HuggingFaceManager
-from corpusmanager import CorpusManager
+from corpusmanagement.corpusmanager import CorpusManager
 from permcontrol.permissionscontrol import require_perm
 from user.role import Role
 
