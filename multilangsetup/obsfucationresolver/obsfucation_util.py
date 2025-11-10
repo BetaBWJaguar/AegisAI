@@ -1,12 +1,6 @@
 import re
 
 class ObfuscationUtil:
-    OBFUSCATION_MAP = {
-        '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's',
-        '6': 'g', '7': 't', '8': 'b', '9': 'g',
-        '@': 'a', '$': 's', '!': 'i', '|': 'l', '+': 't',
-        '€': 'e', '¥': 'y', '₺': 't', '§': 's'
-    }
 
     @classmethod
     def replace_common_patterns(cls, text: str) -> str:
@@ -21,5 +15,5 @@ class ObfuscationUtil:
         if not text:
             return ""
 
-        map_to_use = mapping if mapping else cls.OBFUSCATION_MAP
+        map_to_use = mapping
         return text.translate(str.maketrans(map_to_use))

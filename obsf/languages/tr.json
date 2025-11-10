@@ -12,6 +12,18 @@
   "special_rules": {
     "normalize_turkish_chars": true,
     "replace_diacritics": true,
-    "convert_q_to_k": true
+    "convert_q_to_k": true,
+    "normalize_spacing": true,
+    "normalize_quotes": true,
+    "leet_mapping": {
+      "!": "i",
+      "1": "i",
+      "3": "e",
+      "4": "a",
+      "5": "s",
+      "7": "t",
+      "@": "a",
+      "|": "l"
+    }
   }
 }

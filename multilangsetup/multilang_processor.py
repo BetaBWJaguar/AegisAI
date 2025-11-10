@@ -93,6 +93,6 @@ class MultiLangProcessor:
 
     @staticmethod
     def extract_keywords(text: str, lang: str) -> dict:
-        kw_extractor = yake.KeywordExtractor(lan=lang, n=3, dedupLim=0.9, top=10)
+        kw_extractor = yake.KeywordExtractor(lan=lang, n=1, dedupLim=0.9, top=10)
         keywords = kw_extractor.extract_keywords(text)
         return {"keywords": [{"term": kw, "score": score} for kw, score in keywords]}

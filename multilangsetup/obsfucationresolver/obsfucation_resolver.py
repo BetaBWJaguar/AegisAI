@@ -38,7 +38,8 @@ class ObfuscationResolver:
             text = ObfuscationHelper.normalize_unicode(text)
 
         text = ObfuscationUtil.replace_common_patterns(text)
-        text = ObfuscationUtil.resolve_symbols_and_numbers(text)
+        leet_map = special_rules.get("leet_mapping", {})
+        text = ObfuscationUtil.resolve_symbols_and_numbers(text, mapping=leet_map)
         text = ObfuscationResolver._apply_language_specific_rules(text, lang, special_rules)
         text = ObfuscationHelper.clean_redundant_symbols(text)
 
@@ -80,7 +81,7 @@ class ObfuscationResolver:
             text = re.sub(r"q", "k", text, flags=re.IGNORECASE)
 
         if rules.get("normalize_spacing", True):
-            text = TurkishNormalizer.normalize_spacing(text)
+            text = re.sub(r"\s+", " ", text).strip()
 
         if rules.get("normalize_quotes", True):
             text = TurkishNormalizer.normalize_quotes(text)

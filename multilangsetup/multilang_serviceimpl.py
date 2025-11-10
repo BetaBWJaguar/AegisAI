@@ -10,12 +10,13 @@ class MultiLangServiceImpl(MultiLangService):
     def prepare(self, text: str, lang: Optional[str] = None, pipeline: Optional[Sequence[str]] = None) -> Dict:
 
         if pipeline is None:
-            pipeline = ['normalize', 'detect_language', 'lang_normalize', 'analyze']
+            pipeline = ('detect_language', 'lang_normalize', 'analyze', 'keywords')
+        else:
+            pipeline = tuple(pipeline)
 
         result: Dict[str, Any] = {"raw_text": text}
 
-        processed_text = MultiLangProcessor.normalize(text)
-        result["normalized_text"] = processed_text
+        processed_text = text
 
         detected_lang = "unknown"
         if 'detect_language' in pipeline:
@@ -34,6 +35,8 @@ class MultiLangServiceImpl(MultiLangService):
 
         if 'lang_normalize' in pipeline and language_supported:
             processed_text = MultiLangProcessor.normalize_by_language(processed_text, detected_lang)
+            result["normalized_text"] = processed_text
+        else:
             result["normalized_text"] = processed_text
 
         if 'analyze' in pipeline:
