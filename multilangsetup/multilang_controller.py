@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Dict
 
 from multilangsetup.multilang_serviceimpl import MultiLangServiceImpl
+from multilangsetup.multilang_step import Step
 from multilangsetup.obsfucationresolver.obsfucation_resolver import ObfuscationResolver
 from multilangsetup.schemas.multilang_request import PrepareRequest
 from multilangsetup.schemas.multilang_response import PrepareResponse
@@ -35,11 +36,10 @@ async def prepare_text(data: PrepareRequest):
             except Exception as e:
                 print(f"[WARN] ObfuscationResolver failed: {e}")
 
-        if isinstance(pipeline, set):
-            pipeline = list(pipeline)
-        pipeline_tuple = tuple(pipeline) if pipeline is not None else None
+        if pipeline:
+            pipeline = [Step(p) for p in pipeline]
 
-        result = service.prepare(text=text, lang=lang, pipeline=pipeline_tuple)
+        result = service.prepare(text=text, lang=lang, pipeline=pipeline)
         return PrepareResponse(**result)
 
     except ValueError as e:
@@ -73,7 +73,13 @@ async def prepare_bulk(payload: Dict[str, List[str]]):
             )
 
         results = []
-        default_pipeline = ("normalize", "detect_language", "lang_normalize", "analyze", "linguistics")
+        default_pipeline = [
+            Step.NORMALIZE,
+            Step.DETECT_LANGUAGE,
+            Step.LANG_NORMALIZE,
+            Step.ANALYZE,
+            Step.LINGUISTICS
+        ]
 
         for text in texts:
             try:
