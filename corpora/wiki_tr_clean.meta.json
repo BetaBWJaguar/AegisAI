@@ -1,0 +1,8 @@
+{
+    "success": true,
+    "dataset_key": "wikimedia/wikipedia:20231101.tr:train",
+    "output_name": "wiki_tr_clean",
+    "lines": 500,
+    "avg_length": 11800.65,
+    "created": "2025-11-11T16:11:56.910843Z"
+}

@@ -32,7 +32,7 @@ class CorpusManager:
             append: bool = False,
     ) -> Dict[str, Any]:
 
-        dataset = self.hf_manager.get_dataset(dataset_key)
+        dataset = self.hf_manager.get(dataset_key)
         if not dataset:
             return {"success": False, "error": f"Dataset not found: {dataset_key}"}
 

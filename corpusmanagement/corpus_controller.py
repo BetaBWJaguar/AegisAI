@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 from fastapi import APIRouter, Depends
 from typing import Optional
-from huggingface.huggingfacemanager import HuggingFaceManager
+
+from huggingface.huggingface_controller import hf
 from corpusmanagement.corpusmanager import CorpusManager
 from permcontrol.permissionscontrol import require_perm
 from user.role import Role
 
 router = APIRouter()
-
-hf = HuggingFaceManager()
 corpus = CorpusManager(hf_manager=hf)
 
 
