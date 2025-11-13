@@ -66,37 +66,46 @@ async def prepare_bulk(payload: Dict[str, List[str]]):
         apply_resolver = payload.get("apply_obfuscation_resolver", False)
         lang = payload.get("lang", None)
 
-        if not texts:
+        if not texts or not isinstance(texts, list):
             raise ExpectionHandler(
                 message="No texts provided.",
                 error_type=ErrorType.VALIDATION_ERROR
             )
 
-        results = []
         default_pipeline = [
             Step.NORMALIZE,
             Step.DETECT_LANGUAGE,
             Step.LANG_NORMALIZE,
             Step.ANALYZE,
+            Step.KEYWORDS,
             Step.LINGUISTICS
         ]
 
-        for text in texts:
+        results = []
+
+        for original_text in texts:
+            text = original_text
+
             try:
                 if apply_resolver:
                     try:
                         text = ObfuscationResolver.resolve_all(text, lang or "tr")
                     except Exception as e:
-                        print(f"[WARN] ObfuscationResolver failed for '{text[:30]}...': {e}")
+                        print(f"[WARN] ObfuscationResolver failed for '{original_text[:30]}...': {e}")
 
                 processed = service.prepare(
                     text=text,
                     lang=lang,
                     pipeline=default_pipeline
                 )
+
                 results.append(processed)
+
             except Exception as e:
-                results.append({"text": text, "error": str(e)})
+                results.append({
+                    "text": original_text,
+                    "error": str(e)
+                })
 
         return JSONResponse(content={"count": len(results), "results": results})
 

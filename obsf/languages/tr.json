@@ -1,13 +1,8 @@
 {
   "language_code": "tr",
-  "active": true,
   "settings": {
     "normalize_unicode": true,
-    "to_lowercase": true,
-    "reduce_symbol_repetition": true,
-    "symbol_repetition_threshold": 3,
-    "clean_extra_spaces": true,
-    "apply_space_trim": true
+    "to_lowercase": true
   },
   "special_rules": {
     "normalize_turkish_chars": true,
