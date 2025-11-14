@@ -2,15 +2,28 @@
 from pathlib import Path
 from typing import List, Dict, Any
 from tokenizers.implementations import BertWordPieceTokenizer
+
 from transformers import (
     BertConfig,
     BertTokenizerFast,
-    BertForMaskedLM,
     Trainer,
     TrainingArguments,
     DataCollatorForLanguageModeling,
 )
 from datasets import load_dataset
+
+
+MODEL_SIZES: Dict[str, Dict[str, int]] = {
+    "15M":  {"hidden_size": 256,  "num_hidden_layers": 4,  "num_attention_heads": 4},
+    "30M":  {"hidden_size": 512,  "num_hidden_layers": 6,  "num_attention_heads": 8},
+    "110M": {"hidden_size": 768,  "num_hidden_layers": 12, "num_attention_heads": 12},
+    "300M": {"hidden_size": 1024, "num_hidden_layers": 16, "num_attention_heads": 16},
+    "340M": {"hidden_size": 1024, "num_hidden_layers": 24, "num_attention_heads": 16},
+}
+
+
+def count_parameters(model) -> int:
+    return sum(p.numel() for p in model.parameters())
 
 
 def train_tokenizer(
@@ -27,17 +40,26 @@ def train_tokenizer(
     return str(Path(output_dir) / "vocab.txt")
 
 
-def prepare_bert_config(vocab_size: int) -> BertConfig:
+
+def prepare_bert_config(vocab_size: int, model_size: str) -> BertConfig:
+    if model_size not in MODEL_SIZES:
+        raise ValueError(
+            f"Unsupported model_size '{model_size}'. "
+            f"Available: {', '.join(MODEL_SIZES.keys())}"
+        )
+
+    cfg = MODEL_SIZES[model_size]
+
     return BertConfig(
         vocab_size=vocab_size,
-        hidden_size=512,
-        num_hidden_layers=4,
-        num_attention_heads=4,
-        intermediate_size=1024,
+        hidden_size=cfg["hidden_size"],
+        num_hidden_layers=cfg["num_hidden_layers"],
+        num_attention_heads=cfg["num_attention_heads"],
+        intermediate_size=cfg["hidden_size"] * 4,
         max_position_embeddings=512,
         type_vocab_size=1,
         add_pooling_layer=True,
-        tie_word_embeddings=True
+        tie_word_embeddings=True,
     )
 
 
@@ -52,6 +74,7 @@ def load_text_datasets(corpus_files: List[str]):
 def tokenize_dataset(dataset, tokenizer, max_length: int = 64):
     def tokenize_fn(batch):
         return tokenizer(batch["text"], truncation=True, padding="max_length", max_length=max_length)
+
     dataset = dataset.map(tokenize_fn, batched=True, remove_columns=["text"])
     dataset.set_format("torch")
     return dataset

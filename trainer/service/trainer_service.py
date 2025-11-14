@@ -6,7 +6,7 @@ from typing import List, Dict, Any
 class TrainerService(ABC):
 
     @abstractmethod
-    def train_language_model(self, corpus_files: List[str], output_dir: str) -> Dict[str, Any]:
+    def train_language_model(self, corpus_files: List[str], output_dir: str, model_size: str) -> Dict[str, Any]:
         pass
 
     @abstractmethod

@@ -16,6 +16,7 @@ trainer = BaseTrainer()
 class TrainRequest(BaseModel):
     corpus_files: List[str]
     output_dir: str
+    model_size: str
 
 
 @router.post(
@@ -25,7 +26,11 @@ class TrainRequest(BaseModel):
 )
 async def train_language_model(request: TrainRequest):
     try:
-        result = trainer.train(request.corpus_files, request.output_dir)
+        result = trainer.train(
+            corpus_files=request.corpus_files,
+            output_dir=request.output_dir,
+            model_size=request.model_size
+        )
         return {
             "success": True,
             "task": "base_language_model_training",
