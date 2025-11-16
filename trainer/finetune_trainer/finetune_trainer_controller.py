@@ -26,7 +26,6 @@ async def fine_tune_model(
         result = trainer.fine_tune(model_path, dataset_id, output_dir, training_args)
         return {
             "success": True,
-            "task": "fine_tuning",
             **result
         }
 

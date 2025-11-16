@@ -22,6 +22,32 @@ MODEL_SIZES: Dict[str, Dict[str, int]] = {
 }
 
 
+def optimize_tokenizer(tokenizer: BertTokenizerFast, texts: List[str], max_length: int = None):
+    if max_length is None:
+        lens = [len(tokenizer.encode(t, add_special_tokens=True)) for t in texts]
+        lens_sorted = sorted(lens)
+        p95 = lens_sorted[int(len(lens_sorted) * 0.95)]
+
+        max_length = min(p95, tokenizer.model_max_length)
+
+    tokenizer.model_max_length = max_length
+    tokenizer.truncation_side = "right"
+    tokenizer.padding_side = "right"
+
+    if tokenizer.is_fast:
+        try:
+            backend = tokenizer.backend_tokenizer
+            backend.enable_truncation(max_length=max_length)
+            backend.enable_padding(
+                pad_id=tokenizer.pad_token_id,
+                pad_token=tokenizer.pad_token,
+                length=None
+            )
+        except Exception:
+            pass
+
+    return tokenizer, max_length
+
 def count_parameters(model) -> int:
     return sum(p.numel() for p in model.parameters())
 
@@ -71,12 +97,21 @@ def load_text_datasets(corpus_files: List[str]):
     return load_dataset("text", data_files={"train": corpus_files})
 
 
-def tokenize_dataset(dataset, tokenizer, max_length: int = 64):
+def tokenize_dataset(dataset, tokenizer: BertTokenizerFast, max_length: int = None):
+    raw_texts = dataset["train"]["text"]
+
+    tokenizer, max_length = optimize_tokenizer(tokenizer, raw_texts, max_length=max_length)
+
     def tokenize_fn(batch):
-        return tokenizer(batch["text"], truncation=True, padding="max_length", max_length=max_length)
+        return tokenizer(
+            batch["text"],
+            truncation=True,
+            padding=False
+        )
 
     dataset = dataset.map(tokenize_fn, batched=True, remove_columns=["text"])
     dataset.set_format("torch")
+
     return dataset
 
 
@@ -105,6 +140,7 @@ def create_training_args(
         prediction_loss_only=True,
         logging_steps=logging_steps,
         fp16=True,
+        no_cuda=False
     )
 
 

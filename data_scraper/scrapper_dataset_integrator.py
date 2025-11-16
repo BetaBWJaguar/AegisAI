@@ -28,7 +28,7 @@ class ScrapperDatasetIntegrator:
                 entry = self.dataset_service.add_entry(
                     dataset_id=dataset_id,
                     text=post.get("text", ""),
-                    label=label or "SCRAPPED_REDDIT",
+                    label=label or "SCRAPPED_MANUAL",
                     entry_type=EntryType.MANUAL
                 )
                 if entry:
