@@ -2,6 +2,7 @@ from typing import Dict, Optional
 import torch
 from transformers import BertTokenizerFast, BertForSequenceClassification
 
+from logs.predictionlogmanager import PredictionLogger
 from profanity.profanityservice import ProfanityService
 from multilangsetup.multilang_step import Step
 from multilangsetup.multilang_processor import MultiLangProcessor, SUPPORTED_LANGUAGES
@@ -45,11 +46,9 @@ class ProfanityServiceImpl(ProfanityService):
         else:
             detected_lang = "unknown"
 
-
         if Step.LANG_NORMALIZE in pipeline:
             if detected_lang in SUPPORTED_LANGUAGES:
                 processed = MultiLangProcessor.normalize_by_language(processed, detected_lang)
-
             processed = ObfuscationResolver.resolve_all(processed, lang=detected_lang)
 
         model_inputs = self.tokenizer(processed, return_tensors="pt")
@@ -62,18 +61,17 @@ class ProfanityServiceImpl(ProfanityService):
         prob_clean, prob_offensive = probs
         label = "OFFENSIVE" if prob_offensive >= threshold else "CLEAN"
 
+        PredictionLogger.log(text, label, prob_offensive)
+
         return {
             "raw_text": text,
             "processed_text": processed,
-
             "language": detected_lang,
             "language_detection": lang_info,
             "language_supported": detected_lang in SUPPORTED_LANGUAGES,
-
             "clean_prob": round(prob_clean, 4),
             "offensive_prob": round(prob_offensive, 4),
             "label": label,
             "threshold": threshold,
-
             "steps_executed": [s.value for s in pipeline]
         }

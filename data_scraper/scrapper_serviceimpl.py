@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from typing import List, Dict
 import time
 
@@ -10,8 +11,6 @@ from data_scraper.scrapper_cache import ScrapperCache
 class ScrapperServiceImpl(ScrapperService):
     def __init__(self, reddit_config: dict):
         self.reddit_scrapper = RedditScrapper(
-            client_id=reddit_config["client_id"],
-            client_secret=reddit_config["client_secret"],
             user_agent=reddit_config["user_agent"]
         )
         self.cache = ScrapperCache(ttl=3600)
