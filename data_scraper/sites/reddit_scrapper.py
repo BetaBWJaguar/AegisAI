@@ -15,6 +15,29 @@ class RedditScrapper(ScrapperBase):
             "User-Agent": user_agent
         }
 
+    def clean_reddit_text(self, text: str) -> str:
+        import re, html, unicodedata
+
+        text = html.unescape(text)
+        text = unicodedata.normalize("NFKD", text)
+
+        text = re.sub(r"http\S+", "", text)
+
+        text = re.sub(r"\b\d+\s+points?\b", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"\b\d+\s+comments?\b", "", text, flags=re.IGNORECASE)
+
+
+        text = re.sub(r"submitted.*?ago", "", text, flags=re.IGNORECASE)
+
+        text = re.sub(r"by\s+[A-Za-z0-9_-]+", "", text, flags=re.IGNORECASE)
+
+        text = re.sub(r"to\s+r/[A-Za-z0-9_]+", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"@\w+", "", text)
+        text = re.sub(r"#[A-Za-z0-9_]+", "", text)
+        text = re.sub(r"\s+", " ", text)
+
+        return text.strip()
+
     def fetch(self, query: str, limit: int = 50, subreddits: List[str] = None) -> List[Dict[str, str]]:
         if not subreddits:
             subreddits = ["all"]
@@ -51,7 +74,10 @@ class RedditScrapper(ScrapperBase):
                     snippet_tag = post.select_one("div.search-result-meta")
                     snippet = snippet_tag.text.strip() if snippet_tag else ""
 
-                    clean_text = self.clean_text(f"{title}\n{snippet}")
+                    raw = f"{title}\n{snippet}"
+
+                    base_clean = self.clean_text(raw)
+                    clean_text = self.clean_reddit_text(base_clean)
 
 
                     results.append({

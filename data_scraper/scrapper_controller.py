@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, Query, Depends
 from typing import List, Optional
 
@@ -26,7 +28,8 @@ async def scrape_reddit(
         dataset_id: Optional[str] = Query(None),
         label: Optional[str] = Query(None),
         entry_type: Optional[str] = Query("MANUAL"),
-        template_id: Optional[str] = Query(None)
+        template_id: Optional[str] = Query(None),
+        values: Optional[str] = Query(None),
 ):
     try:
         data = service.scrape_reddit(query=query, limit=limit, subreddits=subreddits)
@@ -38,10 +41,22 @@ async def scrape_reddit(
                     error_type=ErrorType.VALIDATION_ERROR
                 )
 
+            data = data[:limit]
+
             integrator = ScrapperDatasetIntegrator("config.json")
 
             from dataset_builder.entrytype import EntryType
             selected_type = EntryType(entry_type.upper())
+
+            parsed_values = None
+            if values:
+                try:
+                    parsed_values = json.loads(values)
+                except Exception:
+                    raise ExpectionHandler(
+                        message="Invalid JSON in 'values'",
+                        error_type=ErrorType.VALIDATION_ERROR
+                    )
 
             final_label = label or f"REDDIT_{query.upper().replace(' ', '_')}"
 
@@ -50,7 +65,8 @@ async def scrape_reddit(
                 scrapped_data=data,
                 entry_type=selected_type,
                 label=final_label,
-                template_id=template_id
+                template_id=template_id,
+                values=parsed_values
             )
 
             return {

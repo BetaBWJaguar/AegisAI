@@ -50,6 +50,25 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
             if not tpl:
                 return None
 
+            if values and all(isinstance(v, str) for v in values.values()):
+                filled_text = tpl.pattern.format(**values)
+
+                entry = DatasetEntry.create(
+                    text=filled_text,
+                    label=label,
+                    entry_type=EntryType.TEMPLATE,
+                    template_id=template_id,
+                    values=values
+                )
+
+                self.collection.update_one(
+                    {"id": dataset_id},
+                    {"$push": {"entries": entry.to_dict()},
+                     "$set": {"updated_at": datetime.utcnow().isoformat()}}
+                )
+
+                return entry
+
             dataset_values = {}
             for e in dataset.entries:
                 if e.values:

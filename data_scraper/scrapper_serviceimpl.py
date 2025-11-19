@@ -36,8 +36,8 @@ class ScrapperServiceImpl(ScrapperService):
             self.logger.log_success(query, "reddit", len(data), duration)
 
             self.cache.set(query, limit, subreddits, data)
-            return data
 
+            return data[:limit]
         except Exception as e:
             self.logger.log_error(query, "reddit", str(e))
             raise
