@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from fastapi import APIRouter, Depends
 from typing import Dict, Any
-
 from trainer.finetune_trainer.finetune_trainer import FineTuneTrainer
 from user.role import Role
 from permcontrol.permissionscontrol import require_perm
@@ -10,6 +9,7 @@ from error.errortypes import ErrorType
 
 router = APIRouter()
 trainer = FineTuneTrainer()
+
 
 @router.post(
     "/fine-tune",
@@ -26,7 +26,12 @@ async def fine_tune_model(
         result = trainer.fine_tune(model_path, dataset_id, output_dir, training_args)
         return {
             "success": True,
-            **result
+            "message": "Fine-tuning completed successfully.",
+            "task": result.get("task"),
+            "model_info": result.get("registry"),
+            "metrics": result.get("metrics"),
+            "saved_path": result.get("saved_path"),
+            "raw": result
         }
 
     except FileNotFoundError as e:
