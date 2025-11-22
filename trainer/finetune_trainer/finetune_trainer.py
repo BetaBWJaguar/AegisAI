@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 from typing import Dict, Any
-from transformers import TrainingArguments
-
 from trainer.modelregistry import ModelRegistry
 from trainer.service.trainer_service_impl import TrainerServiceImpl
 
@@ -20,13 +18,11 @@ class FineTuneTrainer:
             training_args: Dict[str, Any]
     ) -> Dict[str, Any]:
 
-        args = TrainingArguments(**training_args)
-
         result = self.trainer_service.fine_tune_model(
             model_path=model_path,
             dataset_id=dataset_id,
             output_dir=output_dir,
-            training_args=args
+            training_args=training_args
         )
 
         saved_path = result.get("saved_path", output_dir)
@@ -38,7 +34,7 @@ class FineTuneTrainer:
             version=result.get("version", "v1"),
             model_path=saved_path,
             dataset_id=dataset_id,
-            params=training_args,
+            parameters=training_args,
             metrics=metrics
         )
 

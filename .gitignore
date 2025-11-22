@@ -2,3 +2,4 @@
 /.env
 /hf_cache/
 /models/
+/saved-models/
