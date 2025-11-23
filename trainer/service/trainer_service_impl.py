@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import random
 from typing import List, Dict, Any
 from pathlib import Path
 import shutil
@@ -13,7 +14,7 @@ from transformers import (
     TrainingArguments, DataCollatorWithPadding
 )
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-from datasets import Dataset
+from datasets import Dataset, ClassLabel
 from trainer.trainer_utils import (
     train_tokenizer,
     prepare_bert_config,
@@ -96,10 +97,15 @@ class TrainerServiceImpl(TrainerService):
             raise ValueError(f"Dataset '{dataset_id}' has no entries.")
 
         valid_entries = [(e.text, e.label) for e in dataset.entries if e.text and e.label is not None]
+
+
+        random.seed(42)
+        random.shuffle(valid_entries)
+
         texts = [t for t, l in valid_entries]
         labels = [l for t, l in valid_entries]
 
-        unique_labels = sorted(set(labels))
+        unique_labels = sorted(list(set(labels)))
         label2id = {label: i for i, label in enumerate(unique_labels)}
         id2label = {v: k for k, v in label2id.items()}
         y = [label2id[label] for label in labels]
@@ -113,16 +119,23 @@ class TrainerServiceImpl(TrainerService):
         )
 
         ds = Dataset.from_dict({"text": texts, "label": y})
+        ds = ds.cast_column("label", ClassLabel(num_classes=len(unique_labels), names=unique_labels))
 
         tokenized_ds = ds.map(
             lambda e: tokenizer(
                 e["text"],
-                truncation=True
+                truncation=True,
+                padding="max_length",
+                max_length=128
             ),
             batched=True
         )
 
-        tokenized_ds = tokenized_ds.train_test_split(test_size=0.1)
+        tokenized_ds = tokenized_ds.train_test_split(
+            test_size=0.1,
+            seed=42,
+            stratify_by_column="label"
+        )
         args = TrainingArguments(**training_args)
         data_collator = DataCollatorWithPadding(tokenizer)
 

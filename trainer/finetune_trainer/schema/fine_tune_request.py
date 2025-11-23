@@ -6,3 +6,5 @@ class FineTuneRequest(BaseModel):
     dataset_id: str
     output_dir: str
     training_args: Dict[str, Any]
+    model_name: str = "fine-tuned-model"
+    version: str = "v1"

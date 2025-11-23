@@ -23,7 +23,9 @@ async def fine_tune_model(req: FineTuneRequest):
             req.model_path,
             req.dataset_id,
             req.output_dir,
-            req.training_args
+            req.training_args,
+            req.model_name,
+            req.version
         )
 
         return {

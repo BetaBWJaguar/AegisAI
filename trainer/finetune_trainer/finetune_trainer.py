@@ -15,7 +15,9 @@ class FineTuneTrainer:
             model_path: str,
             dataset_id: str,
             output_dir: str,
-            training_args: Dict[str, Any]
+            training_args: Dict[str, Any],
+            model_name: str,
+            version: str
     ) -> Dict[str, Any]:
 
         result = self.trainer_service.fine_tune_model(
@@ -30,8 +32,8 @@ class FineTuneTrainer:
         metrics = result.get("metrics", {})
 
         model_info = self.registry.save_model_info(
-            name=result.get("model_name", "fine-tuned-model"),
-            version=result.get("version", "v1"),
+            name=model_name,
+            version=version,
             model_path=saved_path,
             dataset_id=dataset_id,
             parameters=training_args,
