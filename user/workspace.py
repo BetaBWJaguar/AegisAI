@@ -1,7 +1,7 @@
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
 import uuid
-from typing import List
+from typing import List, Optional
 from user.rule import Rule
 from user.violations import Violation
 
@@ -16,6 +16,8 @@ class Workspace:
     language: str = "tr"
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
+    model_id: Optional[str] = None
+    model_name: Optional[str] = None
 
     @staticmethod
     def create(name: str, description: str = "", language: str = "tr") -> "Workspace":
@@ -28,8 +30,13 @@ class Workspace:
             violations=[],
             language=language,
             created_at=now,
-            updated_at=now
+            updated_at=now,
         )
+
+    def assign_model(self, model: dict):
+        self.model_id = str(model["_id"])
+        self.model_name = model["name"]
+        self.updated_at = datetime.utcnow()
 
 
     def add_rule(self, rule: Rule):

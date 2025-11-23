@@ -7,7 +7,7 @@ class ProfanityService(ABC):
     def detect(
             self,
             text: str,
-            threshold: float = None,
+            workspace_language,
             pipeline: Optional[List[str]] = None
     ) -> Dict:
         pass
