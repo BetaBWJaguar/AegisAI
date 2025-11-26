@@ -14,6 +14,8 @@ class WorkspaceResponse(BaseModel):
     id: uuid.UUID
     name: str
     description: str
+    model_id: str
+    model_name: str
     rules: List[RuleResponse] = []
     created_at: datetime
     updated_at: datetime

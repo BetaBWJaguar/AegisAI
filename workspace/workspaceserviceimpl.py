@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import List, Optional, Dict, Any
 
 from auditmanager.auditlogserviceimpl import AuditLogServiceImpl
+from trainer.modelregistry import ModelRegistry
 from user.workspace import Workspace
 from user.rule import Rule
 from user.violations import Violation
@@ -49,23 +50,49 @@ class WorkspaceServiceImpl(WorkspaceService):
         user = self.user_service.get_user(user_id)
         if not user:
             return None
+
         for ws in user.workspaces:
             if str(ws.id) == str(workspace_id):
                 old_name = ws.name
+                old_model = ws.model_name
+
                 ws.name = updates.get("name", ws.name)
                 ws.description = updates.get("description", ws.description)
+
+                if "model_name" in updates or "model_version" in updates:
+                    new_name = updates.get("model_name", ws.model_name)
+
+                    raw_version = updates.get("model_version", ws.model_version)
+
+                    registry = ModelRegistry()
+                    model = registry.get_model(new_name, raw_version)
+
+                    if not model:
+                        raise ValueError(
+                            f"Model '{new_name}' version '{raw_version}' not found"
+                        )
+
+                    ws.assign_model(model)
+
                 ws.updated_at = datetime.utcnow()
+
                 self.collection.update_one({"id": str(user.id)}, {"$set": user.to_dict()})
+
+                details = f"Workspace '{old_name}' updated."
+                if "model_name" in updates:
+                    details += f" Model changed from '{old_model}' to '{ws.model_name}'."
 
                 self.audit_log_service.create_log(
                     user_id=uuid.UUID(user_id),
                     workspace_id=uuid.UUID(workspace_id),
                     action="WORKSPACE_UPDATED",
                     target=ws.name,
-                    details=f"Workspace '{old_name}' updated. New name: '{ws.name}'.",
+                    details=details,
                     ip_address=ClientIPStorage.get()
                 )
+
                 return ws
+
         return None
 
     def remove_workspace(self, user_id: str, workspace_id: str) -> bool:

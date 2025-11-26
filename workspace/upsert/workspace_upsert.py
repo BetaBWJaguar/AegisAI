@@ -13,4 +13,6 @@ class WorkspaceUpsert(BaseModel):
     id: Optional[uuid.UUID] = None
     name: str
     description: str
+    model_name: Optional[str] = None,
+    model_version: Optional[int]
     rules: List[RuleUpsert] = []

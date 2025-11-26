@@ -13,4 +13,6 @@ class RuleCreate(BaseModel):
 class WorkspaceCreate(BaseModel):
     name: str
     description: str
+    model_name: str
+    model_version: str
     rules: List[RuleCreate] = []

@@ -37,3 +37,7 @@ class ModelRegistry:
         doc["_id"] = str(result.inserted_id)
 
         return doc
+
+    def get_model(self, name: str, version: str):
+        return self.collection.find_one({"name": name, "version": version})
+

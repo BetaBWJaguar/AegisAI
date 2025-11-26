@@ -22,7 +22,12 @@ workspace_service = WorkspaceServiceImpl(user_service, audit_log_service)
 @router.post("/{user_id}/add", response_model=WorkspaceResponse)
 async def add_workspace(user_id: str, ws_data: WorkspaceCreate, current_user=Depends(get_current_user)):
     try:
-        ws = Workspace.create(ws_data.name, ws_data.description)
+        ws = Workspace.create(
+            name=ws_data.name,
+            description=ws_data.description,
+            model_name=ws_data.model_name,
+            model_version=ws_data.model_version
+        )
         added = workspace_service.add_workspace(user_id, ws)
         if not added:
             raise ExpectionHandler(
