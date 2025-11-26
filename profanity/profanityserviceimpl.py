@@ -11,7 +11,8 @@ from multilangsetup.obsfucationresolver.obsfucation_resolver import ObfuscationR
 
 class ProfanityServiceImpl(ProfanityService):
 
-    def __init__(self, model_path: str):
+    def __init__(self, model_path: str, workspace_service):
+        self.workspace_service = workspace_service
         self.tokenizer = BertTokenizerFast.from_pretrained(model_path)
         self.model = BertForSequenceClassification.from_pretrained(model_path)
         self.labels = self.model.config.id2label
@@ -24,16 +25,20 @@ class ProfanityServiceImpl(ProfanityService):
             Step.LANG_NORMALIZE
         ]
 
-    def detect(self, text: str, workspace_language: str,
+    def detect(self, text: str, workspace_id: str,
                pipeline: Optional[list] = None) -> Dict:
+
+        workspace = self.workspace_service.get(workspace_id)
+        if not workspace:
+            raise ValueError(f"Workspace not found: {workspace_id}")
+
+        lang = workspace.language.lower()
 
         pipeline = pipeline or self.default_pipeline
         processed = text
 
         if Step.NORMALIZE in pipeline:
             processed = MultiLangProcessor.normalize(processed)
-
-        lang = workspace_language.lower()
 
         if Step.LANG_NORMALIZE in pipeline:
             if lang in SUPPORTED_LANGUAGES:
@@ -58,6 +63,7 @@ class ProfanityServiceImpl(ProfanityService):
         return {
             "raw_text": text,
             "processed_text": processed,
+            "workspace_id": workspace_id,
             "workspace_language": lang,
             "probabilities": {
                 self.labels[i]: round(float(p), 4) for i, p in enumerate(probs)

@@ -82,15 +82,21 @@ class User:
 
         if isinstance(self.birth_date, date):
             data["birth_date"] = self.birth_date.isoformat()
+
         if isinstance(self.created_at, datetime):
             data["created_at"] = self.created_at.isoformat()
+
         if isinstance(self.updated_at, datetime):
             data["updated_at"] = self.updated_at.isoformat()
-        if self.email_verified_at:
+
+        if isinstance(self.email_verified_at, datetime):
             data["email_verified_at"] = self.email_verified_at.isoformat()
 
-        if isinstance(data.get("role"), str):
-            data["role"] = Role[data["role"]]
+        if isinstance(self.role, Role):
+            data["role"] = self.role.name
+        elif isinstance(data.get("role"), str):
+            pass
+
         data["workspaces"] = [ws.to_dict() for ws in self.workspaces]
         data["devices"] = [d.to_dict() for d in self.devices]
         data["failed_login_attempts"] = [f.to_dict() for f in self.failed_login_attempts]

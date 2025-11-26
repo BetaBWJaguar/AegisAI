@@ -19,7 +19,7 @@ class Workspace:
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
     model_id: str = None
-    model_name: str = None,
+    model_name: str = None
     model_version: str = None
 
     @staticmethod
@@ -63,6 +63,7 @@ class Workspace:
     def assign_model(self, model: dict):
         self.model_id = str(model["_id"])
         self.model_name = model["name"]
+        self.model_version = model["version"]
         self.updated_at = datetime.utcnow()
 
 
