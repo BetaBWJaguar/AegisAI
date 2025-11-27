@@ -1,0 +1,26 @@
+{"time": 1764256073.379779, "text": "örnek bir küfürlü metin", "label": "INSULT", "offensive_prob": 0.9492681622505188}
+{"time": 1764256141.832883, "text": "Orospu çocuğu", "label": "INSULT", "offensive_prob": 0.9758367538452148}
+{"time": 1764256233.490892, "text": "Orospu çocuğu", "label": "INSULT", "offensive_prob": 0.9758367538452148}
+{"time": 1764256235.3552063, "text": "Orospu çocuğu", "label": "INSULT", "offensive_prob": 0.9758367538452148}
+{"time": 1764256239.2172017, "text": "Orospu çocuğusun sen", "label": "INSULT", "offensive_prob": 0.981734573841095}
+{"time": 1764256249.7973044, "text": "Naber", "label": "INSULT", "offensive_prob": 0.9804902672767639}
+{"time": 1764256265.1772482, "text": "Kedim sabah erkenden beni uyandırdı", "label": "CLEAN", "offensive_prob": 0.5222104787826538}
+{"time": 1764256281.553157, "text": "Arkadaşımla kahve içmeye gittim", "label": "CLEAN", "offensive_prob": 0.6748722195625305}
+{"time": 1764256303.913606, "text": "Arkadaşımla kahve i@meye gittim", "label": "CLEAN", "offensive_prob": 0.533227264881134}
+{"time": 1764256310.1466286, "text": "Arkadaşımla kahve i!meye gittim", "label": "CLEAN", "offensive_prob": 0.7550850510597229}
+{"time": 1764256316.2119322, "text": "Arkadaşımla kahve içmeye gittim", "label": "CLEAN", "offensive_prob": 0.6748722195625305}
+{"time": 1764256393.9423532, "text": "Bu filmi herkese tavsiye ederim", "label": "INSULT", "offensive_prob": 0.8742375373840332}
+{"time": 1764256403.9953756, "text": "Bu filmi herkese tavsiye ederim.", "label": "CLEAN", "offensive_prob": 0.9914098381996155}
+{"time": 1764256429.911957, "text": "Bu kadar mallık da bir insanda olmaz!.", "label": "CLEAN", "offensive_prob": 0.9794486165046692}
+{"time": 1764256436.7556183, "text": "Bu kadar mallık da bir insanda olmaz!", "label": "INSULT", "offensive_prob": 0.8665926456451416}
+{"time": 1764256452.2473395, "text": "Bu kedi ne hoş", "label": "INSULT", "offensive_prob": 0.9637011289596558}
+{"time": 1764256456.1810975, "text": "Bu kedi ne hoş <3", "label": "INSULT", "offensive_prob": 0.9712166786193848}
+{"time": 1764256465.2524652, "text": "Bu kedi ne güzelll", "label": "INSULT", "offensive_prob": 0.9654543399810791}
+{"time": 1764256476.7920444, "text": "Benim kedim ne güzelll", "label": "INSULT", "offensive_prob": 0.8649017810821533}
+{"time": 1764256489.7341764, "text": "Bugün çok mutluyum", "label": "CLEAN", "offensive_prob": 0.6075604557991028}
+{"time": 1764256562.9179752, "text": "Bugün", "label": "INSULT", "offensive_prob": 0.9281063079833984}
+{"time": 1764256582.2900877, "text": "Okula giderken kitap güzel", "label": "INSULT", "offensive_prob": 0.8023610711097717}
+{"time": 1764256593.841988, "text": "Okula giderken yeni kitap güzel", "label": "INSULT", "offensive_prob": 0.5701549053192139}
+{"time": 1764256602.448981, "text": "Okula giderken yeni bir kitap güzel", "label": "CLEAN", "offensive_prob": 0.5642130374908447}
+{"time": 1764256608.051221, "text": "Okula giderken yeni bir kitap aldım", "label": "CLEAN", "offensive_prob": 0.9564175009727478}
+{"time": 1764256616.5249338, "text": "Okula giderken yeni bir kitap erkenden", "label": "CLEAN", "offensive_prob": 0.7222535610198975}

@@ -8,6 +8,7 @@ class ProfanityService(ABC):
             self,
             text: str,
             workspace_id,
+            user_id: str,
             pipeline: Optional[List[str]] = None
     ) -> Dict:
         pass

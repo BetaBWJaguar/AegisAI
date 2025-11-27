@@ -20,7 +20,7 @@ from trainer.base_trainer.base_trainer_controller import router as base_trainer_
 from trainer.finetune_trainer.finetune_trainer_controller import router as finetune_trainer_router
 from huggingface.huggingface_controller import router as hf_router
 from corpusmanagement.corpus_controller import router as corpus_router
-
+from profanity.profanitycontroller import router  as profanity_router
 
 app = FastAPI()
 app.add_middleware(RateLimitMiddleware, max_requests=5, window_seconds=10)
@@ -42,6 +42,8 @@ app.include_router(base_trainer_router, prefix="/trainer", tags=["base-trainer"]
 app.include_router(finetune_trainer_router, prefix="/trainer", tags=["fine-tune-trainer"])
 app.include_router(hf_router, prefix="/huggingface", tags=["huggingface"])
 app.include_router(corpus_router, prefix="/corpus", tags=["corpus"])
+
+app.include_router(profanity_router, prefix="/profanity", tags=["profanity"])
 
 
 revoked_service = RevokedTokenService("config.json")

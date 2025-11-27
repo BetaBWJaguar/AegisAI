@@ -80,6 +80,9 @@ class UserServiceImpl(UserService):
                     language=ws.get("language", "tr"),
                     created_at=datetime.fromisoformat(ws["created_at"]) if "created_at" in ws else datetime.utcnow(),
                     updated_at=datetime.fromisoformat(ws["updated_at"]) if "updated_at" in ws else datetime.utcnow(),
+                    model_id=ws.get("model_id"),
+                    model_name=ws.get("model_name"),
+                    model_version=ws.get("model_version"),
                 )
                 for ws in doc.get("workspaces", [])
             ]
