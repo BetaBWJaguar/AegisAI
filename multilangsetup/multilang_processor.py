@@ -4,16 +4,22 @@ import spacy
 from functools import lru_cache
 import yake
 from multilangsetup.normalizers.turkish_normalizer import TurkishNormalizer
+from multilangsetup.normalizers.english_normalizer import EnglishNormalizer
 
 
-SUPPORTED_LANGUAGES = ["tr"]
+SUPPORTED_LANGUAGES = ["tr", "en"]
+
 NORMALIZERS = {
     "tr": TurkishNormalizer,
+    "en": EnglishNormalizer
 }
 
 @lru_cache(maxsize=len(SUPPORTED_LANGUAGES))
 def get_spacy_model(lang: str):
-    model_map = {}
+    model_map = {
+        "en": "en_core_web_sm",
+        "tr": None
+    }
     model_name = model_map.get(lang)
     if model_name:
         try:

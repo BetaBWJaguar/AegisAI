@@ -21,7 +21,6 @@ class ObfuscationResolver:
         enabled_langs = global_cfg.get("languages_enabled", [])
         default_lang = global_cfg.get("default_language", "tr")
         lang = (lang or default_lang).lower()
-
         if lang not in enabled_langs:
             lang = default_lang
 
@@ -38,16 +37,17 @@ class ObfuscationResolver:
             text = ObfuscationHelper.normalize_unicode(text)
 
         text = ObfuscationUtil.replace_common_patterns(text)
-        leet_map = special_rules.get("leet_mapping", {})
-        text = ObfuscationUtil.resolve_symbols_and_numbers(text, mapping=leet_map)
         text = ObfuscationResolver._apply_language_specific_rules(text, lang, special_rules)
         text = ObfuscationHelper.clean_redundant_symbols(text)
 
-        if lang == "tr" and merged_cfg.get("apply_turkish_normalizer", True):
+        if lang == "tr":
             text = TurkishNormalizer.normalize_all(text, to_lower=False)
 
         if merged_cfg.get("to_lowercase", True):
-            text = TurkishNormalizer.to_lower_turkish(text) if lang == "tr" else text.lower()
+            if lang == "tr":
+                text = TurkishNormalizer.to_lower_turkish(text)
+            else:
+                text = text.lower()
 
         return text.strip()
 
@@ -62,10 +62,29 @@ class ObfuscationResolver:
                 if unicodedata.category(c) != "Mn"
             )
 
+        if lang == "en":
+            text = ObfuscationResolver._apply_english_rules(text, rules)
+
         if lang == "tr":
             text = ObfuscationResolver._apply_turkish_rules(text, rules)
 
         return text
+
+
+    @staticmethod
+    def _apply_english_rules(text: str, rules: dict) -> str:
+        if rules.get("normalize_quotes", True):
+            text = text.replace("“", '"').replace("”", '"')
+            text = text.replace("‘", "'").replace("’", "'")
+
+        if rules.get("normalize_spacing", True):
+            text = re.sub(r"\s+", " ", text).strip()
+
+        if rules.get("remove_punctuation", False):
+            text = re.sub(r"[^\w\s]", "", text)
+
+        return text
+
 
     @staticmethod
     def _apply_turkish_rules(text: str, rules: dict) -> str:

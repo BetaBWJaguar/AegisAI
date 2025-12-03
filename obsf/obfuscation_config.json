@@ -2,5 +2,5 @@
   "normalize_unicode": true,
   "to_lowercase": true,
   "default_language": "tr",
-  "languages_enabled": ["tr"]
+  "languages_enabled": ["tr","en"]
 }

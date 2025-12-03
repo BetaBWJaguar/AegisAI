@@ -1,0 +1,12 @@
+{
+  "language_code": "en",
+  "settings": {
+    "normalize_unicode": true,
+    "to_lowercase": true,
+    "remove_punctuation": false
+  },
+  "special_rules": {
+    "normalize_english_chars": true,
+    "replace_diacritics": true
+  }
+}
