@@ -2,6 +2,7 @@ import re
 import langdetect
 import spacy
 from functools import lru_cache
+import hashlib
 import yake
 from multilangsetup.normalizers.turkish_normalizer import TurkishNormalizer
 from multilangsetup.normalizers.english_normalizer import EnglishNormalizer
@@ -40,18 +41,41 @@ class MultiLangProcessor:
         return text
 
     @staticmethod
-    def detect_language(text: str) -> dict:
+    def _get_text_hash(text: str) -> str:
+        return hashlib.md5(text.encode('utf-8')).hexdigest()
+
+    _language_cache = {}
+    
+    @classmethod
+    def detect_language(cls, text: str) -> dict:
+        if not isinstance(text, str) or not text.strip():
+            return {"lang": "unknown", "confidence": 0.0}
+
+        text_hash = cls._get_text_hash(text)
+
+        if text_hash in cls._language_cache:
+            return cls._language_cache[text_hash]
+        
         try:
             detections = langdetect.detect_langs(text)
             if not detections:
                 raise langdetect.lang_detect_exception.LangDetectException
             best_detection = detections[0]
-            return {
+            result = {
                 "lang": best_detection.lang.lower(),
                 "confidence": round(best_detection.prob, 4)
             }
+
+            cls._language_cache[text_hash] = result
+            return result
         except:
-            return {"lang": "unknown", "confidence": 0.0}
+            result = {"lang": "unknown", "confidence": 0.0}
+            cls._language_cache[text_hash] = result
+            return result
+    
+    @classmethod
+    def clear_language_cache(cls):
+        cls._language_cache.clear()
 
     @staticmethod
     def analyze_text_structure(text: str) -> dict:
