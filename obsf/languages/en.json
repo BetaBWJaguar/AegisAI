@@ -3,10 +3,15 @@
   "settings": {
     "normalize_unicode": true,
     "to_lowercase": true,
-    "remove_punctuation": false
+    "remove_punctuation": false,
+    "remove_numbers": false,
+    "collapse_whitespace": true,
+    "remove_stopwords": false,
+    "max_text_length": 1000
   },
   "special_rules": {
     "normalize_english_chars": true,
-    "replace_diacritics": true
+    "replace_diacritics": true,
+    "expand_contractions": true
   }
 }

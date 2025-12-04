@@ -5,9 +5,11 @@ from multilangsetup.normalizers.turkish_normalizer import TurkishNormalizer
 from obsf.obfuscation_config_loader import ObfuscationConfigLoader
 from multilangsetup.obsfucationresolver.obsfucation_helper import ObfuscationHelper
 from multilangsetup.obsfucationresolver.obsfucation_util import ObfuscationUtil
+from multilangsetup.constants.english import EN_STOPWORDS, EN_CONTRACTIONS
 
 
 class ObfuscationResolver:
+
     @staticmethod
     def resolve_all(text: str, lang: str = None) -> str:
         if not isinstance(text, str) or not text.strip():
@@ -38,6 +40,20 @@ class ObfuscationResolver:
 
         text = ObfuscationUtil.replace_common_patterns(text)
         text = ObfuscationResolver._apply_language_specific_rules(text, lang, special_rules)
+
+        if merged_cfg.get("remove_numbers", False):
+            text = re.sub(r"\d+", "", text)
+
+        if merged_cfg.get("remove_punctuation", False):
+            text = re.sub(r"[^\w\s]", "", text)
+
+        if merged_cfg.get("collapse_whitespace", True):
+            text = re.sub(r"\s+", " ", text)
+
+        max_len = merged_cfg.get("max_text_length")
+        if isinstance(max_len, int) and max_len > 0:
+            text = text[:max_len]
+
         text = ObfuscationHelper.clean_redundant_symbols(text)
 
         if lang == "tr":
@@ -48,6 +64,11 @@ class ObfuscationResolver:
                 text = TurkishNormalizer.to_lower_turkish(text)
             else:
                 text = text.lower()
+
+        if merged_cfg.get("remove_stopwords", False) and lang == "en":
+            words = text.split()
+            words = [w for w in words if w not in EN_STOPWORDS]
+            text = " ".join(words)
 
         return text.strip()
 
@@ -70,28 +91,41 @@ class ObfuscationResolver:
 
         return text
 
-
     @staticmethod
     def _apply_english_rules(text: str, rules: dict) -> str:
+
+        if rules.get("normalize_english_chars", False):
+            replacements = {
+                "á": "a", "à": "a", "ä": "a", "â": "a",
+                "é": "e", "è": "e", "ë": "e", "ê": "e",
+                "í": "i", "ì": "i", "ï": "i", "î": "i",
+                "ó": "o", "ò": "o", "ö": "o", "ô": "o",
+                "ú": "u", "ù": "u", "ü": "u", "û": "u"
+            }
+            for k, v in replacements.items():
+                text = text.replace(k, v)
+
         if rules.get("normalize_quotes", True):
             text = text.replace("“", '"').replace("”", '"')
             text = text.replace("‘", "'").replace("’", "'")
 
+        if rules.get("expand_contractions", False):
+            for k, v in EN_CONTRACTIONS.items():
+                text = re.sub(rf"\b{k}\b", v, text, flags=re.IGNORECASE)
+
         if rules.get("normalize_spacing", True):
             text = re.sub(r"\s+", " ", text).strip()
 
-        if rules.get("remove_punctuation", False):
-            text = re.sub(r"[^\w\s]", "", text)
-
         return text
-
 
     @staticmethod
     def _apply_turkish_rules(text: str, rules: dict) -> str:
+
         if rules.get("normalize_turkish_chars", False):
             replacements = {
                 "İ": "i", "I": "ı",
-                "Ç": "ç", "Ş": "ş", "Ğ": "ğ", "Ü": "ü", "Ö": "ö"
+                "Ç": "ç", "Ş": "ş",
+                "Ğ": "ğ", "Ü": "ü", "Ö": "ö"
             }
             for k, v in replacements.items():
                 text = text.replace(k, v)
