@@ -4,6 +4,8 @@ from typing import List, Optional, Dict, Any
 
 from auditmanager.auditlogserviceimpl import AuditLogServiceImpl
 from trainer.modelregistry import ModelRegistry
+from user.censormode import CensorMode
+from user.censorsettings import CensorSettings, CensorRule
 from user.workspace import Workspace
 from user.rule import Rule
 from user.violations import Violation
@@ -73,6 +75,22 @@ class WorkspaceServiceImpl(WorkspaceService):
                         )
 
                     ws.assign_model(model)
+
+                if "censor_settings" in updates:
+                    raw_settings = updates["censor_settings"]
+                    new_cs = CensorSettings()
+
+                    for label, rule_dict in raw_settings.get("rules", {}).items():
+                        new_cs.set_rule(
+                            label,
+                            CensorRule(
+                                mask=rule_dict.get("mask", False),
+                                mode=CensorMode(rule_dict.get("mode", "partial")),
+                                threshold=rule_dict.get("threshold", 0.0)
+                            )
+                        )
+
+                    ws.censor_settings = new_cs
 
                 ws.updated_at = datetime.utcnow()
 

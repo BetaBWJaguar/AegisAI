@@ -4,6 +4,7 @@ import uuid
 from typing import List, Optional
 
 from trainer.modelregistry import ModelRegistry
+from user.censorsettings import CensorSettings
 from user.rule import Rule
 from user.violations import Violation
 
@@ -15,6 +16,7 @@ class Workspace:
     description: str
     rules: List[Rule] = field(default_factory=list)
     violations: List[Violation] = field(default_factory=list)
+    censor_settings: CensorSettings = field(default_factory=CensorSettings)
     language: str = "tr"
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
@@ -84,7 +86,19 @@ class Workspace:
             data["created_at"] = self.created_at.isoformat()
         if isinstance(self.updated_at, datetime):
             data["updated_at"] = self.updated_at.isoformat()
-
         data["rules"] = [r.to_dict() for r in self.rules]
         data["violations"] = [v.to_dict() for v in self.violations]
+
+        if self.censor_settings and hasattr(self.censor_settings, "rules"):
+            data["censor_settings"] = {
+                label: {
+                    "mask": rule.mask,
+                    "mode": rule.mode.value if hasattr(rule.mode, "value") else str(rule.mode),
+                    "threshold": rule.threshold
+                }
+                for label, rule in self.censor_settings.rules.items()
+            }
+        else:
+            data["censor_settings"] = {}
+
         return data

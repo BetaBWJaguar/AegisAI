@@ -5,6 +5,8 @@ from typing import List, Optional
 from pydantic import EmailStr
 from pymongo import MongoClient
 
+from user.censormode import CensorMode
+from user.censorsettings import CensorSettings, CensorRule
 from user.device import Device
 from user.failedloginattempt import FailedLoginAttempt
 from user.user import User
@@ -83,6 +85,18 @@ class UserServiceImpl(UserService):
                     model_id=ws.get("model_id"),
                     model_name=ws.get("model_name"),
                     model_version=ws.get("model_version"),
+
+                    censor_settings=CensorSettings(
+                        rules={
+                            label: CensorRule(
+                                mask=rule_dict.get("mask", False),
+                                mode=CensorMode(rule_dict.get("mode", "partial")),
+                                threshold=rule_dict.get("threshold", 0.0)
+                            )
+                            for label, rule_dict in ws.get("censor_settings", {}).items()
+                            if isinstance(rule_dict, dict)
+                        }
+                    )
                 )
                 for ws in doc.get("workspaces", [])
             ]
