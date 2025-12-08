@@ -3,6 +3,7 @@ import torch
 from transformers import BertTokenizerFast, BertForSequenceClassification
 
 from logs.predictionlogmanager import PredictionLogger
+from profanity.maskingrules.maskingruleautomation import MaskingRuleAutomation
 from profanity.profanityservice import ProfanityService
 from multilangsetup.multilang_step import Step
 from multilangsetup.multilang_processor import MultiLangProcessor, SUPPORTED_LANGUAGES
@@ -96,9 +97,20 @@ class ProfanityServiceImpl(ProfanityService):
 
         PredictionLogger.log(text, predicted_label, probs[predicted_id])
 
+        masked_text, masked_applied, mask_meta = MaskingRuleAutomation.apply_if_needed(
+            text=text,
+            workspace=workspace,
+            predicted_label=predicted_label,
+            confidence=probs[predicted_id]
+        )
+
+
         return {
             "raw_text": text,
             "processed_text": processed,
+            "masked_text": masked_text,
+            "mask_applied": masked_applied,
+            "mask_meta": mask_meta,
             "workspace_id": workspace_id,
             "workspace_language": lang,
             "model_name_used": model_name,
@@ -107,5 +119,6 @@ class ProfanityServiceImpl(ProfanityService):
                 model.config.id2label[i]: round(float(p), 4) for i, p in enumerate(probs)
             },
             "predicted_label": predicted_label,
+            "confidence": round(float(probs[predicted_id]), 4),
             "steps_executed": [s.value for s in pipeline]
         }
