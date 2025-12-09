@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional
 
 from user.censormode import CensorMode
+from user.censorvisibility import VisibilityMode
 
 
 @dataclass
@@ -9,6 +10,7 @@ class CensorRule:
     mask: bool = False
     mode: CensorMode = CensorMode.PARTIAL
     threshold: float = 0.0
+    visibility: VisibilityMode = VisibilityMode.PUBLIC
 
 
 @dataclass
