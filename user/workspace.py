@@ -1,7 +1,7 @@
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
 import uuid
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 from trainer.modelregistry import ModelRegistry
 from user.censorsettings import CensorSettings
@@ -20,6 +20,12 @@ class Workspace:
     language: str = "tr"
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
+    advisory_policy: Dict[str, str] = field(default_factory=lambda: {
+        "LOW": "LOG",
+        "MEDIUM": "WARN",
+        "HIGH": "SOFT_MUTE",
+        "CRITICAL": "REVIEW"
+    })
     model_id: str = None
     model_name: str = None
     model_version: str = None
@@ -77,6 +83,14 @@ class Workspace:
     def add_violation(self, violation: Violation):
         self.violations.append(violation)
         self.updated_at = datetime.utcnow()
+
+
+    def set_advisory_policy(self, risk: str, action: str):
+        self.advisory_policy[risk.upper()] = action
+        self.updated_at = datetime.utcnow()
+
+    def get_advisory_action(self, risk: str) -> str:
+        return self.advisory_policy.get(risk.upper(), "LOG")
 
     def to_dict(self) -> dict:
         data = asdict(self)

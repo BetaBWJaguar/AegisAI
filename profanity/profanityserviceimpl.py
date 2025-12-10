@@ -4,6 +4,7 @@ from transformers import BertTokenizerFast, BertForSequenceClassification
 
 from logs.predictionlogmanager import PredictionLogger
 from profanity.maskingrules.maskingruleautomation import MaskingRuleAutomation
+from profanity.messagelevelmetadata import MessageLevelMetadata
 from profanity.profanityservice import ProfanityService
 from multilangsetup.multilang_step import Step
 from multilangsetup.multilang_processor import MultiLangProcessor, SUPPORTED_LANGUAGES
@@ -83,7 +84,6 @@ class ProfanityServiceImpl(ProfanityService):
                 processed = MultiLangProcessor.normalize_by_language(processed, lang)
             processed = ObfuscationResolver.resolve_all(processed, lang=lang)
 
-
         inputs = tokenizer(processed, return_tensors="pt")
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
@@ -94,31 +94,42 @@ class ProfanityServiceImpl(ProfanityService):
         probs = probs_tensor.tolist()
         predicted_id = int(torch.argmax(probs_tensor))
         predicted_label = model.config.id2label.get(predicted_id, f"class_{predicted_id}")
+        confidence = float(probs[predicted_id])
 
-        PredictionLogger.log(text, predicted_label, probs[predicted_id])
+        PredictionLogger.log(text, predicted_label, confidence)
 
         masked_text, masked_applied, mask_meta = MaskingRuleAutomation.apply_if_needed(
             text=text,
             workspace=workspace,
             predicted_label=predicted_label,
-            confidence=probs[predicted_id]
+            confidence=confidence
         )
 
+        risk = mask_meta.get("risk") if mask_meta else "LOW"
+        advisory_action = mask_meta.get("advisory", {}).get("suggested_action") if mask_meta else None
+        policy_version = mask_meta.get("advisory", {}).get("policy_version") if mask_meta else None
+        mask_mode = mask_meta.get("mode") if mask_meta else None
 
-        return {
-            "raw_text": text,
-            "processed_text": processed,
-            "masked_text": masked_text,
-            "mask_applied": masked_applied,
-            "mask_meta": mask_meta,
-            "workspace_id": workspace_id,
-            "workspace_language": lang,
-            "model_name_used": model_name,
-            "model_path_used": model_path,
-            "probabilities": {
-                model.config.id2label[i]: round(float(p), 4) for i, p in enumerate(probs)
+        metadata = MessageLevelMetadata(
+            raw_text=text,
+            processed_text=processed,
+            predicted_label=predicted_label,
+            confidence=confidence,
+            probabilities={
+                model.config.id2label[i]: float(p)
+                for i, p in enumerate(probs)
             },
-            "predicted_label": predicted_label,
-            "confidence": round(float(probs[predicted_id]), 4),
-            "steps_executed": [s.value for s in pipeline]
-        }
+            risk=risk,
+            masked=masked_applied,
+            masked_text=masked_text,
+            mask_mode=mask_mode,
+            advisory_action=advisory_action,
+            policy_version=policy_version,
+            workspace_id=workspace_id,
+            user_id=user_id,
+            model_name=model_name,
+            model_version=workspace.model_version
+        )
+
+        return metadata.to_dict()
+
