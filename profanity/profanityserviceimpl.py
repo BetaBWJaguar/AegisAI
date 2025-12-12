@@ -98,17 +98,27 @@ class ProfanityServiceImpl(ProfanityService):
 
         PredictionLogger.log(text, predicted_label, confidence)
 
-        masked_text, masked_applied, mask_meta = MaskingRuleAutomation.apply_if_needed(
+        mask_meta = MaskingRuleAutomation.apply_if_needed(
             text=text,
             workspace=workspace,
             predicted_label=predicted_label,
             confidence=confidence
         )
 
-        risk = mask_meta.get("risk") if mask_meta else "LOW"
-        advisory_action = mask_meta.get("advisory", {}).get("suggested_action") if mask_meta else None
-        policy_version = mask_meta.get("advisory", {}).get("policy_version") if mask_meta else None
-        mask_mode = mask_meta.get("mode") if mask_meta else None
+        masked_text = mask_meta.get("masked_text")
+        masked_applied = mask_meta.get("masked", False)
+        mask_mode = mask_meta.get("mode")
+        risk = mask_meta.get("risk", "LOW")
+        blocked = mask_meta.get("blocked", False)
+        visibility = mask_meta.get("visibility")
+        threshold = mask_meta.get("threshold")
+
+        advisory = mask_meta.get("advisory", {})
+        advisory_action = advisory.get("suggested_action")
+        policy_version = advisory.get("policy_version")
+
+        advisory_policy = mask_meta.get("advisory_policy", {})
+
 
         metadata = MessageLevelMetadata(
             raw_text=text,
@@ -125,11 +135,14 @@ class ProfanityServiceImpl(ProfanityService):
             mask_mode=mask_mode,
             advisory_action=advisory_action,
             policy_version=policy_version,
+            blocked=blocked,
+            visibility=visibility,
+            threshold=threshold,
+            advisory_policy=advisory_policy,
             workspace_id=workspace_id,
             user_id=user_id,
             model_name=model_name,
             model_version=workspace.model_version
         )
-
         return metadata.to_dict()
 

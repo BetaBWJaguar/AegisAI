@@ -96,7 +96,12 @@ class UserServiceImpl(UserService):
                             for label, rule_dict in ws.get("censor_settings", {}).items()
                             if isinstance(rule_dict, dict)
                         }
-                    )
+                    ),
+                    advisory_policy={
+                        risk.upper(): action.upper()
+                        for risk, action in ws.get("advisory_policy", {}).items()
+                        if isinstance(action, str)
+                    }
                 )
                 for ws in doc.get("workspaces", [])
             ]

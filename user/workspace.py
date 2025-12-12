@@ -8,6 +8,8 @@ from user.censorsettings import CensorSettings
 from user.rule import Rule
 from user.violations import Violation
 
+VALID_RISKS = {"LOW", "MEDIUM", "HIGH", "CRITICAL"}
+
 
 @dataclass
 class Workspace:
@@ -20,12 +22,14 @@ class Workspace:
     language: str = "tr"
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
-    advisory_policy: Dict[str, str] = field(default_factory=lambda: {
-        "LOW": "LOG",
-        "MEDIUM": "WARN",
-        "HIGH": "SOFT_MUTE",
-        "CRITICAL": "REVIEW"
-    })
+    advisory_policy: Dict[str, str] = field(
+        default_factory=lambda: {
+            "LOW": "LOG",
+            "MEDIUM": "LOG",
+            "HIGH": "LOG",
+            "CRITICAL": "LOG"
+        }
+    )
     model_id: str = None
     model_name: str = None
     model_version: str = None
@@ -84,13 +88,21 @@ class Workspace:
         self.violations.append(violation)
         self.updated_at = datetime.utcnow()
 
-
     def set_advisory_policy(self, risk: str, action: str):
-        self.advisory_policy[risk.upper()] = action
+        risk = risk.upper()
+        if risk not in VALID_RISKS:
+            raise ValueError(f"Invalid risk '{risk}'. Allowed risks: {VALID_RISKS}")
+
+        self.advisory_policy[risk] = action.upper()
         self.updated_at = datetime.utcnow()
 
+
     def get_advisory_action(self, risk: str) -> str:
-        return self.advisory_policy.get(risk.upper(), "LOG")
+        risk = risk.upper()
+        if risk not in VALID_RISKS:
+            raise ValueError(f"Invalid risk '{risk}'. Allowed risks: {VALID_RISKS}")
+
+        return self.advisory_policy.get(risk, "LOG")
 
     def to_dict(self) -> dict:
         data = asdict(self)

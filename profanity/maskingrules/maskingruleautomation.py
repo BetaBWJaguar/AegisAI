@@ -5,62 +5,78 @@ class MaskingRuleAutomation:
 
     @staticmethod
     def apply_if_needed(text, workspace, predicted_label, confidence):
+
+        result = {
+            "masked_text": text,
+            "masked": False,
+            "blocked": False,
+            "label": predicted_label,
+            "mode": None,
+            "threshold": None,
+            "confidence": round(confidence, 4),
+            "risk": "LOW",
+            "visibility": None,
+            "advisory": {},
+            "advisory_policy": {}
+        }
+
+
         if not workspace or not workspace.censor_settings:
-            return text, False, None
+            return result
+
 
         rule = workspace.censor_settings.get_rule(predicted_label)
         if not rule or not rule.mask:
-            return text, False, None
+            return result
+
+        result["threshold"] = rule.threshold
+
+        result["visibility"] = (
+            rule.visibility.value if hasattr(rule.visibility, "value") else str(rule.visibility)
+        )
+
 
         if confidence < rule.threshold:
-            return text, False, None
+            return result
 
         if "***" in text and confidence < 0.90:
-            return text, False, None
+            return result
 
         mode = rule.mode.value if hasattr(rule.mode, "value") else str(rule.mode)
-
         if confidence >= 0.90:
             mode = "FULL"
 
+        result["mode"] = mode
         masked_text = MaskingRuleUtil.apply(text, mode)
+        result["masked_text"] = masked_text
+        result["masked"] = True
 
-        risk = "LOW"
         if confidence >= 0.95:
-            risk = "CRITICAL"
+            result["risk"] = "CRITICAL"
         elif confidence >= 0.85:
-            risk = "HIGH"
+            result["risk"] = "HIGH"
         elif confidence >= 0.70:
-            risk = "MEDIUM"
+            result["risk"] = "MEDIUM"
+        else:
+            result["risk"] = "LOW"
 
-        suggested_action = None
-        policy_version = None
+        risk = result["risk"]
+        advisory_action = workspace.get_advisory_action(risk)
 
-        if hasattr(workspace, "get_advisory_action"):
-            suggested_action = workspace.get_advisory_action(risk)
-            policy_version = getattr(workspace, "policy_version", "1.0")
+        policy_version = getattr(workspace, "policy_version", "1.0")
+
+        result["advisory"] = {
+            "suggested_action": advisory_action,
+            "policy_version": policy_version
+        }
+
+        result["advisory_policy"] = {
+            risk: action
+            for risk, action in workspace.advisory_policy.items()
+        }
 
         if masked_text.replace("*", "").strip() == "":
-            return None, True, {
-                "blocked": True,
-                "label": predicted_label,
-                "risk": risk,
-                "confidence": round(confidence, 4),
-                "advisory": {
-                    "suggested_action": suggested_action,
-                    "policy_version": policy_version,
-                    "note": "Content fully masked by rule"
-                }
-            }
+            result["blocked"] = True
+            return result
 
-        return masked_text, True, {
-            "label": predicted_label,
-            "mode": mode,
-            "threshold": rule.threshold,
-            "confidence": round(confidence, 4),
-            "risk": risk,
-            "advisory": {
-                "suggested_action": suggested_action,
-                "policy_version": policy_version
-            }
-        }
+        return result

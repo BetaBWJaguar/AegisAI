@@ -92,6 +92,19 @@ class WorkspaceServiceImpl(WorkspaceService):
 
                     ws.censor_settings = new_cs
 
+                if "advisory_policy" in updates:
+                    advisory_updates = updates["advisory_policy"]
+
+                    VALID_RISKS = {"LOW", "MEDIUM", "HIGH", "CRITICAL"}
+
+                    for risk, action in advisory_updates.items():
+                        risk_upper = risk.upper()
+                        if risk_upper not in VALID_RISKS:
+                            raise ValueError(f"Invalid risk '{risk}'. Allowed risks: {VALID_RISKS}")
+                        ws.advisory_policy[risk_upper] = action.upper()
+
+                    ws.updated_at = datetime.utcnow()
+
                 ws.updated_at = datetime.utcnow()
 
                 self.collection.update_one({"id": str(user.id)}, {"$set": user.to_dict()})
