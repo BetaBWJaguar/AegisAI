@@ -51,7 +51,13 @@ class ProfanityServiceImpl(ProfanityService):
 
         return tokenizer, model, model_path
 
-    def detect(self, text: str, user_id: str, workspace_id: str, pipeline: Optional[list] = None):
+    def detect(
+            self,
+            text: str,
+            user_id: str,
+            workspace_id: str,
+            pipeline: Optional[list] = None
+    ):
 
         workspace = self.workspace_service.get_workspace(user_id, workspace_id)
         if not workspace:
@@ -63,16 +69,17 @@ class ProfanityServiceImpl(ProfanityService):
             raise ValueError(f"Workspace {workspace_id} has no model_name defined.")
 
         tokenizer, model, model_path = self._load_model(
-            model_name=workspace.model_name,
+            model_name=model_name,
             model_version=workspace.model_version
         )
 
         if pipeline is None:
             pipeline = self.default_pipeline
-        elif isinstance(pipeline, list) and len(pipeline) == 0:
-            pipeline = []
         else:
-            pipeline = [Step(p) if isinstance(p, str) else p for p in pipeline]
+            pipeline = [
+                Step(p) if isinstance(p, str) else p
+                for p in pipeline
+            ]
 
         processed = text
 
@@ -82,6 +89,7 @@ class ProfanityServiceImpl(ProfanityService):
         if Step.LANG_NORMALIZE in pipeline:
             if lang in SUPPORTED_LANGUAGES:
                 processed = MultiLangProcessor.normalize_by_language(processed, lang)
+
             processed = ObfuscationResolver.resolve_all(processed, lang=lang)
 
         inputs = tokenizer(processed, return_tensors="pt")
@@ -93,7 +101,9 @@ class ProfanityServiceImpl(ProfanityService):
 
         probs = probs_tensor.tolist()
         predicted_id = int(torch.argmax(probs_tensor))
-        predicted_label = model.config.id2label.get(predicted_id, f"class_{predicted_id}")
+        predicted_label = model.config.id2label.get(
+            predicted_id, f"class_{predicted_id}"
+        )
         confidence = float(probs[predicted_id])
 
         PredictionLogger.log(text, predicted_label, confidence)
@@ -105,20 +115,7 @@ class ProfanityServiceImpl(ProfanityService):
             confidence=confidence
         )
 
-        masked_text = mask_meta.get("masked_text")
-        masked_applied = mask_meta.get("masked", False)
-        mask_mode = mask_meta.get("mode")
-        risk = mask_meta.get("risk", "LOW")
-        blocked = mask_meta.get("blocked", False)
-        visibility = mask_meta.get("visibility")
-        threshold = mask_meta.get("threshold")
-
         advisory = mask_meta.get("advisory", {})
-        advisory_action = advisory.get("suggested_action")
-        policy_version = advisory.get("policy_version")
-
-        advisory_policy = mask_meta.get("advisory_policy", {})
-
 
         metadata = MessageLevelMetadata(
             raw_text=text,
@@ -129,20 +126,21 @@ class ProfanityServiceImpl(ProfanityService):
                 model.config.id2label[i]: float(p)
                 for i, p in enumerate(probs)
             },
-            risk=risk,
-            masked=masked_applied,
-            masked_text=masked_text,
-            mask_mode=mask_mode,
-            advisory_action=advisory_action,
-            policy_version=policy_version,
-            blocked=blocked,
-            visibility=visibility,
-            threshold=threshold,
-            advisory_policy=advisory_policy,
+            risk=mask_meta.get("risk", "LOW"),
+            masked=mask_meta.get("masked", False),
+            masked_text=mask_meta.get("masked_text"),
+            mask_mode=mask_meta.get("mode"),
+            blocked=mask_meta.get("blocked", False),
+            visibility=mask_meta.get("visibility"),
+            threshold=mask_meta.get("threshold"),
+            advisory_action=advisory.get("suggested_action"),
+            policy_version=advisory.get("policy_version"),
+            advisory_policy=mask_meta.get("advisory_policy", {}),
             workspace_id=workspace_id,
             user_id=user_id,
             model_name=model_name,
             model_version=workspace.model_version
         )
+
         return metadata.to_dict()
 
