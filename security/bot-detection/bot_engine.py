@@ -1,3 +1,7 @@
+from behaviorscore import BehaviorScore
+from botverdictresolver import BotVerdictResolver
+
+
 class BotEngine:
     @staticmethod
     def analyze(timestamps: list) -> dict:
@@ -14,20 +18,20 @@ class BotEngine:
 
         avg_interval = sum(intervals) / len(intervals)
         variance = max(intervals) - min(intervals)
+        count = len(timestamps)
 
-        if avg_interval < 1.2 and variance < 0.3:
-            return {
-                "verdict": "BOT",
-                "reason": "Fast and regular messaging"
-            }
+        score = BehaviorScore.calculate(
+            avg_interval=avg_interval,
+            variance=variance,
+            count=count
+        )
 
-        if avg_interval < 2:
-            return {
-                "verdict": "SUSPICIOUS",
-                "reason": "Fast messaging"
-            }
+        verdict = BotVerdictResolver.resolve(score)
 
-        return {
-            "verdict": "HUMAN",
-            "reason": "Normal behavior"
-        }
+        verdict.update({
+            "avg_interval": round(avg_interval, 3),
+            "variance": round(variance, 3),
+            "events": count
+        })
+
+        return verdict
