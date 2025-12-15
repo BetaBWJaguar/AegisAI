@@ -74,3 +74,14 @@ class BehaviorFeatures:
             "entropy": ent,
             "burst_ratio": burst_ratio,
         }
+
+    @staticmethod
+    def normalize(features: Dict[str, float]) -> Dict[str, float]:
+        return {
+            "events": min(features["events"] / 50.0, 1.0),
+            "rate": min(features["rate"] / 2.0, 1.0),
+            "avg_interval": min(features["avg_interval"] / 3.0, 1.0),
+            "cv": min(features["cv"], 1.0),
+            "entropy": min(features["entropy"] / 2.0, 1.0),
+            "burst_ratio": min(features["burst_ratio"], 1.0),
+        }

@@ -1,4 +1,3 @@
-# behaviorscore.py
 from typing import Dict
 
 

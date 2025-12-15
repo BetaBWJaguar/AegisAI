@@ -1,5 +1,5 @@
-from bot_detection_logger import BotDetectionLogger
-from bot_engine import BotEngine
+from security.bot_detection.bot_detection_logger import BotDetectionLogger
+from security.bot_detection.bot_engine import BotEngine
 
 
 class BotDetection:
