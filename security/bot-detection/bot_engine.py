@@ -1,37 +1,29 @@
 from behaviorscore import BehaviorScore
+from behavior_features import BehaviorFeatures
 from botverdictresolver import BotVerdictResolver
 
 
 class BotEngine:
-    @staticmethod
-    def analyze(timestamps: list) -> dict:
+    def __init__(self, window_sec: float = 30.0):
+        self.window_sec = window_sec
+
+    def analyze(self, timestamps: list) -> dict:
         if len(timestamps) < 5:
-            return {
-                "verdict": "UNKNOWN",
-                "reason": "Not enough data"
-            }
+            return {"verdict": "UNKNOWN", "reason": "Not enough data"}
 
-        intervals = [
-            timestamps[i] - timestamps[i - 1]
-            for i in range(1, len(timestamps))
-        ]
-
-        avg_interval = sum(intervals) / len(intervals)
-        variance = max(intervals) - min(intervals)
-        count = len(timestamps)
-
-        score = BehaviorScore.calculate(
-            avg_interval=avg_interval,
-            variance=variance,
-            count=count
-        )
-
+        f = BehaviorFeatures.extract(timestamps, window_sec=self.window_sec)
+        score = BehaviorScore.calculate(f)
         verdict = BotVerdictResolver.resolve(score)
 
         verdict.update({
-            "avg_interval": round(avg_interval, 3),
-            "variance": round(variance, 3),
-            "events": count
+            "confidence": round(verdict["confidence"], 3),
+            "score": round(score, 3),
+            "events": int(f["events"]),
+            "rate": round(f["rate"], 3),
+            "avg_interval": round(f["avg_interval"], 3),
+            "std_interval": round(f["std_interval"], 3),
+            "cv": round(f["cv"], 3),
+            "entropy": round(f["entropy"], 3),
+            "burst_ratio": round(f["burst_ratio"], 3),
         })
-
         return verdict
