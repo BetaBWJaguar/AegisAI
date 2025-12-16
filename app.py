@@ -21,6 +21,7 @@ from trainer.finetune_trainer.finetune_trainer_controller import router as finet
 from huggingface.huggingface_controller import router as hf_router
 from corpusmanagement.corpus_controller import router as corpus_router
 from profanity.profanitycontroller import router  as profanity_router
+from security.bot_detection.botdetectioncontroller import router as bot_detection_router
 
 app = FastAPI()
 app.add_middleware(RateLimitMiddleware, max_requests=5, window_seconds=10)
@@ -44,6 +45,7 @@ app.include_router(hf_router, prefix="/huggingface", tags=["huggingface"])
 app.include_router(corpus_router, prefix="/corpus", tags=["corpus"])
 
 app.include_router(profanity_router, prefix="/profanity", tags=["profanity"])
+app.include_router(bot_detection_router, prefix="/bot-detection", tags=["bot-detection"])
 
 
 revoked_service = RevokedTokenService("config.json")
