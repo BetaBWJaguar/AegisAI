@@ -5,17 +5,21 @@ class AIModelUtils:
 
     @staticmethod
     def sigmoid(z: float) -> float:
-        try:
-            return 1 / (1 + math.exp(-z))
-        except OverflowError:
-            return 0.0 if z < 0 else 1.0
+        z = max(min(z, 500), -500)
+        return 1.0 / (1.0 + math.exp(-z))
 
     @staticmethod
-    def normalize(value: float, min_v: float, max_v: float) -> float:
-        if max_v - min_v == 0:
+    def clamp01(x: float) -> float:
+        return 0.0 if x < 0.0 else (1.0 if x > 1.0 else x)
+
+    @staticmethod
+    def minmax(value: float, min_v: float, max_v: float) -> float:
+        if max_v <= min_v:
             return 0.0
         return (value - min_v) / (max_v - min_v)
 
     @staticmethod
-    def clamp01(x: float) -> float:
-        return max(0.0, min(1.0, x))
+    def zscore(value: float, mean: float, std: float) -> float:
+        if std <= 1e-9:
+            return 0.0
+        return (value - mean) / std
