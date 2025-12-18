@@ -1,6 +1,10 @@
 from starlette.types import ASGIApp, Receive, Scope, Send
-from fastapi import Request, HTTPException
+from fastapi import Request
+from fastapi.responses import JSONResponse
+from datetime import datetime
+from error.errortypes import ErrorType
 from ratelimit.ratelimitutility import RateLimitUtility
+
 
 class RateLimitMiddleware:
     def __init__(self, app: ASGIApp, max_requests: int, window_seconds: int):
@@ -10,7 +14,21 @@ class RateLimitMiddleware:
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
         if scope["type"] == "http":
             request = Request(scope, receive)
-            identifier = request.client.host
+            identifier = request.client.host if request.client else "unknown"
+
             if not self.rate_limiter.allow_request(identifier):
-                raise HTTPException(status_code=429, detail="Too Many Requests")
+                response = JSONResponse(
+                    status_code=429,
+                    content={
+                        "success": False,
+                        "error": {
+                            "type": ErrorType.RATE_LIMIT_EXCEEDED.value,
+                            "message": "Too Many Requests",
+                            "timestamp": datetime.utcnow().isoformat()
+                        }
+                    }
+                )
+                await response(scope, receive, send)
+                return
+
         await self.app(scope, receive, send)

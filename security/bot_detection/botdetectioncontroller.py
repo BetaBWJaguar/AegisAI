@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from typing import Dict, Any
+from typing import Dict, Any, Union
 
 from auth.authcontroller import get_current_user
 from error.expectionhandler import ExpectionHandler
@@ -17,7 +17,7 @@ from security.bot_detection.schemas.bot_detection_response import (
     BotDetectionResponse,
     LogMessageResponse,
     ActorEventsResponse,
-    ClearActorDataResponse
+    ClearActorDataResponse, BotDetectionPendingResponse
 )
 
 from error.errortypes import ErrorType
@@ -118,14 +118,15 @@ async def clear_actor_data(
 
 @router.get(
     "/check/{actor_key}",
-    response_model=BotDetectionResponse
+    response_model=Union[
+        BotDetectionPendingResponse,
+        BotDetectionResponse
+    ]
 )
-async def check_actor_by_path(
-    actor_key: str
-):
+async def check_actor_by_path(actor_key: str):
     try:
         result = service.check_actor(actor_key)
-        return BotDetectionResponse(**result)
+        return result
     except Exception as e:
         raise ExpectionHandler(
             message="Failed to analyze actor",

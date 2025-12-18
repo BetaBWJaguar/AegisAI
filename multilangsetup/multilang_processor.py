@@ -105,9 +105,29 @@ class MultiLangProcessor:
 
     @staticmethod
     def extract_linguistic_features(text: str, lang: str) -> dict:
+        MAX_SPACY_LENGTH = 2000
+
+        if not isinstance(text, str):
+            return {"error": "Invalid text"}
+
+        entropy = 0.0
+        normalizer = NORMALIZERS.get(lang)
+        if normalizer and hasattr(normalizer, "calculate_entropy"):
+            entropy = normalizer.calculate_entropy(text)
+
+        if len(text) > MAX_SPACY_LENGTH:
+            return {
+                "warning": "Text too long for linguistic analysis",
+                "length": len(text),
+                "entropy": entropy
+            }
+
         nlp = get_spacy_model(lang)
         if not nlp:
-            return {"error": f"Linguistic model for language '{lang}' not available."}
+            return {
+                "error": f"Linguistic model for language '{lang}' not available.",
+                "entropy": entropy
+            }
 
         doc = nlp(text)
 
@@ -118,7 +138,8 @@ class MultiLangProcessor:
         return {
             "tokens": tokens,
             "lemmas": lemmas,
-            "entities": entities
+            "entities": entities,
+            "entropy": entropy
         }
 
     @staticmethod

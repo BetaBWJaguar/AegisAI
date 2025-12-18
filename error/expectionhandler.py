@@ -72,6 +72,8 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         error_type = ErrorType.NOT_FOUND
     elif status == 429:
         error_type = ErrorType.RATE_LIMIT_EXCEEDED
+    elif status >= 500:
+        error_type = ErrorType.INTERNAL_SERVER_ERROR
 
     return JSONResponse(
         status_code=status,
@@ -79,7 +81,11 @@ async def http_exception_handler(request: Request, exc: HTTPException):
             "success": False,
             "error": {
                 "type": error_type.value,
-                "message": exc.detail or "An unexpected HTTP error occurred.",
+                "message": (
+                    exc.detail
+                    if isinstance(exc.detail, str)
+                    else "An HTTP error occurred."
+                ),
                 "timestamp": datetime.utcnow().isoformat()
             }
         }

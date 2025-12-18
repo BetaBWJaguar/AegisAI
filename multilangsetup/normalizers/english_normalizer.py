@@ -1,4 +1,7 @@
+import math
 import re
+from collections import Counter
+
 import unicodedata
 
 class EnglishNormalizer:
@@ -69,6 +72,22 @@ class EnglishNormalizer:
         if not isinstance(text, str):
             return ""
         return text.lower()
+
+    @staticmethod
+    def calculate_entropy(text: str) -> float:
+        if not isinstance(text, str) or not text:
+            return 0.0
+
+        counts = Counter(text)
+        total = len(text)
+
+        entropy = 0.0
+        for count in counts.values():
+            p = count / total
+            entropy -= p * math.log2(p)
+
+        return round(entropy, 4)
+
 
     @classmethod
     def normalize_all(cls, text: str, to_lower=True) -> str:
