@@ -103,6 +103,10 @@ class WorkspaceServiceImpl(WorkspaceService):
                             raise ValueError(f"Invalid risk '{risk}'. Allowed risks: {VALID_RISKS}")
                         ws.advisory_policy[risk_upper] = action.upper()
 
+                if "bot_detection" in updates:
+                    ws.bot_detection = bool(updates["bot_detection"])
+                    ws.updated_at = datetime.utcnow()
+
                     ws.updated_at = datetime.utcnow()
 
                 ws.updated_at = datetime.utcnow()

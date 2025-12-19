@@ -20,6 +20,7 @@ class Workspace:
     violations: List[Violation] = field(default_factory=list)
     censor_settings: CensorSettings = field(default_factory=CensorSettings)
     language: str = "tr"
+    bot_detection: bool = False
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
     advisory_policy: Dict[str, str] = field(

@@ -5,11 +5,11 @@ from typing import Dict, Any, Optional
 class BotDetectionService(ABC):
 
     @abstractmethod
-    def log_message(self, actor_key: str) -> None:
+    def log_message(self, actor_key: str, workspace_id: Optional[str] = None) -> None:
         pass
 
     @abstractmethod
-    def check_actor(self, actor_key: str) -> Dict[str, Any]:
+    def check_actor(self, actor_key: str, workspace_id: Optional[str] = None) -> Dict[str, Any]:
         pass
 
     @abstractmethod

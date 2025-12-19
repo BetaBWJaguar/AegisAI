@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from typing import Dict, Any, Union
+from typing import Dict, Any, Union, Optional
 
 from auth.authcontroller import get_current_user
 from error.expectionhandler import ExpectionHandler
@@ -34,7 +34,7 @@ async def log_message(
     request: LogMessageRequest
 ):
     try:
-        service.log_message(request.actor_key)
+        service.log_message(request.actor_key, request.workspace_id)
         return LogMessageResponse(
             success=True,
             actor_key=request.actor_key,
@@ -56,7 +56,7 @@ async def check_actor(
     request: CheckActorRequest
 ):
     try:
-        result = service.check_actor(request.actor_key)
+        result = service.check_actor(request.actor_key, request.workspace_id)
         return BotDetectionResponse(**result)
     except Exception as e:
         raise ExpectionHandler(
@@ -123,9 +123,9 @@ async def clear_actor_data(
         BotDetectionResponse
     ]
 )
-async def check_actor_by_path(actor_key: str):
+async def check_actor_by_path(actor_key: str, workspace_id: Optional[str] = None):
     try:
-        result = service.check_actor(actor_key)
+        result = service.check_actor(actor_key, workspace_id)
         return result
     except Exception as e:
         raise ExpectionHandler(
