@@ -10,12 +10,12 @@ class BehaviorScore:
     def calculate(f: Dict[str, float]) -> float:
         score = 0.0
 
-        events = f["events"]
-        rate = f["rate"]
-        avg_i = f["avg_interval"]
-        cv = f["cv"]
-        ent = f["entropy"]
-        burst = f["burst_ratio"]
+        events = f.get("events", 0)
+        rate = f.get("rate", 0.0)
+        avg_i = f.get("avg_interval", 999.0)
+        cv = f.get("cv", 1.0)
+        ent = f.get("entropy", 2.0)
+        burst = f.get("burst_ratio", 0.0)
 
         if rate >= 0.9:
             score += 0.30
@@ -44,6 +44,9 @@ class BehaviorScore:
             score += 0.08
 
         if events < 8:
-            score *= 0.6
+            score *= 0.7
+        elif events < 12:
+            score *= 0.85
 
         return _clamp01(score)
+

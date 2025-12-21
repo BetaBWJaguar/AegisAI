@@ -8,11 +8,12 @@ class BotDetectionLogger:
         self.events: Dict[str, Deque[float]] = defaultdict(lambda: deque(maxlen=max_events))
         self.window_sec = window_sec
 
-    def log_message(self, actor_key: str):
+    def log_message(self, actor_key: str) -> int:
         now = time.time()
         q = self.events[actor_key]
         q.append(now)
         self._prune_old(q, now)
+        return len(q)
 
     def get_events(self, actor_key: str) -> List[float]:
         q = self.events.get(actor_key)

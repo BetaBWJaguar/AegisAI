@@ -100,9 +100,10 @@ class BehaviorFeatures:
     def normalize(features: Dict[str, float]) -> Dict[str, float]:
         return {
             "events": min(features["events"] / 50.0, 1.0),
-            "message_rate": min(features["message_rate"] / 2.0, 1.0),
-            "avg_inter_arrival": min(features["avg_inter_arrival"] / 3.0, 1.0),
+            "rate": min(features["message_rate"] / 2.0, 1.0),
+            "avg_interval": 1.0 - min(features["avg_inter_arrival"] / 3.0, 1.0),
             "cv": min(features["cv"], 1.0),
-            "entropy": min(features["entropy"] / 2.0, 1.0),
-            "burst_density": min(features["burst_density"], 1.0),
+            "entropy": 1.0 - min(features["entropy"] / 2.0, 1.0),
+            "burst_ratio": min(features["burst_density"], 1.0),
         }
+

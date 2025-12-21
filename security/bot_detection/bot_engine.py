@@ -9,15 +9,22 @@ class BotEngine:
         self.ai_model = AIModel()
 
     def analyze(self, timestamps: list) -> dict:
-        if len(timestamps) < 5:
+        if not timestamps or len(timestamps) < 5:
             return {
                 "verdict": "UNKNOWN",
                 "reason": "Not enough data"
             }
 
         raw_features = BehaviorFeatures.extract(timestamps, self.window_sec)
+        if not raw_features:
+            return {
+                "verdict": "UNKNOWN",
+                "reason": "Feature extraction failed"
+            }
 
         features = BehaviorFeatures.normalize(raw_features)
         score = self.ai_model.predict_proba(features)
+
+        score = max(0.0, min(1.0, score))
 
         return BotVerdictResolver.resolve(score, features)
