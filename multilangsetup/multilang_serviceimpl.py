@@ -67,7 +67,7 @@ class MultiLangServiceImpl(MultiLangService):
                         processed_text = MultiLangProcessor.normalize_by_language(processed_text, detected_lang)
 
                 elif step == Step.ANALYZE:
-                    result["analysis"] = MultiLangProcessor.analyze_text_structure(processed_text)
+                    result["analysis"] = MultiLangProcessor.analyze_text_structure(processed_text, detected_lang)
 
                 elif step == Step.KEYWORDS:
                     if detected_lang in SUPPORTED_LANGUAGES:
