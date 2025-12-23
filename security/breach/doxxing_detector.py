@@ -1,5 +1,4 @@
 import re
-
 from security.breach.context_detector import ContextDetector
 from security.breach.pii_detector import PIIDetector
 
@@ -20,22 +19,42 @@ class DoxxingDetector:
         if not pii_signals:
             return False
 
-        has_person = ContextDetector.has_person(text)
-        has_address = ContextDetector.has_address_hint(text)
-        has_intent = ContextDetector.has_expose_intent(text)
-
-        score = 0.0
         kinds = {s.kind for s in pii_signals}
 
-        if "email" in kinds: score += 0.35
-        if "phone" in kinds: score += 0.45
-        if "ipv4" in kinds:  score += 0.25
-        if "coord" in kinds: score += 0.55
-        if "maps" in kinds:  score += 0.55
+        has_person  = ContextDetector.has_person(text)
+        has_address = ContextDetector.has_address_hint(text)
+        has_intent  = ContextDetector.has_expose_intent(text)
+        self_disc   = ContextDetector.is_self_disclosure(text)
 
-        if has_person:  score += 0.35
-        if has_address: score += 0.35
-        if has_intent:  score += 0.45
+        if kinds == {"email"} and not (has_person or has_intent):
+            return False
+
+        score = 0.0
+
+        weights = {
+            "email": 0.30,
+            "phone": 0.45,
+            "ipv4":  0.25,
+            "coord": 0.55,
+            "maps":  0.55,
+            "id_number": 0.60,
+        }
+
+        for k in kinds:
+            score += weights.get(k, 0.0)
+
+        if len(kinds) >= 2:
+            score += 0.25
+
+        if has_person:
+            score += 0.35
+        if has_address:
+            score += 0.35
+        if has_intent:
+            score += 0.45
+
+        if self_disc:
+            score -= 0.4
 
         if has_person and has_address and has_intent:
             return True
