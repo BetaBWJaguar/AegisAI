@@ -12,6 +12,11 @@ RE_MAPS  = re.compile(
     re.I
 )
 RE_ID_NUMBER = re.compile(r"\b\d{11}\b")
+RE_IBAN = re.compile(r"\b[A-Z]{2}\d{2}[A-Z0-9]{4,30}\b", re.I)
+RE_URL = re.compile(
+    r"\b(?:https?://|www\.)[A-Z0-9.-]+\.[A-Z]{2,}(?:/[^\s]*)?",
+    re.I
+)
 
 
 @dataclass
@@ -27,6 +32,32 @@ class PIIDetector:
         try:
             return all(0 <= int(p) <= 255 for p in ip.split("."))
         except ValueError:
+            return False
+    
+    @staticmethod
+    def _valid_iban(iban: str) -> bool:
+        iban = iban.upper().replace(" ", "")
+        
+
+        if not re.match(r'^[A-Z]{2}\d{2}[A-Z0-9]+$', iban):
+            return False
+            
+
+        if len(iban) < 15 or len(iban) > 34:
+            return False
+
+        rearranged = iban[4:] + iban[:4]
+
+        numeric_iban = ''
+        for char in rearranged:
+            if char.isdigit():
+                numeric_iban += char
+            else:
+                numeric_iban += str(ord(char) - ord('A') + 10)
+
+        try:
+            return int(numeric_iban) % 97 == 1
+        except (ValueError, OverflowError):
             return False
 
     @staticmethod
@@ -48,5 +79,7 @@ class PIIDetector:
         add("coord", RE_COORD)
         add("maps", RE_MAPS)
         add("id_number", RE_ID_NUMBER)
+        add("iban", RE_IBAN, PIIDetector._valid_iban)
+        add("url", RE_URL)
 
         return signals

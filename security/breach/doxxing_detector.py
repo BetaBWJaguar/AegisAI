@@ -38,6 +38,8 @@ class DoxxingDetector:
             "coord": 0.55,
             "maps":  0.55,
             "id_number": 0.60,
+            "iban": 0.65,
+            "url": 0.20,
         }
 
         for k in kinds:
