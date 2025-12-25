@@ -17,6 +17,7 @@ RE_URL = re.compile(
     r"\b(?:https?://|www\.)[A-Z0-9.-]+\.[A-Z]{2,}(?:/[^\s]*)?",
     re.I
 )
+RE_CREDIT_CARD = re.compile(r"\b(?:\d[ -]*?){13,19}\b")
 
 
 @dataclass
@@ -33,7 +34,44 @@ class PIIDetector:
             return all(0 <= int(p) <= 255 for p in ip.split("."))
         except ValueError:
             return False
-    
+
+    @staticmethod
+    def _valid_iban(iban: str) -> bool:
+        iban = iban.upper().replace(" ", "")
+
+        if not re.match(r'^[A-Z]{2}\d{2}[A-Z0-9]+$', iban):
+            return False
+        if not 15 <= len(iban) <= 34:
+            return False
+
+        rearranged = iban[4:] + iban[:4]
+        numeric = ""
+
+        for c in rearranged:
+            numeric += c if c.isdigit() else str(ord(c) - 55)
+
+        try:
+            return int(numeric) % 97 == 1
+        except Exception:
+            return False
+
+    @staticmethod
+    def _valid_credit_card(cc: str) -> bool:
+        cc = re.sub(r"\D", "", cc)
+        if not 13 <= len(cc) <= 19:
+            return False
+
+        total = 0
+        reverse = cc[::-1]
+        for i, d in enumerate(reverse):
+            n = int(d)
+            if i % 2 == 1:
+                n *= 2
+                if n > 9:
+                    n -= 9
+            total += n
+        return total % 10 == 0
+
     @staticmethod
     def _valid_iban(iban: str) -> bool:
         iban = iban.upper().replace(" ", "")
@@ -80,6 +118,7 @@ class PIIDetector:
         add("maps", RE_MAPS)
         add("id_number", RE_ID_NUMBER)
         add("iban", RE_IBAN, PIIDetector._valid_iban)
+        add("credit_card", RE_CREDIT_CARD, PIIDetector._valid_credit_card)
         add("url", RE_URL)
 
         return signals
