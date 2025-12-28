@@ -52,3 +52,12 @@ class ContextDetector:
             for lang in LANGS
             for hint in getattr(lang, "SELF_DISCLOSURE_HINTS", [])
         )
+
+    @staticmethod
+    def has_target_reference(text: str) -> bool:
+        t = text.lower()
+        return any(
+            tw in t
+            for lang in LANGS
+            for tw in getattr(lang, "TARGET_WORDS", [])
+        )

@@ -37,6 +37,7 @@ class DoxxingDetector:
 
     CONTEXT_WEIGHTS: Dict[str, float] = {
         "has_person": 0.35,
+        "has_target": 0.25,
         "has_address_hint": 0.35,
         "has_expose_intent": 0.45,
         "has_social": 0.30,
@@ -63,12 +64,13 @@ class DoxxingDetector:
 
     @staticmethod
     def _has_pair(kinds: Set[str], a: str, b: str) -> bool:
-        return (a in kinds) and (b in kinds)
+        return a in kinds and b in kinds
 
     @staticmethod
     def _compute_score(
             kinds: Set[str],
             has_person: bool,
+            has_target: bool,
             has_address: bool,
             has_intent: bool,
             self_disc: bool,
@@ -82,6 +84,8 @@ class DoxxingDetector:
             score += DoxxingDetector.MULTI_KIND_BONUS
         if has_person:
             score += DoxxingDetector.CONTEXT_WEIGHTS["has_person"]
+        if has_target:
+            score += DoxxingDetector.CONTEXT_WEIGHTS["has_target"]
         if has_address:
             score += DoxxingDetector.CONTEXT_WEIGHTS["has_address_hint"]
         if has_intent:
@@ -89,13 +93,15 @@ class DoxxingDetector:
         if has_social:
             score += DoxxingDetector.CONTEXT_WEIGHTS["has_social"]
         for (a, b), bonus in DoxxingDetector.CORRELATIONS.items():
-            if DoxxingDetector._has_pair(kinds, a, b) or DoxxingDetector._has_pair(kinds, b, a):
+            if DoxxingDetector._has_pair(kinds, a, b):
                 score += bonus
 
-        if has_social and (("phone" in kinds) or ("email" in kinds)):
+        if has_social and ("phone" in kinds or "email" in kinds):
             score += 0.45
-        if has_intent and (has_social or ("coord" in kinds) or ("maps" in kinds) or has_address):
+
+        if has_intent and (has_social or has_address or "coord" in kinds or "maps" in kinds):
             score += 0.35
+
         if self_disc:
             score -= DoxxingDetector.SELF_DISCLOSURE_PENALTY
 
@@ -105,14 +111,21 @@ class DoxxingDetector:
     def _early_exit_rules(
             kinds: Set[str],
             has_person: bool,
+            has_target: bool,
             has_intent: bool,
             has_address: bool,
             has_social: bool,
     ) -> bool:
-        if kinds == {"email"} and DoxxingDetector.EMAIL_ALONE_ALLOW and not (has_person or has_intent):
+        if (
+                kinds == {"email"}
+                and DoxxingDetector.EMAIL_ALONE_ALLOW
+                and not (has_person or has_target or has_intent)
+        ):
             return True
-
-        if kinds.issubset(DoxxingDetector.LOW_RISK_ALONE) and not (has_person or has_intent or has_address or has_social):
+        if (
+                kinds.issubset(DoxxingDetector.LOW_RISK_ALONE)
+                and not (has_person or has_target or has_intent or has_address or has_social)
+        ):
             return True
 
         return False
@@ -131,6 +144,7 @@ class DoxxingDetector:
         kinds = {s.kind for s in pii_signals}
 
         has_person = ContextDetector.has_person(text)
+        has_target = ContextDetector.has_target_reference(text)
         has_address = ContextDetector.has_address_hint(text)
         has_intent = ContextDetector.has_expose_intent(text)
         self_disc = ContextDetector.is_self_disclosure(text)
@@ -138,19 +152,22 @@ class DoxxingDetector:
         has_social = False
         if SocialMediaDetector is not None:
             try:
-                has_social = len(SocialMediaDetector.detect(text)) > 0
+                has_social = bool(SocialMediaDetector.detect(text))
             except Exception:
-                has_social = False
+                pass
 
-        if has_person and has_address and has_intent:
+        if (has_person or has_target) and has_address and has_intent:
             return True
 
-        if DoxxingDetector._early_exit_rules(kinds, has_person, has_intent, has_address, has_social):
+        if DoxxingDetector._early_exit_rules(
+                kinds, has_person, has_target, has_intent, has_address, has_social
+        ):
             return False
 
         score = DoxxingDetector._compute_score(
             kinds=kinds,
             has_person=has_person,
+            has_target=has_target,
             has_address=has_address,
             has_intent=has_intent,
             self_disc=self_disc,
@@ -167,35 +184,41 @@ class DoxxingDetector:
         pii_signals = PIIDetector.detect(text_n)
         kinds = {s.kind for s in pii_signals}
 
-        has_person = ContextDetector.has_person(text_n) if text_n else False
-        has_address = ContextDetector.has_address_hint(text_n) if text_n else False
-        has_intent = ContextDetector.has_expose_intent(text_n) if text_n else False
-        self_disc = ContextDetector.is_self_disclosure(text_n) if text_n else False
+        has_person = ContextDetector.has_person(text_n)
+        has_target = ContextDetector.has_target_reference(text_n)
+        has_address = ContextDetector.has_address_hint(text_n)
+        has_intent = ContextDetector.has_expose_intent(text_n)
+        self_disc = ContextDetector.is_self_disclosure(text_n)
 
         has_social = False
         if SocialMediaDetector is not None:
             try:
-                has_social = len(SocialMediaDetector.detect(text_n)) > 0
+                has_social = bool(SocialMediaDetector.detect(text_n))
             except Exception:
-                has_social = False
+                pass
 
-        early_exit = DoxxingDetector._early_exit_rules(kinds, has_person, has_intent, has_address, has_social)
+        early_exit = DoxxingDetector._early_exit_rules(
+            kinds, has_person, has_target, has_intent, has_address, has_social
+        )
+
         score = 0.0 if (not pii_signals or early_exit) else DoxxingDetector._compute_score(
             kinds=kinds,
             has_person=has_person,
+            has_target=has_target,
             has_address=has_address,
             has_intent=has_intent,
             self_disc=self_disc,
             has_social=has_social,
         )
 
-        hard_trigger = bool(has_person and has_address and has_intent)
-        decision = True if hard_trigger else (False if early_exit else (score >= threshold))
+        hard_trigger = bool((has_person or has_target) and has_address and has_intent)
+        decision = True if hard_trigger else (False if early_exit else score >= threshold)
 
         return {
             "normalized": text_n,
-            "pii_kinds": sorted(list(kinds)),
+            "pii_kinds": sorted(kinds),
             "has_person": has_person,
+            "has_target_reference": has_target,
             "has_address_hint": has_address,
             "has_expose_intent": has_intent,
             "is_self_disclosure": self_disc,
