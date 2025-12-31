@@ -1,3 +1,4 @@
+from security.breach.actions.actiondecision import ActionDecision
 from security.breach.actions.actionpolicy import DoxxingActionPolicy
 from security.breach.doxxing_detector import DoxxingDetector
 from security.breach.infraction.infraction_result import InfractionResult
@@ -40,3 +41,11 @@ class InfractionServiceImpl(InfractionService):
                 return tier
 
         return "LOW"
+
+    def analyze_risk(self, text: str) -> tuple[str, float, bool]:
+        r = self.analyze(text)
+        return r.risk_tier, r.score, r.is_violation
+
+    def decide_action(self, text: str) -> ActionDecision:
+        return self.analyze(text).decision
+
