@@ -5,6 +5,7 @@ from typing import List, Optional
 from pydantic import EmailStr
 from pymongo import MongoClient
 
+from security.breach.doxxing_settings import DoxxingSettings
 from user.censormode import CensorMode
 from user.censorsettings import CensorSettings, CensorRule
 from user.device import Device
@@ -98,6 +99,7 @@ class UserServiceImpl(UserService):
                             if isinstance(rule_dict, dict)
                         }
                     ),
+                    doxxing_settings=DoxxingSettings.from_dict(ws.get("doxxing_settings", {})) if ws.get("doxxing_settings") else DoxxingSettings(),
                     advisory_policy={
                         risk.upper(): action.upper()
                         for risk, action in ws.get("advisory_policy", {}).items()

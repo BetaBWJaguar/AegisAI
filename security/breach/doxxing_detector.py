@@ -33,6 +33,9 @@ class DoxxingDetector:
         "iban": 0.65,
         "credit_card": 0.95,
         "url": 0.20,
+        "birthdate": 0.35,
+        "vin": 0.55,
+        "health": 0.40,
     }
 
     CONTEXT_WEIGHTS: Dict[str, float] = {
@@ -41,6 +44,8 @@ class DoxxingDetector:
         "has_address_hint": 0.35,
         "has_expose_intent": 0.45,
         "has_social": 0.30,
+        "has_health": 0.30,
+        "has_vehicle": 0.30,
     }
 
     CORRELATIONS: Dict[Tuple[str, str], float] = {
@@ -54,6 +59,10 @@ class DoxxingDetector:
         ("coord", "maps"): 0.35,
         ("url", "id_number"): 0.35,
         ("url", "phone"): 0.35,
+        ("birthdate", "id_number"): 0.70,
+        ("birthdate", "phone"): 0.45,
+        ("vin", "phone"): 0.40,
+        ("health", "id_number"): 0.50,
     }
 
     LOW_RISK_ALONE: Set[str] = {"url", "ipv4"}
@@ -75,6 +84,8 @@ class DoxxingDetector:
             has_intent: bool,
             self_disc: bool,
             has_social: bool,
+            has_health_ctx: bool,
+            has_vehicle_ctx: bool,
     ) -> float:
         score = 0.0
 
@@ -92,6 +103,11 @@ class DoxxingDetector:
             score += DoxxingDetector.CONTEXT_WEIGHTS["has_expose_intent"]
         if has_social:
             score += DoxxingDetector.CONTEXT_WEIGHTS["has_social"]
+        if has_health_ctx:
+            score += DoxxingDetector.CONTEXT_WEIGHTS["has_health"]
+        if has_vehicle_ctx:
+            score += DoxxingDetector.CONTEXT_WEIGHTS["has_vehicle"]
+
         for (a, b), bonus in DoxxingDetector.CORRELATIONS.items():
             if DoxxingDetector._has_pair(kinds, a, b):
                 score += bonus
@@ -99,7 +115,10 @@ class DoxxingDetector:
         if has_social and ("phone" in kinds or "email" in kinds):
             score += 0.45
 
-        if has_intent and (has_social or has_address or "coord" in kinds or "maps" in kinds):
+        if has_intent and (
+                has_social or has_address or
+                "coord" in kinds or "maps" in kinds
+        ):
             score += 0.35
 
         if self_disc:
@@ -148,6 +167,8 @@ class DoxxingDetector:
         has_address = ContextDetector.has_address_hint(text)
         has_intent = ContextDetector.has_expose_intent(text)
         self_disc = ContextDetector.is_self_disclosure(text)
+        has_health_ctx = ContextDetector.has_health_context(text)
+        has_vehicle_ctx = ContextDetector.has_vehicle_context(text)
 
         has_social = False
         if SocialMediaDetector is not None:
@@ -156,8 +177,11 @@ class DoxxingDetector:
             except Exception:
                 pass
 
-        if (has_person or has_target) and has_address and has_intent:
-            return True
+        if has_intent and (has_person or has_target):
+            if has_address:
+                return True
+            if {"birthdate", "health", "vin"} & kinds:
+                return True
 
         if DoxxingDetector._early_exit_rules(
                 kinds, has_person, has_target, has_intent, has_address, has_social
@@ -172,6 +196,8 @@ class DoxxingDetector:
             has_intent=has_intent,
             self_disc=self_disc,
             has_social=has_social,
+            has_health_ctx=has_health_ctx,
+            has_vehicle_ctx=has_vehicle_ctx,
         )
 
         return score >= threshold
@@ -189,6 +215,8 @@ class DoxxingDetector:
         has_address = ContextDetector.has_address_hint(text_n)
         has_intent = ContextDetector.has_expose_intent(text_n)
         self_disc = ContextDetector.is_self_disclosure(text_n)
+        has_health_ctx = ContextDetector.has_health_context(text_n)
+        has_vehicle_ctx = ContextDetector.has_vehicle_context(text_n)
 
         has_social = False
         if SocialMediaDetector is not None:
@@ -209,9 +237,15 @@ class DoxxingDetector:
             has_intent=has_intent,
             self_disc=self_disc,
             has_social=has_social,
+            has_health_ctx=has_health_ctx,
+            has_vehicle_ctx=has_vehicle_ctx,
         )
 
-        hard_trigger = bool((has_person or has_target) and has_address and has_intent)
+        hard_trigger = bool(
+            has_intent and (has_person or has_target) and
+            (has_address or {"birthdate", "health", "vin"} & kinds)
+        )
+
         decision = True if hard_trigger else (False if early_exit else score >= threshold)
 
         return {
@@ -223,6 +257,8 @@ class DoxxingDetector:
             "has_expose_intent": has_intent,
             "is_self_disclosure": self_disc,
             "has_social": has_social,
+            "has_health_context": has_health_ctx,
+            "has_vehicle_context": has_vehicle_ctx,
             "hard_trigger": hard_trigger,
             "early_exit": early_exit,
             "score": round(score, 4),

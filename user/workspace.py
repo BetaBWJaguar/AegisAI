@@ -3,6 +3,7 @@ from datetime import datetime
 import uuid
 from typing import List, Optional, Dict
 
+from security.breach.doxxing_settings import DoxxingSettings
 from trainer.modelregistry import ModelRegistry
 from user.censorsettings import CensorSettings
 from user.rule import Rule
@@ -19,6 +20,7 @@ class Workspace:
     rules: List[Rule] = field(default_factory=list)
     violations: List[Violation] = field(default_factory=list)
     censor_settings: CensorSettings = field(default_factory=CensorSettings)
+    doxxing_settings: DoxxingSettings = field(default_factory=DoxxingSettings)
     language: str = "tr"
     bot_detection: bool = False
     created_at: datetime = field(default_factory=datetime.utcnow)
@@ -127,5 +129,10 @@ class Workspace:
             }
         else:
             data["censor_settings"] = {}
+
+        if self.doxxing_settings:
+            data["doxxing_settings"] = self.doxxing_settings.to_dict()
+        else:
+            data["doxxing_settings"] = {}
 
         return data

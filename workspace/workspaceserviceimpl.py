@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import List, Optional, Dict, Any
 
 from auditmanager.auditlogserviceimpl import AuditLogServiceImpl
+from security.breach.doxxing_settings import DoxxingSettings, DoxxingPIIConfig, DoxxingContextConfig
 from trainer.modelregistry import ModelRegistry
 from user.censormode import CensorMode
 from user.censorsettings import CensorSettings, CensorRule
@@ -105,9 +106,10 @@ class WorkspaceServiceImpl(WorkspaceService):
 
                 if "bot_detection" in updates:
                     ws.bot_detection = bool(updates["bot_detection"])
-                    ws.updated_at = datetime.utcnow()
 
-                    ws.updated_at = datetime.utcnow()
+                if "doxxing_settings" in updates:
+                    raw_settings = updates["doxxing_settings"]
+                    ws.doxxing_settings = DoxxingSettings.from_dict(raw_settings)
 
                 ws.updated_at = datetime.utcnow()
 
@@ -326,4 +328,170 @@ class WorkspaceServiceImpl(WorkspaceService):
 
 
         return result.modified_count > 0
+
+    def get_doxxing_settings(
+            self,
+            user_id: str,
+            workspace_id: str
+    ) -> Optional[DoxxingSettings]:
+        ws = self.get_workspace(user_id, workspace_id)
+        if not ws:
+            return None
+
+        if not ws.doxxing_settings:
+            ws.doxxing_settings = DoxxingSettings()
+
+        return ws.doxxing_settings
+
+    def update_doxxing_settings(
+            self,
+            user_id: str,
+            workspace_id: str,
+            settings: Dict[str, Any]
+    ) -> Optional[DoxxingSettings]:
+
+        ws = self.get_workspace(user_id, workspace_id)
+        if not ws:
+            return None
+
+        ws.doxxing_settings = DoxxingSettings.from_dict(settings)
+        ws.updated_at = datetime.utcnow()
+
+        user = self.user_service.get_user(user_id)
+        for i, w in enumerate(user.workspaces):
+            if str(w.id) == str(workspace_id):
+                user.workspaces[i] = ws
+                break
+
+        self.collection.update_one(
+            {"id": str(user.id)},
+            {"$set": user.to_dict()}
+        )
+
+        self.audit_log_service.create_log(
+            user_id=uuid.UUID(user_id),
+            workspace_id=uuid.UUID(workspace_id),
+            action="DOXXING_SETTINGS_UPDATED",
+            target=ws.name,
+            details="Doxxing settings updated.",
+            ip_address=ClientIPStorage.get()
+        )
+
+        return ws.doxxing_settings
+
+    def update_pii_config(
+            self,
+            user_id: str,
+            workspace_id: str,
+            pii_type: str,
+            enabled: Optional[bool] = None,
+            weight: Optional[float] = None,
+    ) -> Optional[DoxxingPIIConfig]:
+
+        ws = self.get_workspace(user_id, workspace_id)
+        if not ws:
+            return None
+
+        ws.doxxing_settings.update_pii_config(pii_type, enabled, weight)
+        ws.updated_at = datetime.utcnow()
+
+        user = self.user_service.get_user(user_id)
+        for i, w in enumerate(user.workspaces):
+            if str(w.id) == str(workspace_id):
+                user.workspaces[i] = ws
+                break
+
+        self.collection.update_one(
+            {"id": str(user.id)},
+            {"$set": user.to_dict()}
+        )
+
+        self.audit_log_service.create_log(
+            user_id=uuid.UUID(user_id),
+            workspace_id=uuid.UUID(workspace_id),
+            action="DOXXING_PII_UPDATED",
+            target=pii_type,
+            details=f"PII config updated for '{pii_type}'.",
+            ip_address=ClientIPStorage.get()
+        )
+
+        return ws.doxxing_settings.pii_config.get(pii_type)
+
+
+    def update_context_config(
+            self,
+            user_id: str,
+            workspace_id: str,
+            context_type: str,
+            enabled: Optional[bool] = None,
+            weight: Optional[float] = None,
+    ) -> Optional[DoxxingContextConfig]:
+
+        ws = self.get_workspace(user_id, workspace_id)
+        if not ws:
+            return None
+
+        ws.doxxing_settings.update_context_config(context_type, enabled, weight)
+        ws.updated_at = datetime.utcnow()
+
+        user = self.user_service.get_user(user_id)
+        for i, w in enumerate(user.workspaces):
+            if str(w.id) == str(workspace_id):
+                user.workspaces[i] = ws
+                break
+
+        self.collection.update_one(
+            {"id": str(user.id)},
+            {"$set": user.to_dict()}
+        )
+
+        self.audit_log_service.create_log(
+            user_id=uuid.UUID(user_id),
+            workspace_id=uuid.UUID(workspace_id),
+            action="DOXXING_CONTEXT_UPDATED",
+            target=context_type,
+            details=f"Context config updated for '{context_type}'.",
+            ip_address=ClientIPStorage.get()
+        )
+
+        return ws.doxxing_settings.context_config.get(context_type)
+
+    def set_risk_action(
+            self,
+            user_id: str,
+            workspace_id: str,
+            risk_tier: str,
+            action: str
+    ) -> bool:
+
+        ws = self.get_workspace(user_id, workspace_id)
+        if not ws:
+            return False
+
+        ws.doxxing_settings.set_action_for_risk(risk_tier, action)
+        ws.updated_at = datetime.utcnow()
+
+        user = self.user_service.get_user(user_id)
+        for i, w in enumerate(user.workspaces):
+            if str(w.id) == str(workspace_id):
+                user.workspaces[i] = ws
+                break
+
+        self.collection.update_one(
+            {"id": str(user.id)},
+            {"$set": user.to_dict()}
+        )
+
+        self.audit_log_service.create_log(
+            user_id=uuid.UUID(user_id),
+            workspace_id=uuid.UUID(workspace_id),
+            action="DOXXING_RISK_ACTION_UPDATED",
+            target=risk_tier.upper(),
+            details=f"Risk action set to '{action.upper()}'.",
+            ip_address=ClientIPStorage.get()
+        )
+
+        return True
+
+
 

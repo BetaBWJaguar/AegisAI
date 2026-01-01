@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends
 from typing import List
 
@@ -12,7 +13,13 @@ from user.userserviceimpl import UserServiceImpl
 from workspace.workspaceserviceimpl import WorkspaceServiceImpl
 from workspace.create.workspace_create import WorkspaceCreate, RuleCreate
 from workspace.upsert.workspace_upsert import WorkspaceUpsert
-from workspace.response.workspace_response import WorkspaceResponse, RuleResponse
+from workspace.response.workspace_response import (
+    WorkspaceResponse,
+    RuleResponse,
+    DoxxingSettingsResponse,
+    DoxxingPIIConfigResponse,
+    DoxxingContextConfigResponse
+)
 
 router = APIRouter()
 user_service = UserServiceImpl("config.json")
@@ -237,6 +244,200 @@ async def delete_violation(user_id: str, workspace_id: str, violation_id: str, c
     except Exception as e:
         raise ExpectionHandler(
             message="Error occurred while deleting violation.",
+            error_type=ErrorType.DATABASE_ERROR,
+            detail=str(e)
+        )
+
+@router.get(
+    "/{user_id}/{workspace_id}/doxxing-settings",
+    response_model=DoxxingSettingsResponse
+)
+async def get_doxxing_settings(
+        user_id: str,
+        workspace_id: str,
+        current_user=Depends(get_current_user)
+):
+    try:
+        settings = workspace_service.get_doxxing_settings(user_id, workspace_id)
+        if not settings:
+            raise ExpectionHandler(
+                message=f"Workspace with ID '{workspace_id}' not found.",
+                error_type=ErrorType.NOT_FOUND
+            )
+        return settings.to_dict()
+    except ExpectionHandler:
+        raise
+    except Exception as e:
+        raise ExpectionHandler(
+            message="Error while retrieving doxxing settings.",
+            error_type=ErrorType.DATABASE_ERROR,
+            detail=str(e)
+        )
+
+
+
+@router.put(
+    "/{user_id}/{workspace_id}/doxxing-settings",
+    response_model=DoxxingSettingsResponse
+)
+async def update_doxxing_settings(
+        user_id: str,
+        workspace_id: str,
+        settings: dict,
+        current_user=Depends(get_current_user)
+):
+    try:
+        updated = workspace_service.update_doxxing_settings(
+            user_id, workspace_id, settings
+        )
+        if not updated:
+            raise ExpectionHandler(
+                message=f"Workspace with ID '{workspace_id}' not found.",
+                error_type=ErrorType.NOT_FOUND
+            )
+        return updated.to_dict()
+    except ExpectionHandler:
+        raise
+    except Exception as e:
+        raise ExpectionHandler(
+            message="Error occurred while updating doxxing settings.",
+            error_type=ErrorType.DATABASE_ERROR,
+            detail=str(e)
+        )
+
+
+
+@router.post("/{user_id}/{workspace_id}/doxxing-settings/toggle")
+async def toggle_doxxing_detection(
+        user_id: str,
+        workspace_id: str,
+        enabled: bool = True,
+        current_user=Depends(get_current_user)
+):
+    try:
+        settings = workspace_service.get_doxxing_settings(user_id, workspace_id)
+        if not settings:
+            raise ExpectionHandler(
+                message=f"Workspace with ID '{workspace_id}' not found.",
+                error_type=ErrorType.NOT_FOUND
+            )
+
+        settings.enabled = enabled
+        workspace_service.update_doxxing_settings(
+            user_id,
+            workspace_id,
+            settings.to_dict()
+        )
+
+        return {
+            "enabled": enabled,
+            "message": f"Doxxing detection {'enabled' if enabled else 'disabled'} successfully."
+        }
+    except ExpectionHandler:
+        raise
+    except Exception as e:
+        raise ExpectionHandler(
+            message="Error occurred while toggling doxxing detection.",
+            error_type=ErrorType.DATABASE_ERROR,
+            detail=str(e)
+        )
+
+
+
+@router.post(
+    "/{user_id}/{workspace_id}/doxxing-settings/pii-config",
+    response_model=DoxxingPIIConfigResponse
+)
+async def update_pii_config(
+        user_id: str,
+        workspace_id: str,
+        pii_type: str,
+        enabled: bool = None,
+        weight: float = None,
+        current_user=Depends(get_current_user)
+):
+    try:
+        config = workspace_service.update_pii_config(
+            user_id, workspace_id, pii_type, enabled, weight
+        )
+        if not config:
+            raise ExpectionHandler(
+                message=f"Workspace with ID '{workspace_id}' not found.",
+                error_type=ErrorType.NOT_FOUND
+            )
+
+        return config.to_dict()
+    except ExpectionHandler:
+        raise
+    except Exception as e:
+        raise ExpectionHandler(
+            message="Error occurred while updating PII config.",
+            error_type=ErrorType.DATABASE_ERROR,
+            detail=str(e)
+        )
+
+
+@router.post(
+    "/{user_id}/{workspace_id}/doxxing-settings/context-config",
+    response_model=DoxxingContextConfigResponse
+)
+async def update_context_config(
+        user_id: str,
+        workspace_id: str,
+        context_type: str,
+        enabled: bool = None,
+        weight: float = None,
+        current_user=Depends(get_current_user)
+):
+    try:
+        config = workspace_service.update_context_config(
+            user_id, workspace_id, context_type, enabled, weight
+        )
+        if not config:
+            raise ExpectionHandler(
+                message=f"Workspace with ID '{workspace_id}' not found.",
+                error_type=ErrorType.NOT_FOUND
+            )
+
+        return config.to_dict()
+    except ExpectionHandler:
+        raise
+    except Exception as e:
+        raise ExpectionHandler(
+            message="Error occurred while updating context config.",
+            error_type=ErrorType.DATABASE_ERROR,
+            detail=str(e)
+        )
+
+
+@router.post("/{user_id}/{workspace_id}/doxxing-settings/risk-action")
+async def set_risk_action(
+        user_id: str,
+        workspace_id: str,
+        risk_tier: str,
+        action: str,
+        current_user=Depends(get_current_user)
+):
+    try:
+        success = workspace_service.set_risk_action(
+            user_id, workspace_id, risk_tier, action
+        )
+        if not success:
+            raise ExpectionHandler(
+                message=f"Workspace with ID '{workspace_id}' not found.",
+                error_type=ErrorType.NOT_FOUND
+            )
+
+        return {
+            "risk_tier": risk_tier.upper(),
+            "action": action.upper(),
+            "message": f"Action for {risk_tier.upper()} risk set to {action.upper()}."
+        }
+    except ExpectionHandler:
+        raise
+    except Exception as e:
+        raise ExpectionHandler(
+            message="Error occurred while setting risk action.",
             error_type=ErrorType.DATABASE_ERROR,
             detail=str(e)
         )
