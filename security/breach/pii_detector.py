@@ -20,6 +20,20 @@ RE_ID_NUMBER = re.compile(r"\b\d{11}\b")
 RE_IBAN = re.compile(r"\b[A-Z]{2}\d{2}[A-Z0-9]{4,30}\b", re.I)
 RE_URL = re.compile(r"\b(?:https?://|www\.)[A-Z0-9.-]+\.[A-Z]{2,}(?:/[^\s]*)?", re.I)
 RE_CREDIT_CARD = re.compile(r"\b(?:\d[ -]*?){13,19}\b")
+RE_BITCOIN_ADDRESS = re.compile(r"\b(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,39}\b")
+RE_ETHEREUM_ADDRESS = re.compile(r"\b0x[a-fA-F0-9]{40}\b")
+RE_CRYPTO_WALLET = re.compile(r"\b(?:0x[a-fA-F0-9]{40}|[13][a-zA-HJ-NP-Z0-9]{25,39}|bc1[a-zA-HJ-NP-Z0-9]{39,59})\b")
+RE_SWIFT_BIC = re.compile(r"\b[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?\b")
+
+RE_PASSPORT = re.compile(r"\b[A-Z]{1,2}\d{6,9}\b")
+RE_DRIVER_LICENSE = re.compile(r"\b[A-Z]{1,2}\d{5,8}\b")
+RE_STUDENT_ID = re.compile(r"\b(?:STU|STD|S)\d{6,10}\b", re.I)
+RE_UNIVERSITY_EMAIL = re.compile(r"\b[A-Z0-9._%+-]+@(?:student\.|edu\.|ac\.)[A-Z0-9.-]+\.[A-Z]{2,}\b", re.I)
+RE_FINGERPRINT = re.compile(r"\b(?:fingerprint|fingerprint_data|biometric_data|iris_scan|face_recognition)[:\s]*[A-F0-9+/]{50,}={0,2}\b", re.I)
+RE_DNA_SEQUENCE = re.compile(r"\b(?:dna|genetic|genome)[:\s]*[ATCG]{20,}\b", re.I)
+RE_SSN = re.compile(r"\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b")
+RE_TAX_ID = re.compile(r"\b\d{3}-\d{2}-\d{4}\b")
+RE_NATIONAL_ID = re.compile(r"\b\d{10,15}\b")
 
 
 @dataclass
@@ -77,6 +91,31 @@ class PIIDetector:
             return False
 
     @staticmethod
+    def _valid_bitcoin_address(addr: str) -> bool:
+        addr = addr.lower()
+        if addr.startswith('bc1'):
+            return 39 <= len(addr) <= 59
+        elif addr.startswith('1') or addr.startswith('3'):
+            return 26 <= len(addr) <= 35
+        return False
+
+    @staticmethod
+    def _valid_ethereum_address(addr: str) -> bool:
+        return re.match(r'^0x[a-fA-F0-9]{40}$', addr) is not None
+
+    @staticmethod
+    def _valid_swift_bic(bic: str) -> bool:
+        return re.match(r'^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$', bic) is not None
+
+    @staticmethod
+    def _valid_ssn(ssn: str) -> bool:
+        digits = re.sub(r'\D', '', ssn)
+        if len(digits) != 9:
+            return False
+        area = int(digits[:3])
+        return 1 <= area <= 899 and area != 666
+
+    @staticmethod
     def detect(text: str) -> List[PIISignal]:
         signals: List[PIISignal] = []
 
@@ -102,5 +141,18 @@ class PIIDetector:
         add("iban", RE_IBAN, PIIDetector._valid_iban)
         add("credit_card", RE_CREDIT_CARD, PIIDetector._valid_credit_card)
         add("url", RE_URL)
+        add("bitcoin", RE_BITCOIN_ADDRESS, PIIDetector._valid_bitcoin_address)
+        add("ethereum", RE_ETHEREUM_ADDRESS, PIIDetector._valid_ethereum_address)
+        add("crypto_wallet", RE_CRYPTO_WALLET)
+        add("swift_bic", RE_SWIFT_BIC, PIIDetector._valid_swift_bic)
+        add("passport", RE_PASSPORT)
+        add("driver_license", RE_DRIVER_LICENSE)
+        add("ssn", RE_SSN, PIIDetector._valid_ssn)
+        add("tax_id", RE_TAX_ID)
+        add("national_id", RE_NATIONAL_ID)
+        add("student_id", RE_STUDENT_ID)
+        add("university_email", RE_UNIVERSITY_EMAIL)
+        add("fingerprint", RE_FINGERPRINT)
+        add("dna", RE_DNA_SEQUENCE)
 
         return signals

@@ -36,6 +36,19 @@ class DoxxingDetector:
         "birthdate": 0.35,
         "vin": 0.55,
         "health": 0.40,
+        "bitcoin": 0.75,
+        "ethereum": 0.75,
+        "crypto_wallet": 0.70,
+        "swift_bic": 0.60,
+        "passport": 0.85,
+        "driver_license": 0.70,
+        "ssn": 0.90,
+        "tax_id": 0.75,
+        "national_id": 0.65,
+        "student_id": 0.45,
+        "university_email": 0.35,
+        "fingerprint": 0.95,
+        "dna": 0.95,
     }
 
     CONTEXT_WEIGHTS: Dict[str, float] = {
@@ -63,6 +76,20 @@ class DoxxingDetector:
         ("birthdate", "phone"): 0.45,
         ("vin", "phone"): 0.40,
         ("health", "id_number"): 0.50,
+        ("crypto_wallet", "phone"): 0.55,
+        ("crypto_wallet", "email"): 0.50,
+        ("bitcoin", "ethereum"): 0.45,
+        ("swift_bic", "iban"): 0.60,
+        ("swift_bic", "id_number"): 0.55,
+        ("passport", "birthdate"): 0.65,
+        ("passport", "id_number"): 0.70,
+        ("ssn", "birthdate"): 0.75,
+        ("ssn", "id_number"): 0.80,
+        ("tax_id", "id_number"): 0.60,
+        ("driver_license", "birthdate"): 0.50,
+        ("student_id", "university_email"): 0.70,
+        ("fingerprint", "id_number"): 0.80,
+        ("dna", "health"): 0.85,
     }
 
     LOW_RISK_ALONE: Set[str] = {"url", "ipv4"}
@@ -180,7 +207,7 @@ class DoxxingDetector:
         if has_intent and (has_person or has_target):
             if has_address:
                 return True
-            if {"birthdate", "health", "vin"} & kinds:
+            if {"birthdate", "health", "vin", "ssn", "passport", "fingerprint", "dna"} & kinds:
                 return True
 
         if DoxxingDetector._early_exit_rules(
@@ -243,7 +270,7 @@ class DoxxingDetector:
 
         hard_trigger = bool(
             has_intent and (has_person or has_target) and
-            (has_address or {"birthdate", "health", "vin"} & kinds)
+            (has_address or {"birthdate", "health", "vin", "ssn", "passport", "fingerprint", "dna"} & kinds)
         )
 
         decision = True if hard_trigger else (False if early_exit else score >= threshold)
