@@ -22,14 +22,25 @@ RE_URL = re.compile(r"\b(?:https?://|www\.)[A-Z0-9.-]+\.[A-Z]{2,}(?:/[^\s]*)?", 
 RE_CREDIT_CARD = re.compile(r"\b(?:\d[ -]*?){13,19}\b")
 RE_BITCOIN_ADDRESS = re.compile(r"\b(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,39}\b")
 RE_ETHEREUM_ADDRESS = re.compile(r"\b0x[a-fA-F0-9]{40}\b")
-RE_CRYPTO_WALLET = re.compile(r"\b(?:0x[a-fA-F0-9]{40}|[13][a-zA-HJ-NP-Z0-9]{25,39}|bc1[a-zA-HJ-NP-Z0-9]{39,59})\b")
+RE_CRYPTO_WALLET = re.compile(
+    r"\b(?:0x[a-fA-F0-9]{40}|[13][a-zA-HJ-NP-Z0-9]{25,39}|bc1[a-zA-HJ-NP-Z0-9]{39,59})\b"
+)
+
 RE_SWIFT_BIC = re.compile(r"\b[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?\b")
 
 RE_PASSPORT = re.compile(r"\b[A-Z]{1,2}\d{6,9}\b")
 RE_DRIVER_LICENSE = re.compile(r"\b[A-Z]{1,2}\d{5,8}\b")
 RE_STUDENT_ID = re.compile(r"\b(?:STU|STD|S)\d{6,10}\b", re.I)
-RE_UNIVERSITY_EMAIL = re.compile(r"\b[A-Z0-9._%+-]+@(?:student\.|edu\.|ac\.)[A-Z0-9.-]+\.[A-Z]{2,}\b", re.I)
-RE_FINGERPRINT = re.compile(r"\b(?:fingerprint|fingerprint_data|biometric_data|iris_scan|face_recognition)[:\s]*[A-F0-9+/]{50,}={0,2}\b", re.I)
+RE_UNIVERSITY_EMAIL = re.compile(
+    r"\b[A-Z0-9._%+-]+@(?:student\.|edu\.|ac\.)[A-Z0-9.-]+\.[A-Z]{2,}\b", re.I
+)
+
+RE_FINGERPRINT = re.compile(
+    r"\b(?:fingerprint|fingerprint_data|biometric_data|iris_scan|face_recognition)"
+    r"[:\s]*[A-F0-9+/]{50,}={0,2}\b",
+    re.I
+)
+
 RE_DNA_SEQUENCE = re.compile(r"\b(?:dna|genetic|genome)[:\s]*[ATCG]{20,}\b", re.I)
 RE_SSN = re.compile(r"\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b")
 RE_TAX_ID = re.compile(r"\b\d{3}-\d{2}-\d{4}\b")
@@ -56,6 +67,7 @@ class PIIDetector:
         cc = re.sub(r"\D", "", cc)
         if not 13 <= len(cc) <= 19:
             return False
+
         total = 0
         for i, d in enumerate(cc[::-1]):
             n = int(d)
@@ -67,23 +79,18 @@ class PIIDetector:
     @staticmethod
     def _valid_iban(iban: str) -> bool:
         iban = iban.upper().replace(" ", "")
-        
 
-        if not re.match(r'^[A-Z]{2}\d{2}[A-Z0-9]+$', iban):
+        if not re.match(r"^[A-Z]{2}\d{2}[A-Z0-9]+$", iban):
             return False
-            
 
-        if len(iban) < 15 or len(iban) > 34:
+        if not 15 <= len(iban) <= 34:
             return False
 
         rearranged = iban[4:] + iban[:4]
 
-        numeric_iban = ''
-        for char in rearranged:
-            if char.isdigit():
-                numeric_iban += char
-            else:
-                numeric_iban += str(ord(char) - ord('A') + 10)
+        numeric_iban = ""
+        for ch in rearranged:
+            numeric_iban += ch if ch.isdigit() else str(ord(ch) - ord("A") + 10)
 
         try:
             return int(numeric_iban) % 97 == 1
@@ -93,23 +100,23 @@ class PIIDetector:
     @staticmethod
     def _valid_bitcoin_address(addr: str) -> bool:
         addr = addr.lower()
-        if addr.startswith('bc1'):
+        if addr.startswith("bc1"):
             return 39 <= len(addr) <= 59
-        elif addr.startswith('1') or addr.startswith('3'):
+        if addr.startswith(("1", "3")):
             return 26 <= len(addr) <= 35
         return False
 
     @staticmethod
     def _valid_ethereum_address(addr: str) -> bool:
-        return re.match(r'^0x[a-fA-F0-9]{40}$', addr) is not None
+        return bool(re.match(r"^0x[a-fA-F0-9]{40}$", addr))
 
     @staticmethod
     def _valid_swift_bic(bic: str) -> bool:
-        return re.match(r'^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$', bic) is not None
+        return bool(re.match(r"^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$", bic))
 
     @staticmethod
     def _valid_ssn(ssn: str) -> bool:
-        digits = re.sub(r'\D', '', ssn)
+        digits = re.sub(r"\D", "", ssn)
         if len(digits) != 9:
             return False
         area = int(digits[:3])
@@ -119,8 +126,8 @@ class PIIDetector:
     def detect(text: str) -> List[PIISignal]:
         signals: List[PIISignal] = []
 
-        def add(kind: str, regex: re.Pattern, validator=None):
-            spans = []
+        def add(kind: str, regex: re.Pattern, validator=None) -> None:
+            spans: List[Tuple[int, int]] = []
             for m in regex.finditer(text):
                 if validator and not validator(m.group()):
                     continue
