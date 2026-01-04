@@ -1,10 +1,11 @@
-from typing import Dict
+from typing import Dict, Optional
 
 from security.breach.actions.actiondecision import ActionDecision
+from security.breach.doxxing_settings import DoxxingSettings
 
 
 class DoxxingActionPolicy:
-    POLICY: Dict[str, ActionDecision] = {
+    DEFAULT_POLICY: Dict[str, ActionDecision] = {
 
         "LOW": ActionDecision(
             action="ALLOW",
@@ -43,8 +44,24 @@ class DoxxingActionPolicy:
     }
 
     @staticmethod
-    def decide(risk_tier: str) -> ActionDecision:
-        return DoxxingActionPolicy.POLICY.get(
-            risk_tier.upper(),
-            DoxxingActionPolicy.POLICY["LOW"]
+    def decide(risk_tier: str, doxxing_settings: Optional[DoxxingSettings] = None) -> ActionDecision:
+        if doxxing_settings is None:
+            doxxing_settings = DoxxingSettings()
+
+        risk_upper = risk_tier.upper()
+
+        action = doxxing_settings.get_action_for_risk(risk_upper)
+
+        default_decision = DoxxingActionPolicy.DEFAULT_POLICY.get(
+            risk_upper,
+            DoxxingActionPolicy.DEFAULT_POLICY["LOW"]
+        )
+
+        return ActionDecision(
+            action=action,
+            notify_user=doxxing_settings.notify_user and default_decision.notify_user,
+            notify_admin=doxxing_settings.notify_admin and default_decision.notify_admin,
+            mask_content=doxxing_settings.mask_content and default_decision.mask_content,
+            log_event=doxxing_settings.log_violations and default_decision.log_event,
+            reason=default_decision.reason
         )

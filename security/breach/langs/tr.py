@@ -18,6 +18,27 @@ EXPOSE_INTENTS = [
     "evini bulun"
 ]
 
+SELF_DISCLOSURE_HINTS = [
+    "benim",
+    "numaram",
+    "telefonum",
+    "mailim",
+    "adresim",
+    "ibanım",
+    "ehliyetim"
+]
+
+VEHICLE_WORDS = [
+    "araba", "arabası", "araç", "aracı",
+    "otomobil", "plaka", "plakalı",
+    "motor", "motosiklet"
+]
+
+HEALTH_HINTS = [
+    "hastalık", "rapor", "tedavi", "kanser",
+    "psikoloji", "ilaç", "ameliyat"
+]
+
 ORG_STOPWORDS = [
     "üniversitesi", "lisesi", "okulu", "vakfı",
     "derneği", "şirketi", "holding"
