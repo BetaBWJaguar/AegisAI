@@ -73,5 +73,15 @@ EN_CONTRACTIONS = {
     "y'all're": "you all are",
     "y'all've": "you all have",
     "ma'am": "madam",
-    "o'clock": "of the clock"
+    "o'clock": "of the clock",
+    "ain't": "is not",
+    "gonna": "going to",
+    "wanna": "want to",
+    "gotta": "got to",
+    "kinda": "kind of",
+    "sorta": "sort of",
+    "lemme": "let me",
+    "gimme": "give me",
+    "outta": "out of",
+    "lotta": "lot of"
 }
