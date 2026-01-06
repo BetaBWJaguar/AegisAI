@@ -5,36 +5,40 @@ from collections import Counter
 import unicodedata
 from multilangsetup.constants.english import EN_CONTRACTIONS, EN_STOPWORDS
 
+CHAR_TRANSLATION_TABLE = str.maketrans({
+    "–": "-",
+    "—": "-",
+    "…": "...",
+    "“": '"', "”": '"',
+    "‘": "'", "’": "'",
+    "´": "'",
+})
+
+RE_MULTI_SPACE = re.compile(r"\s+")
+RE_SPACE_BEFORE_PUNCT = re.compile(r"\s+([,.!?;:])")
+RE_SPACE_AFTER_PUNCT = re.compile(r"([,.!?;:])([^\s])")
+CONTRACTION_PATTERN = re.compile(
+    r'(%s)' % '|'.join(map(re.escape, EN_CONTRACTIONS.keys())),
+    flags=re.IGNORECASE
+)
+
+
 class EnglishNormalizer:
     @staticmethod
     def normalize_characters(text: str) -> str:
         if not isinstance(text, str):
             return ""
-
         text = unicodedata.normalize("NFC", text)
+        return text.translate(CHAR_TRANSLATION_TABLE)
 
-        replacements = {
-            "–": "-",
-            "—": "-",
-            "…": "...",
-            "“": '"', "”": '"',
-            "‘": "'", "’": "'",
-            "´": "'",
-        }
-        for k, v in replacements.items():
-            text = text.replace(k, v)
-
-        return text
 
     @staticmethod
     def normalize_spacing(text: str) -> str:
-        text = re.sub(r"\s+", " ", text)
-
-        text = re.sub(r"\s+([,.!?;:])", r"\1", text)
-
-        text = re.sub(r"([,.!?;:])([^\s])", r"\1 \2", text)
-
+        text = RE_MULTI_SPACE.sub(" ", text)
+        text = RE_SPACE_BEFORE_PUNCT.sub(r"\1", text)
+        text = RE_SPACE_AFTER_PUNCT.sub(r"\1 \2", text)
         return text.strip()
+
 
     @staticmethod
     def normalize_quotes(text: str) -> str:
@@ -73,16 +77,10 @@ class EnglishNormalizer:
         if not isinstance(text, str):
             return ""
 
-        contraction_pattern = re.compile('(%s)' % '|'.join(map(re.escape, EN_CONTRACTIONS.keys())),
-                                       flags=re.IGNORECASE)
-        
-        def expand_match(contraction):
-            match = contraction.group(0)
-            expanded_contraction = EN_CONTRACTIONS.get(match.lower(), match)
-            return expanded_contraction
-        
-        expanded_text = contraction_pattern.sub(expand_match, text)
-        return expanded_text
+        def expand(match):
+            return EN_CONTRACTIONS.get(match.group(0).lower(), match.group(0))
+
+        return CONTRACTION_PATTERN.sub(expand, text)
 
     @staticmethod
     def remove_stopwords(text: str) -> str:
