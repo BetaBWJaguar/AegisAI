@@ -1,8 +1,7 @@
 import math
 import re
-from collections import Counter
-
 import unicodedata
+from collections import Counter
 from multilangsetup.constants.english import EN_CONTRACTIONS, EN_STOPWORDS
 
 CHAR_TRANSLATION_TABLE = str.maketrans({
@@ -17,16 +16,22 @@ CHAR_TRANSLATION_TABLE = str.maketrans({
 RE_MULTI_SPACE = re.compile(r"\s+")
 RE_SPACE_BEFORE_PUNCT = re.compile(r"\s+([,.!?;:])")
 RE_SPACE_AFTER_PUNCT = re.compile(r"([,.!?;:])([^\s])")
+RE_REPEAT_PUNCT = re.compile(r'([!?.,;:])\1{2,}')
+RE_PUNCT_BEFORE_LETTER = re.compile(r'\b([!?.,;:]+)([a-zA-Z])')
+RE_REPEAT_LETTER = re.compile(r'([a-zA-Z])\1{2,}')
+RE_NON_WORD = re.compile(r'[^\w\s]')
+RE_DIGITS = re.compile(r'\d+')
+
 CONTRACTION_PATTERN = re.compile(
-    r'(%s)' % '|'.join(map(re.escape, EN_CONTRACTIONS.keys())),
+    r'(%s)' % '|'.join(map(re.escape, EN_CONTRACTIONS)),
     flags=re.IGNORECASE
 )
-
+VOWELS = "aeiouy"
 
 class EnglishNormalizer:
     @staticmethod
     def normalize_characters(text: str) -> str:
-        if not isinstance(text, str):
+        if not text:
             return ""
         text = unicodedata.normalize("NFC", text)
         return text.translate(CHAR_TRANSLATION_TABLE)
@@ -48,29 +53,14 @@ class EnglishNormalizer:
 
     @staticmethod
     def clean_unnecessary_punctuation(text: str) -> str:
-        if not isinstance(text, str):
-            return ""
-
-        text = re.sub(r'([!?.,;:])\1{2,}', r'\1\1', text)
-
-        text = re.sub(r'\b([!?.,;:]+)([a-zA-Z])', r'\2', text)
-
-        text = re.sub(r'\(\s*([.,;:!?]+)\s*\)', '(', text)
-        text = re.sub(r'\[\s*([.,;:!?]+)\s*\]', '[', text)
-
-        text = re.sub(r'([.,;:!?])\s*"', r'"\1', text)
-        text = re.sub(r'"\s*([.,;:!?])', r'\1"', text)
-        
+        text = RE_REPEAT_PUNCT.sub(r'\1\1', text)
+        text = RE_PUNCT_BEFORE_LETTER.sub(r'\2', text)
         return text
 
     @staticmethod
     def normalize_repeated_letters(text: str) -> str:
-        if not isinstance(text, str):
-            return ""
+        return RE_REPEAT_LETTER.sub(r'\1\1', text)
 
-        text = re.sub(r'([a-zA-Z])\1{2,}', r'\1\1', text)
-        
-        return text
 
     @staticmethod
     def expand_contractions(text: str) -> str:
@@ -84,12 +74,10 @@ class EnglishNormalizer:
 
     @staticmethod
     def remove_stopwords(text: str) -> str:
-        if not isinstance(text, str):
-            return ""
-        
-        words = text.split()
-        filtered_words = [word for word in words if word.lower() not in EN_STOPWORDS]
-        return ' '.join(filtered_words)
+        return ' '.join(
+            word for word in text.split()
+            if word.lower() not in EN_STOPWORDS
+        )
 
     @staticmethod
     def to_lower(text: str) -> str:
@@ -99,25 +87,28 @@ class EnglishNormalizer:
 
     @staticmethod
     def calculate_entropy(text: str) -> float:
-        if not isinstance(text, str) or not text:
+        if not text:
             return 0.0
 
-        counts = Counter(text)
         total = len(text)
-
-        entropy = 0.0
-        for count in counts.values():
-            p = count / total
-            entropy -= p * math.log2(p)
-
+        entropy = sum(
+            -(count / total) * math.log2(count / total)
+            for count in Counter(text).values()
+        )
         return round(entropy, 4)
 
 
     @classmethod
-    def normalize_all(cls, text: str, to_lower=True, expand_contractions=True, remove_stopwords=False) -> str:
+    def normalize_all(cls, text: str,
+                      to_lower: bool = True,
+                      expand_contractions: bool = True,
+                      remove_stopwords: bool = False) -> str:
+
+        if not text:
+            return ""
+
         text = cls.normalize_characters(text)
         text = cls.clean_unnecessary_punctuation(text)
-        text = cls.normalize_quotes(text)
         text = cls.normalize_repeated_letters(text)
         
         if expand_contractions:
@@ -135,35 +126,32 @@ class EnglishNormalizer:
 
     @classmethod
     def preprocess_for_analysis(cls, text: str) -> str:
-        text = cls.normalize_all(text, to_lower=True, expand_contractions=True, remove_stopwords=False)
-        text = re.sub(r'[^\w\s]', '', text)
-        text = cls.normalize_spacing(text)
-        return text
+        text = cls.normalize_all(text)
+        text = RE_NON_WORD.sub("", text)
+        return cls.normalize_spacing(text)
 
     @classmethod
     def preprocess_for_keywords(cls, text: str) -> str:
-        text = cls.normalize_all(text, to_lower=True, expand_contractions=True, remove_stopwords=True)
-        text = re.sub(r'\d+', '', text)
-        text = cls.normalize_spacing(text)
-        return text
+        text = cls.normalize_all(text, remove_stopwords=True)
+        text = RE_DIGITS.sub("", text)
+        return cls.normalize_spacing(text)
 
     @staticmethod
     def _count_syllables(word: str) -> int:
-        if not isinstance(word, str) or not word:
+        if not word:
             return 0
         
         word = word.lower()
-        vowels = "aeiouy"
-        syllable_count = 0
-        prev_char_was_vowel = False
-        
-        for char in word:
-            is_vowel = char in vowels
-            if is_vowel and not prev_char_was_vowel:
-                syllable_count += 1
-            prev_char_was_vowel = is_vowel
+        count = 0
+        prev_vowel = False
 
-        if word.endswith('e') and syllable_count > 1:
-            syllable_count -= 1
+        for ch in word:
+            is_vowel = ch in VOWELS
+            if is_vowel and not prev_vowel:
+                count += 1
+            prev_vowel = is_vowel
 
-        return max(1, syllable_count)
+        if word.endswith("e") and count > 1:
+            count -= 1
+
+        return max(1, count)
