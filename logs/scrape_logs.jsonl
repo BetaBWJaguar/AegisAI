@@ -22,3 +22,4 @@
 {"status": "cached", "platform": "reddit", "query": "turkey", "result_count": 2, "source": "cache", "timestamp": "2025-11-19T19:23:37.213999"}
 {"status": "success", "platform": "reddit", "query": "turkey", "result_count": 2, "duration_sec": 2.3, "timestamp": "2025-11-19T19:25:02.167124"}
 {"status": "success", "platform": "reddit", "query": "turkey", "result_count": 2, "duration_sec": 2.26, "timestamp": "2025-11-19T19:31:12.334350"}
+{"status": "success", "platform": "reddit", "query": "life", "result_count": 75, "duration_sec": 17.95, "timestamp": "2026-01-08T20:56:20.409404"}

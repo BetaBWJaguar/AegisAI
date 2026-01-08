@@ -21,6 +21,10 @@ RE_PUNCT_BEFORE_LETTER = re.compile(r'\b([!?.,;:]+)([a-zA-Z])')
 RE_REPEAT_LETTER = re.compile(r'([a-zA-Z])\1{2,}')
 RE_NON_WORD = re.compile(r'[^\w\s]')
 RE_DIGITS = re.compile(r'\d+')
+RE_URL = re.compile(r'https?://\S+|www\.\S+')
+RE_EMAIL = re.compile(r'\b[\w\.-]+@[\w\.-]+\.\w+\b')
+RE_MENTION = re.compile(r'@\w+')
+
 
 CONTRACTION_PATTERN = re.compile(
     r'(%s)' % '|'.join(map(re.escape, EN_CONTRACTIONS)),
@@ -43,6 +47,14 @@ class EnglishNormalizer:
         text = RE_SPACE_BEFORE_PUNCT.sub(r"\1", text)
         text = RE_SPACE_AFTER_PUNCT.sub(r"\1 \2", text)
         return text.strip()
+
+    @staticmethod
+    def remove_urls_emails_mentions(text: str) -> str:
+        text = RE_URL.sub("", text)
+        text = RE_EMAIL.sub("", text)
+        text = RE_MENTION.sub("", text)
+        return text
+
 
 
     @staticmethod
@@ -110,7 +122,8 @@ class EnglishNormalizer:
         text = cls.normalize_characters(text)
         text = cls.clean_unnecessary_punctuation(text)
         text = cls.normalize_repeated_letters(text)
-        
+        text = cls.remove_urls_emails_mentions(text)
+
         if expand_contractions:
             text = cls.expand_contractions(text)
             
