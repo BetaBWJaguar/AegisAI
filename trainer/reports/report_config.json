@@ -1,0 +1,16 @@
+{
+  "training": {
+    "training_hours": 0,
+    "gpu_hour_price": 0,
+    "cpu_hour_price": 0,
+    "dataset_size_gb": 0,
+    "storage_price_per_gb": 0,
+    "tokens_used": 0,
+    "token_price_per_million": 0,
+    "energy_source": "EXTERNAL"
+  },
+  "report": {
+    "currency": "USD",
+    "title": "AI Training Cost Report"
+  }
+}

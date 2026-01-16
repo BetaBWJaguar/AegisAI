@@ -13,12 +13,14 @@ from reportlab.lib import colors
 
 class TrainingCostReportPDF:
 
-    def __init__(self, tracker):
+    def __init__(self, tracker, report_title: str):
         self.tracker = tracker
+        self.report_title = report_title
         self.styles = getSampleStyleSheet()
 
     def generate(self, output_path: str):
         data = self.tracker.breakdown()
+        currency = data["currency"]
 
         doc = SimpleDocTemplate(
             output_path,
@@ -32,7 +34,7 @@ class TrainingCostReportPDF:
         elements = []
 
         elements.append(Paragraph(
-            "<b>AI Training Cost Report</b>",
+            f"<b>{self.report_title}</b>",
             self.styles["Title"]
         ))
         elements.append(Spacer(1, 20))
@@ -44,13 +46,13 @@ class TrainingCostReportPDF:
         elements.append(Spacer(1, 20))
 
         table_data = [
-            ["Category", "Cost (USD)"],
-            ["Hardware Cost", f"${data['hardware_cost']}"],
-            ["Storage Cost", f"${data['storage_cost']}"],
-            ["Token Cost", f"${data['token_cost']}"],
-            ["Energy Cost", f"${data['energy_cost']} ({data['energy_source']})"],
+            ["Category", f"Cost ({currency})"],
+            ["Hardware Cost", f"{data['hardware_cost']} {currency}"],
+            ["Storage Cost", f"{data['storage_cost']} {currency}"],
+            ["Token Cost", f"{data['token_cost']} {currency}"],
+            ["Energy Cost", f"{data['energy_cost']} ({data['energy_source']})"],
             ["", ""],
-            ["TOTAL COST", f"${data['total_cost']}"],
+            ["TOTAL COST", f"{data['total_cost']} {currency}"],
         ]
 
         table = Table(table_data, colWidths=[250, 150])

@@ -13,10 +13,12 @@ class TrainingConfig:
     token_price_per_million: float = 0.0
     energy_source: str = "EXTERNAL"
 
+
 class TrainingCostTracker:
 
-    def __init__(self, config: TrainingConfig):
+    def __init__(self, config: TrainingConfig, currency: str):
         self.config = config
+        self.currency = currency
 
     def hardware_cost(self) -> float:
         return (
@@ -49,5 +51,6 @@ class TrainingCostTracker:
             "token_cost": round(self.token_cost(), 2),
             "energy_cost": 0.0,
             "energy_source": self.config.energy_source,
+            "currency": self.currency,
             "total_cost": self.total_cost()
         }
