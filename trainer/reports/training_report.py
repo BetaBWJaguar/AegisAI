@@ -13,9 +13,10 @@ from reportlab.lib import colors
 
 class TrainingCostReportPDF:
 
-    def __init__(self, tracker, report_title: str):
+    def __init__(self, tracker, report_title: str, scenario_results: list[dict] | None = None):
         self.tracker = tracker
         self.report_title = report_title
+        self.scenario_results = scenario_results or []
         self.styles = getSampleStyleSheet()
 
     def generate(self, output_path: str):
@@ -45,7 +46,7 @@ class TrainingCostReportPDF:
         ))
         elements.append(Spacer(1, 20))
 
-        table_data = [
+        base_table_data = [
             ["Category", f"Cost ({currency})"],
             ["Hardware Cost", f"{data['hardware_cost']} {currency}"],
             ["Storage Cost", f"{data['storage_cost']} {currency}"],
@@ -55,31 +56,62 @@ class TrainingCostReportPDF:
             ["TOTAL COST", f"{data['total_cost']} {currency}"],
         ]
 
-        table = Table(table_data, colWidths=[250, 150])
-        table.setStyle(TableStyle([
+        base_table = Table(base_table_data, colWidths=[250, 150])
+        base_table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.darkblue),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-
             ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
             ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-
             ("BACKGROUND", (0, -1), (-1, -1), colors.lightgrey),
             ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
             ("TOPPADDING", (0, 0), (-1, -1), 8),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
         ]))
 
-        elements.append(table)
-        elements.append(Spacer(1, 30))
+        elements.append(base_table)
 
+
+        if self.scenario_results:
+            elements.append(Spacer(1, 30))
+            elements.append(Paragraph(
+                "<b>Scenario Cost Comparison</b>",
+                self.styles["Heading2"]
+            ))
+            elements.append(Spacer(1, 10))
+
+            scenario_table_data = [
+                ["Scenario", f"Total Cost ({currency})"]
+            ]
+
+            for result in self.scenario_results:
+                scenario_table_data.append([
+                    result["scenario"],
+                    f"{result['total_cost']} {currency}"
+                ])
+
+            scenario_table = Table(scenario_table_data, colWidths=[250, 150])
+            scenario_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), colors.darkgreen),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                ("TOPPADDING", (0, 0), (-1, -1), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ]))
+
+            elements.append(scenario_table)
+
+
+        elements.append(Spacer(1, 30))
         elements.append(Paragraph(
             "<b>Notes</b>",
             self.styles["Heading2"]
         ))
         elements.append(Paragraph(
             "• Energy costs are excluded as they are provided externally.<br/>"
-            "• Hardware costs include GPU and CPU usage.",
+            "• All scenario calculations are derived from the base training configuration.",
             self.styles["Normal"]
         ))
 
