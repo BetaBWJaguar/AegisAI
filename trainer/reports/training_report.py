@@ -1,6 +1,6 @@
 from datetime import datetime
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import (
     SimpleDocTemplate,
     Paragraph,
@@ -17,7 +17,68 @@ class TrainingCostReportPDF:
         self.tracker = tracker
         self.report_title = report_title
         self.scenario_results = scenario_results or []
-        self.styles = getSampleStyleSheet()
+        self.styles = self._build_styles()
+
+    def _build_styles(self):
+        styles = getSampleStyleSheet()
+
+        styles.add(ParagraphStyle(
+            name="ReportTitle",
+            fontSize=20,
+            leading=24,
+            spaceAfter=20,
+            alignment=1,
+            fontName="Helvetica-Bold"
+        ))
+
+        styles.add(ParagraphStyle(
+            name="Meta",
+            fontSize=9,
+            textColor=colors.grey,
+            spaceAfter=20,
+            alignment=1
+        ))
+
+        styles.add(ParagraphStyle(
+            name="SectionTitle",
+            fontSize=14,
+            leading=18,
+            spaceBefore=20,
+            spaceAfter=10,
+            fontName="Helvetica-Bold",
+            textColor=colors.darkblue
+        ))
+
+        styles.add(ParagraphStyle(
+            name="Note",
+            fontSize=10,
+            leading=14,
+            textColor=colors.black
+        ))
+
+        return styles
+
+    @staticmethod
+    def _styled_table(data, col_widths, header_bg, total_row=False):
+        style = [
+            ("BACKGROUND", (0, 0), (-1, 0), header_bg),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ("TOPPADDING", (0, 0), (-1, -1), 8),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ]
+
+        if total_row:
+            style += [
+                ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+                ("BACKGROUND", (0, -1), (-1, -1), colors.whitesmoke),
+            ]
+
+        table = Table(data, colWidths=col_widths)
+        table.setStyle(TableStyle(style))
+        return table
 
     def generate(self, output_path: str):
         data = self.tracker.breakdown()
@@ -34,17 +95,11 @@ class TrainingCostReportPDF:
 
         elements = []
 
+        elements.append(Paragraph(self.report_title, self.styles["ReportTitle"]))
         elements.append(Paragraph(
-            f"<b>{self.report_title}</b>",
-            self.styles["Title"]
+            f"Generated at {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
+            self.styles["Meta"]
         ))
-        elements.append(Spacer(1, 20))
-
-        elements.append(Paragraph(
-            f"Generated at: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
-            self.styles["Normal"]
-        ))
-        elements.append(Spacer(1, 20))
 
         base_table_data = [
             ["Category", f"Cost ({currency})"],
@@ -56,29 +111,17 @@ class TrainingCostReportPDF:
             ["TOTAL COST", f"{data['total_cost']} {currency}"],
         ]
 
-        base_table = Table(base_table_data, colWidths=[250, 150])
-        base_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.darkblue),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-            ("BACKGROUND", (0, -1), (-1, -1), colors.lightgrey),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-            ("TOPPADDING", (0, 0), (-1, -1), 8),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-        ]))
-
-        elements.append(base_table)
-
+        elements.append(Paragraph("Training Cost Breakdown", self.styles["SectionTitle"]))
+        elements.append(self._styled_table(
+            base_table_data,
+            col_widths=[260, 140],
+            header_bg=colors.HexColor("#1f3a8a"),
+            total_row=True
+        ))
 
         if self.scenario_results:
-            elements.append(Spacer(1, 30))
-            elements.append(Paragraph(
-                "<b>Scenario Cost Comparison</b>",
-                self.styles["Heading2"]
-            ))
-            elements.append(Spacer(1, 10))
+            elements.append(Spacer(1, 25))
+            elements.append(Paragraph("Scenario Cost Comparison", self.styles["SectionTitle"]))
 
             scenario_table_data = [
                 ["Scenario", f"Total Cost ({currency})"]
@@ -90,29 +133,18 @@ class TrainingCostReportPDF:
                     f"{result['total_cost']} {currency}"
                 ])
 
-            scenario_table = Table(scenario_table_data, colWidths=[250, 150])
-            scenario_table.setStyle(TableStyle([
-                ("BACKGROUND", (0, 0), (-1, 0), colors.darkgreen),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-                ("TOPPADDING", (0, 0), (-1, -1), 8),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-            ]))
-
-            elements.append(scenario_table)
-
+            elements.append(self._styled_table(
+                scenario_table_data,
+                col_widths=[260, 140],
+                header_bg=colors.HexColor("#166534")
+            ))
 
         elements.append(Spacer(1, 30))
+        elements.append(Paragraph("Notes", self.styles["SectionTitle"]))
         elements.append(Paragraph(
-            "<b>Notes</b>",
-            self.styles["Heading2"]
-        ))
-        elements.append(Paragraph(
-            "• Energy costs are excluded as they are provided externally.<br/>"
-            "• All scenario calculations are derived from the base training configuration.",
-            self.styles["Normal"]
+            "• Energy costs are provided externally and may vary by region.<br/>"
+            "• Scenario calculations are derived from the same base training configuration.",
+            self.styles["Note"]
         ))
 
         doc.build(elements)
