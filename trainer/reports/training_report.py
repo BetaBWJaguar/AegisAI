@@ -13,10 +13,9 @@ from reportlab.lib import colors
 
 class TrainingCostReportPDF:
 
-    def __init__(self, tracker, report_title: str, scenario_results: list[dict] | None = None):
-        self.tracker = tracker
-        self.report_title = report_title
-        self.scenario_results = scenario_results or []
+    def __init__(self, template_data: dict, context):
+        self.template_data = template_data
+        self.context = context
         self.styles = self._build_styles()
 
     def _build_styles(self):
@@ -52,8 +51,7 @@ class TrainingCostReportPDF:
         styles.add(ParagraphStyle(
             name="Note",
             fontSize=10,
-            leading=14,
-            textColor=colors.black
+            leading=14
         ))
 
         return styles
@@ -71,18 +69,19 @@ class TrainingCostReportPDF:
         ]
 
         if total_row:
-            style += [
+            style.extend([
                 ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
                 ("BACKGROUND", (0, -1), (-1, -1), colors.whitesmoke),
-            ]
+            ])
 
         table = Table(data, colWidths=col_widths)
         table.setStyle(TableStyle(style))
         return table
 
     def generate(self, output_path: str):
-        data = self.tracker.breakdown()
-        currency = data["currency"]
+        breakdown = self.template_data["breakdown"]
+        scenarios = self.template_data.get("scenarios", [])
+        currency = breakdown["currency"]
 
         doc = SimpleDocTemplate(
             output_path,
@@ -95,20 +94,20 @@ class TrainingCostReportPDF:
 
         elements = []
 
-        elements.append(Paragraph(self.report_title, self.styles["ReportTitle"]))
+        elements.append(Paragraph(self.context.title, self.styles["ReportTitle"]))
         elements.append(Paragraph(
-            f"Generated at {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
+            f"Generated at {self.context.generated_at.strftime('%Y-%m-%d %H:%M UTC')}",
             self.styles["Meta"]
         ))
 
         base_table_data = [
             ["Category", f"Cost ({currency})"],
-            ["Hardware Cost", f"{data['hardware_cost']} {currency}"],
-            ["Storage Cost", f"{data['storage_cost']} {currency}"],
-            ["Token Cost", f"{data['token_cost']} {currency}"],
-            ["Energy Cost", f"{data['energy_cost']} ({data['energy_source']})"],
+            ["Hardware Cost", f"{breakdown['hardware_cost']} {currency}"],
+            ["Storage Cost", f"{breakdown['storage_cost']} {currency}"],
+            ["Token Cost", f"{breakdown['token_cost']} {currency}"],
+            ["Energy Cost", f"{breakdown['energy_cost']} ({breakdown['energy_source']})"],
             ["", ""],
-            ["TOTAL COST", f"{data['total_cost']} {currency}"],
+            ["TOTAL COST", f"{breakdown['total_cost']} {currency}"],
         ]
 
         elements.append(Paragraph("Training Cost Breakdown", self.styles["SectionTitle"]))
@@ -119,7 +118,7 @@ class TrainingCostReportPDF:
             total_row=True
         ))
 
-        if self.scenario_results:
+        if scenarios:
             elements.append(Spacer(1, 25))
             elements.append(Paragraph("Scenario Cost Comparison", self.styles["SectionTitle"]))
 
@@ -127,10 +126,10 @@ class TrainingCostReportPDF:
                 ["Scenario", f"Total Cost ({currency})"]
             ]
 
-            for result in self.scenario_results:
+            for s in scenarios:
                 scenario_table_data.append([
-                    result["scenario"],
-                    f"{result['total_cost']} {currency}"
+                    s["scenario"],
+                    f"{s['total_cost']} {currency}"
                 ])
 
             elements.append(self._styled_table(
@@ -138,6 +137,7 @@ class TrainingCostReportPDF:
                 col_widths=[260, 140],
                 header_bg=colors.HexColor("#166534")
             ))
+
 
         elements.append(Spacer(1, 30))
         elements.append(Paragraph("Notes", self.styles["SectionTitle"]))
