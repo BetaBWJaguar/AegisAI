@@ -100,6 +100,37 @@ class TrainingCostReportPDF:
             self.styles["Meta"]
         ))
 
+        primary_driver = max(
+            [
+                ("Hardware Cost", breakdown["hardware_cost"]),
+                ("Storage Cost", breakdown["storage_cost"]),
+                ("Token Cost", breakdown["token_cost"]),
+                ("Energy Cost", breakdown["energy_cost"]),
+            ],
+            key=lambda x: x[1]
+        )[0]
+
+        best_scenario = None
+        if scenarios:
+            best_scenario = min(scenarios, key=lambda s: s["total_cost"])["scenario"]
+
+        summary_text = (
+            f"This report provides a comprehensive analysis of the training cost structure. "
+            f"The total training cost is <b>{breakdown['total_cost']} {currency}</b>. "
+            f"The primary cost driver identified in this analysis is <b>{primary_driver}</b>."
+        )
+
+        if best_scenario:
+            summary_text += (
+                f" Among the evaluated scenarios, "
+                f"<b>{best_scenario}</b> represents the most cost-efficient option."
+            )
+
+        elements.append(Paragraph("Executive Summary", self.styles["SectionTitle"]))
+        elements.append(Paragraph(summary_text, self.styles["Note"]))
+
+        elements.append(Spacer(1, 25))
+
         base_table_data = [
             ["Category", f"Cost ({currency})"],
             ["Hardware Cost", f"{breakdown['hardware_cost']} {currency}"],
@@ -137,7 +168,6 @@ class TrainingCostReportPDF:
                 col_widths=[260, 140],
                 header_bg=colors.HexColor("#166534")
             ))
-
 
         elements.append(Spacer(1, 30))
         elements.append(Paragraph("Notes", self.styles["SectionTitle"]))
