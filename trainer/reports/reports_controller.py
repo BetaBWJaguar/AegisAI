@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from datetime import datetime
 from pathlib import Path
+from fastapi.responses import FileResponse
 
 from auth.authcontroller import get_current_user
 from error.expectionhandler import ExpectionHandler
@@ -129,9 +130,7 @@ async def generate_pdf_report(report: ReportCreate, current_user=Depends(get_cur
         }
 
         for scenario in report.scenarios:
-            overrides = {
-                "scenario_name": scenario.scenario_name
-            }
+            overrides = {"scenario_name": scenario.scenario_name}
             if scenario.training_hours is not None:
                 overrides["training_hours"] = scenario.training_hours
             if scenario.gpu_hour_price is not None:
@@ -156,44 +155,36 @@ async def generate_pdf_report(report: ReportCreate, current_user=Depends(get_cur
         output_dir = Path("reports")
         output_dir.mkdir(exist_ok=True)
 
-
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        output_path = str(output_dir / f"training_cost_report_{timestamp}.pdf")
-
+        file_name = f"training_cost_report_{timestamp}.pdf"
+        output_path = output_dir / file_name
 
         report_data = {
-            "training_hours": report.training_hours,
-            "gpu_hour_price": report.gpu_hour_price,
-            "cpu_hour_price": report.cpu_hour_price,
-            "dataset_size_gb": report.dataset_size_gb,
-            "storage_price_per_gb": report.storage_price_per_gb,
-            "tokens_used": report.tokens_used,
-            "token_price_per_million": report.token_price_per_million,
-            "energy_source": report.energy_source,
-            "currency": report.currency,
-            "title": report.title
+            "breakdown": breakdown,
+            "scenarios": scenarios
         }
 
-        file_path = service.generate_pdf_report(report_data, scenarios, output_path)
 
-        return ReportGenerationResponse(
-            success=True,
-            message="PDF report generated successfully.",
-            file_path=file_path
+        service.generate_pdf_report(
+            report_data=report_data,
+            scenarios=scenarios,
+            output_path=str(output_path)
         )
 
-    except ValueError as e:
-        raise ExpectionHandler(
-            message="Invalid report data provided.",
-            error_type=ErrorType.VALIDATION_ERROR,
-            detail=str(e)
+
+        return FileResponse(
+            path=output_path,
+            media_type="application/pdf",
+            filename=file_name
         )
+
     except Exception as e:
         raise ExpectionHandler(
-            message="An unexpected error occurred while generating PDF report.",
+            message="Failed to generate and download PDF report.",
             error_type=ErrorType.INTERNAL_SERVER_ERROR,
             detail=str(e)
         )
+
 
 
 @router.get(
