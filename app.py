@@ -23,6 +23,7 @@ from corpusmanagement.corpus_controller import router as corpus_router
 from profanity.profanitycontroller import router  as profanity_router
 from security.bot_detection.botdetectioncontroller import router as bot_detection_router
 from security.breach.infraction.infractioncontroller import router as infraction_router
+from trainer.reports.reports_controller import router as report_router
 
 app = FastAPI()
 app.add_middleware(RateLimitMiddleware, max_requests=5, window_seconds=10)
@@ -48,6 +49,7 @@ app.include_router(corpus_router, prefix="/corpus", tags=["corpus"])
 app.include_router(profanity_router, prefix="/profanity", tags=["profanity"])
 app.include_router(bot_detection_router, prefix="/bot-detection", tags=["bot-detection"])
 app.include_router(infraction_router, prefix="/infraction", tags=["infraction"])
+app.include_router(report_router, prefix="/reports", tags=["reports"])
 
 
 revoked_service = RevokedTokenService("config.json")

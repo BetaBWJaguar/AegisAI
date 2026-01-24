@@ -129,7 +129,7 @@ async def generate_pdf_report(report: ReportCreate, current_user=Depends(get_cur
             "currency": report.currency
         }
 
-        for scenario in report.scenarios:
+        for scenario in report.scenarios or []:
             overrides = {"scenario_name": scenario.scenario_name}
             if scenario.training_hours is not None:
                 overrides["training_hours"] = scenario.training_hours
@@ -161,9 +161,9 @@ async def generate_pdf_report(report: ReportCreate, current_user=Depends(get_cur
 
         report_data = {
             "breakdown": breakdown,
-            "scenarios": scenarios
+            "scenarios": scenarios,
+            "title": report.title or "AI Training Cost Report"
         }
-
 
         service.generate_pdf_report(
             report_data=report_data,

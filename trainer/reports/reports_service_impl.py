@@ -1,5 +1,7 @@
 import json
+from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Dict, Any, List
 
 from trainer.reports.reports_service import ReportsService
@@ -61,33 +63,30 @@ class ReportsServiceImpl(ReportsService):
         )
 
     def generate_pdf_report(
-        self,
-        report_data: Dict[str, Any],
-        scenarios: List[Dict[str, Any]],
-        output_path: str
+            self,
+            report_data: Dict[str, Any],
+            scenarios: List[Dict[str, Any]],
+            output_path: str
     ) -> str:
-        config = TrainingConfig(
-            training_hours=report_data.get("training_hours", 0.0),
-            gpu_hour_price=report_data.get("gpu_hour_price", 0.0),
-            cpu_hour_price=report_data.get("cpu_hour_price", 0.0),
-            dataset_size_gb=report_data.get("dataset_size_gb", 0.0),
-            storage_price_per_gb=report_data.get("storage_price_per_gb", 0.0),
-            tokens_used=report_data.get("tokens_used", 0),
-            token_price_per_million=report_data.get("token_price_per_million", 0.0),
-            energy_source=report_data.get("energy_source", "EXTERNAL")
+
+        breakdown = report_data["breakdown"]
+
+        template_data = {
+            "breakdown": breakdown,
+            "scenarios": scenarios
+        }
+
+        context = SimpleNamespace(
+            title=report_data.get("title"),
+            generated_at=datetime.utcnow()
         )
 
-        tracker = TrainingCostTracker(config, report_data.get("currency", "USD"))
-
-        report_title = report_data.get("title", "AI Training Cost Report")
         pdf_generator = TrainingCostReportPDF(
-            tracker=tracker,
-            report_title=report_title,
-            scenario_results=scenarios
+            template_data=template_data,
+            context=context
         )
 
         pdf_generator.generate(output_path)
-
         return output_path
 
     def get_report_config(self) -> Dict[str, Any]:
