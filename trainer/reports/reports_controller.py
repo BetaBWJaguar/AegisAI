@@ -74,6 +74,7 @@ async def calculate_report(report: ReportCreate, current_user=Depends(get_curren
             scenario_result = service.calculate_scenario_cost(base_config, overrides)
             scenarios.append({
                 "scenario": scenario.scenario_name,
+                "tags": scenario.tags,
                 "total_cost": scenario_result["total_cost"]
             })
 
@@ -149,6 +150,7 @@ async def generate_pdf_report(report: ReportCreate, current_user=Depends(get_cur
             scenario_result = service.calculate_scenario_cost(base_config, overrides)
             scenarios.append({
                 "scenario": scenario.scenario_name,
+                "tags": scenario.tags,
                 "total_cost": scenario_result["total_cost"]
             })
 

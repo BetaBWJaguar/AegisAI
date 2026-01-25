@@ -4,6 +4,7 @@ from typing import List, Optional
 
 class ScenarioConfig(BaseModel):
     scenario_name: str
+    tags: List[str] = []
     training_hours: Optional[float] = None
     gpu_hour_price: Optional[float] = None
     cpu_hour_price: Optional[float] = None
