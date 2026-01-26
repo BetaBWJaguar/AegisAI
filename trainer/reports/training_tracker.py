@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Dict, Union
 
+from trainer.reports.trainingvalidation import TrainingConfigValidator
+
 
 @dataclass(slots=True)
 class TrainingConfig:
@@ -18,6 +20,7 @@ class TrainingCostTracker:
     __slots__ = ("config", "currency")
 
     def __init__(self, config: TrainingConfig, currency: str):
+        TrainingConfigValidator.validate(config)
         self.config = config
         self.currency = currency
 
