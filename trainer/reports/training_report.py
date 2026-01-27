@@ -8,6 +8,8 @@ from reportlab.platypus import (
     TableStyle
 )
 from reportlab.lib import colors
+from reportlab.graphics.shapes import Drawing, String
+from reportlab.graphics.charts.piecharts import Pie
 
 
 class TrainingCostReportPDF:
@@ -77,6 +79,45 @@ class TrainingCostReportPDF:
         table.setStyle(TableStyle(style))
         return table
 
+    @staticmethod
+    def _build_cost_pie_chart(breakdown: dict):
+        drawing = Drawing(450, 220)
+
+        pie = Pie()
+        pie.x = 65
+        pie.y = 15
+        pie.width = 150
+        pie.height = 150
+
+        pie.data = [
+            breakdown["hardware_cost"],
+            breakdown["storage_cost"],
+            breakdown["token_cost"],
+            breakdown["energy_cost"],
+        ]
+
+        pie.labels = ["Hardware", "Storage", "Token", "Energy"]
+
+        pie.slices.strokeWidth = 0.5
+        pie.slices[0].fillColor = colors.HexColor("#1f77b4")
+        pie.slices[1].fillColor = colors.HexColor("#ff7f0e")
+        pie.slices[2].fillColor = colors.HexColor("#2ca02c")
+        pie.slices[3].fillColor = colors.HexColor("#d62728")
+
+        pie.slices.labelRadius = 1.2
+        pie.slices.popout = 2
+
+        drawing.add(pie)
+
+        drawing.add(String(
+            225, 190,
+            "Cost Distribution",
+            fontSize=14,
+            fillColor=colors.darkblue
+        ))
+
+        return drawing
+
     def generate(self, output_path: str):
         breakdown = self.template_data["breakdown"]
         scenarios = self.template_data.get("scenarios", [])
@@ -127,7 +168,6 @@ class TrainingCostReportPDF:
 
         elements.append(Paragraph("Executive Summary", self.styles["SectionTitle"]))
         elements.append(Paragraph(summary_text, self.styles["Note"]))
-
         elements.append(Spacer(1, 25))
 
         base_table_data = [
@@ -147,6 +187,10 @@ class TrainingCostReportPDF:
             header_bg=colors.HexColor("#1f3a8a"),
             total_row=True
         ))
+
+        elements.append(Spacer(1, 25))
+        elements.append(Paragraph("Cost Distribution Overview", self.styles["SectionTitle"]))
+        elements.append(self._build_cost_pie_chart(breakdown))
 
         if scenarios:
             elements.append(Spacer(1, 25))
