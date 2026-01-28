@@ -34,11 +34,10 @@ class TrainingCostTracker:
         return self.config.dataset_size_gb * self.config.storage_price_per_gb
 
     def token_cost(self) -> float:
-        if not self.config.tokens_used:
+        if self.config.tokens_used <= 0:
             return 0.0
-        return (
-                self.config.tokens_used * self.config.token_price_per_million
-        ) / 1_000_000
+
+        return (self.config.tokens_used / 1_000_000) * self.config.token_price_per_million
 
     def energy_cost(self) -> float:
         return 0.0

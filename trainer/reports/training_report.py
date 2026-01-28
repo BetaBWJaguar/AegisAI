@@ -83,19 +83,30 @@ class TrainingCostReportPDF:
     def _build_cost_pie_chart(breakdown: dict):
         drawing = Drawing(450, 220)
 
-        pie = Pie()
-        pie.x = 65
-        pie.y = 15
-        pie.width = 150
-        pie.height = 150
-
-        pie.data = [
+        values = [
             breakdown["hardware_cost"],
             breakdown["storage_cost"],
             breakdown["token_cost"],
             breakdown["energy_cost"],
         ]
 
+        total = sum(values)
+
+        if total == 0:
+            drawing.add(String(
+                120, 110,
+                "No cost data available for distribution chart",
+                fontSize=12,
+                fillColor=colors.grey
+            ))
+            return drawing
+
+        pie = Pie()
+        pie.x = 65
+        pie.y = 15
+        pie.width = 150
+        pie.height = 150
+        pie.data = values
         pie.labels = ["Hardware", "Storage", "Token", "Energy"]
 
         pie.slices.strokeWidth = 0.5
@@ -105,7 +116,9 @@ class TrainingCostReportPDF:
         pie.slices[3].fillColor = colors.HexColor("#d62728")
 
         pie.slices.labelRadius = 1.2
-        pie.slices.popout = 2
+
+        for i in range(len(values)):
+            pie.slices[i].popout = 2
 
         drawing.add(pie)
 
@@ -175,7 +188,7 @@ class TrainingCostReportPDF:
             ["Hardware Cost", f"{breakdown['hardware_cost']} {currency}"],
             ["Storage Cost", f"{breakdown['storage_cost']} {currency}"],
             ["Token Cost", f"{breakdown['token_cost']} {currency}"],
-            ["Energy Cost", f"{breakdown['energy_cost']} ({breakdown['energy_source']})"],
+            ["Energy Cost", f"{breakdown['energy_cost']} {currency} ({breakdown['energy_source']})"],
             ["", ""],
             ["TOTAL COST", f"{breakdown['total_cost']} {currency}"],
         ]
