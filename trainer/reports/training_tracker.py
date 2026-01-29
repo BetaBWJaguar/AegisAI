@@ -44,13 +44,12 @@ class TrainingCostTracker:
 
 
     def total_cost(self) -> float:
-        return round(
-            self.hardware_cost()
-            + self.storage_cost()
-            + self.token_cost()
-            + self.energy_cost(),
-            2
-        )
+        return round(sum((
+            self.hardware_cost(),
+            self.storage_cost(),
+            self.token_cost(),
+            self.energy_cost()
+        )), 2)
 
     def breakdown(self) -> Dict[str, Union[float, str]]:
         return {

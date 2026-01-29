@@ -8,6 +8,7 @@ from trainer.reports.reports_service import ReportsService
 from trainer.reports.training_tracker import TrainingCostTracker, TrainingConfig
 from trainer.reports.training_report import TrainingCostReportPDF
 from trainer.reports.report_config import ReportConfigLoader, TrainingConfig as ReportTrainingConfig, ReportConfig
+from trainer.reports.trainingvalidation import TrainingConfigValidator
 
 
 class ReportsServiceImpl(ReportsService):
@@ -40,6 +41,7 @@ class ReportsServiceImpl(ReportsService):
             energy_source=energy_source
         )
 
+        TrainingConfigValidator.validate(config)
         tracker = TrainingCostTracker(config, currency)
         return tracker.breakdown()
 
@@ -128,5 +130,6 @@ class ReportsServiceImpl(ReportsService):
             json.dump(data, f, indent=2)
 
         self._training_config, self._report_config = self.config_loader.load()
+        TrainingConfigValidator.validate(self._training_config)
 
         return self.get_report_config()
