@@ -189,6 +189,95 @@ async def generate_pdf_report(report: ReportCreate, current_user=Depends(get_cur
 
 
 
+@router.post(
+    "/generate-excel",
+    response_model=ReportGenerationResponse,
+    dependencies=[Depends(require_perm([Role.ADMIN]))]
+)
+async def generate_excel_report(report: ReportCreate, current_user=Depends(get_current_user)):
+    try:
+        breakdown = service.calculate_cost_breakdown(
+            training_hours=report.training_hours,
+            gpu_hour_price=report.gpu_hour_price,
+            cpu_hour_price=report.cpu_hour_price,
+            dataset_size_gb=report.dataset_size_gb,
+            storage_price_per_gb=report.storage_price_per_gb,
+            tokens_used=report.tokens_used,
+            token_price_per_million=report.token_price_per_million,
+            energy_source=report.energy_source,
+            currency=report.currency
+        )
+
+        scenarios = []
+        base_config = {
+            "training_hours": report.training_hours,
+            "gpu_hour_price": report.gpu_hour_price,
+            "cpu_hour_price": report.cpu_hour_price,
+            "dataset_size_gb": report.dataset_size_gb,
+            "storage_price_per_gb": report.storage_price_per_gb,
+            "tokens_used": report.tokens_used,
+            "token_price_per_million": report.token_price_per_million,
+            "energy_source": report.energy_source,
+            "currency": report.currency
+        }
+
+        for scenario in report.scenarios or []:
+            overrides = {"scenario_name": scenario.scenario_name}
+            if scenario.training_hours is not None:
+                overrides["training_hours"] = scenario.training_hours
+            if scenario.gpu_hour_price is not None:
+                overrides["gpu_hour_price"] = scenario.gpu_hour_price
+            if scenario.cpu_hour_price is not None:
+                overrides["cpu_hour_price"] = scenario.cpu_hour_price
+            if scenario.dataset_size_gb is not None:
+                overrides["dataset_size_gb"] = scenario.dataset_size_gb
+            if scenario.storage_price_per_gb is not None:
+                overrides["storage_price_per_gb"] = scenario.storage_price_per_gb
+            if scenario.tokens_used is not None:
+                overrides["tokens_used"] = scenario.tokens_used
+            if scenario.token_price_per_million is not None:
+                overrides["token_price_per_million"] = scenario.token_price_per_million
+
+            scenario_result = service.calculate_scenario_cost(base_config, overrides)
+            scenarios.append({
+                "scenario": scenario.scenario_name,
+                "tags": scenario.tags,
+                "total_cost": scenario_result["total_cost"]
+            })
+
+        output_dir = Path("reports")
+        output_dir.mkdir(exist_ok=True)
+
+        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        file_name = f"training_cost_report_{timestamp}.xlsx"
+        output_path = output_dir / file_name
+
+        report_data = {
+            "breakdown": breakdown,
+            "scenarios": scenarios,
+            "title": report.title or "AI Training Cost Report",
+            "generated_at": datetime.utcnow()
+        }
+
+        service.generate_excel_report(
+            report_data=report_data,
+            output_path=str(output_path)
+        )
+
+        return FileResponse(
+            path=output_path,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            filename=file_name
+        )
+
+    except Exception as e:
+        raise ExpectionHandler(
+            message="Failed to generate and download Excel report.",
+            error_type=ErrorType.INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
 @router.get(
     "/config",
     response_model=ReportConfigResponse,

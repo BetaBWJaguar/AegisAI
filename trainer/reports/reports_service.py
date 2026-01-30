@@ -38,6 +38,14 @@ class ReportsService(ABC):
         pass
 
     @abstractmethod
+    def generate_excel_report(
+        self,
+        report_data: Dict[str, Any],
+        output_path: str
+    ) -> str:
+        pass
+
+    @abstractmethod
     def get_report_config(self) -> Dict[str, Any]:
         pass
 

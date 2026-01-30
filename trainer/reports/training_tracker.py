@@ -53,6 +53,13 @@ class TrainingCostTracker:
 
     def breakdown(self) -> Dict[str, Union[float, str]]:
         return {
+            "training_hours": self.config.training_hours,
+            "gpu_hour_price": self.config.gpu_hour_price,
+            "cpu_hour_price": self.config.cpu_hour_price,
+            "dataset_size_gb": self.config.dataset_size_gb,
+            "storage_price_per_gb": self.config.storage_price_per_gb,
+            "tokens_used": self.config.tokens_used,
+            "token_price_per_million": self.config.token_price_per_million,
             "hardware_cost": round(self.hardware_cost(), 2),
             "storage_cost": round(self.storage_cost(), 2),
             "token_cost": round(self.token_cost(), 2),

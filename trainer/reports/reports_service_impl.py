@@ -7,6 +7,7 @@ from typing import Dict, Any, List
 from trainer.reports.reports_service import ReportsService
 from trainer.reports.training_tracker import TrainingCostTracker, TrainingConfig
 from trainer.reports.training_report import TrainingCostReportPDF
+from trainer.reports.excel_report import TrainingCostExcelReport
 from trainer.reports.report_config import ReportConfigLoader, TrainingConfig as ReportTrainingConfig, ReportConfig
 from trainer.reports.trainingvalidation import TrainingConfigValidator
 
@@ -90,6 +91,14 @@ class ReportsServiceImpl(ReportsService):
 
         pdf_generator.generate(output_path)
         return output_path
+
+    def generate_excel_report(
+            self,
+            report_data: Dict[str, Any],
+            output_path: str
+    ) -> str:
+        excel_generator = TrainingCostExcelReport(report_data=report_data)
+        return excel_generator.generate(output_path)
 
     def get_report_config(self) -> Dict[str, Any]:
         self._training_config, self._report_config = self.config_loader.load()
