@@ -95,7 +95,10 @@ class TrainingCostExcelReport:
             ws.cell(row=row, column=1, value=category)
             ws.cell(row=row, column=2, value=f"{cost:.2f}")
             percentage = (cost / total) * 100
-            ws.cell(row=row, column=3, value=f"{percentage:.1f}%")
+            cost_cell = ws.cell(row=row, column=2, value=float(cost))
+            cost_cell.number_format = '#,##0.00'
+            pct_cell = ws.cell(row=row, column=3, value=percentage / 100)
+            pct_cell.number_format = '0.0%'
 
         self._add_summary_bar_chart(ws, cost_data)
 
