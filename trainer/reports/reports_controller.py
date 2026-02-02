@@ -11,9 +11,11 @@ from trainer.reports.create.create import ReportCreate, ReportConfigUpdate
 from trainer.reports.response.response import (
     ReportResponse,
     ReportGenerationResponse,
-    ReportConfigResponse
+    ReportConfigResponse,
+    ScenarioIntelligenceResponse
 )
 from trainer.reports.reports_service_impl import ReportsServiceImpl
+from trainer.reports.intelligence.scenario_intelligence import ScenarioIntelligenceEngine
 from error.errortypes import ErrorType
 
 router = APIRouter()
@@ -78,9 +80,13 @@ async def calculate_report(report: ReportCreate, current_user=Depends(get_curren
                 "total_cost": scenario_result["total_cost"]
             })
 
+        intelligence_data = ScenarioIntelligenceEngine.analyze(breakdown, scenarios)
+        intelligence_response = ScenarioIntelligenceResponse(**intelligence_data)
+
         return ReportResponse(
             breakdown=breakdown,
             scenarios=scenarios,
+            intelligence=intelligence_response,
             generated_at=datetime.utcnow()
         )
 

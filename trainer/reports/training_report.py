@@ -12,6 +12,13 @@ from reportlab.graphics.shapes import Drawing, String, Rect
 from reportlab.graphics.charts.piecharts import Pie
 from reportlab.graphics.charts.barcharts import VerticalBarChart
 
+from trainer.reports.intelligence.scenario_intelligence_utils import (
+    find_best_scenario,
+    generate_scenario_comment,
+    calculate_cost_difference
+)
+from trainer.reports.intelligence.scenario_intelligence import ScenarioIntelligenceEngine
+
 class TrainingCostReportPDF:
 
     def __init__(self, template_data: dict, context):
@@ -193,7 +200,7 @@ class TrainingCostReportPDF:
         ]
 
         if scenarios:
-            best_scenario = min(scenarios, key=lambda s: s["total_cost"])
+            best_scenario = find_best_scenario(scenarios)
             categories.append(f"Best: {best_scenario['scenario'][:15]}")
             values.append(best_scenario["total_cost"])
 
@@ -276,31 +283,13 @@ class TrainingCostReportPDF:
             self.styles["Meta"]
         ))
 
-        primary_driver = max(
-            [
-                ("Hardware Cost", breakdown["hardware_cost"]),
-                ("Storage Cost", breakdown["storage_cost"]),
-                ("Token Cost", breakdown["token_cost"]),
-                ("Energy Cost", breakdown["energy_cost"]),
-            ],
-            key=lambda x: x[1]
-        )[0]
-
-        best_scenario = None
-        if scenarios:
-            best_scenario = min(scenarios, key=lambda s: s["total_cost"])["scenario"]
+        intelligence = ScenarioIntelligenceEngine.analyze(breakdown, scenarios)
 
         summary_text = (
             f"This report provides a comprehensive analysis of the training cost structure. "
             f"The total training cost is <b>{breakdown['total_cost']} {currency}</b>. "
-            f"The primary cost driver identified in this analysis is <b>{primary_driver}</b>."
+            f"{intelligence['summary']}"
         )
-
-        if best_scenario:
-            summary_text += (
-                f" Among the evaluated scenarios, "
-                f"<b>{best_scenario}</b> represents the most cost-efficient option."
-            )
 
         elements.append(Paragraph("Executive Summary", self.styles["SectionTitle"]))
         elements.append(Paragraph(summary_text, self.styles["Note"]))
@@ -341,20 +330,29 @@ class TrainingCostReportPDF:
             elements.append(Paragraph("Scenario Cost Comparison", self.styles["SectionTitle"]))
 
             scenario_table_data = [
-                ["Scenario", f"Total Cost ({currency})"]
+                ["Scenario", f"Total Cost ({currency})", "Comparison to Baseline"]
             ]
 
             for s in scenarios:
+                diff_info = calculate_cost_difference(breakdown["total_cost"], s["total_cost"])
+                comment = generate_scenario_comment(s["scenario"], diff_info)
                 scenario_table_data.append([
                     s["scenario"],
-                    f"{s['total_cost']} {currency}"
+                    f"{s['total_cost']} {currency}",
+                    comment
                 ])
 
             elements.append(self._styled_table(
                 scenario_table_data,
-                col_widths=[260, 140],
+                col_widths=[200, 100, 100],
                 header_bg=colors.HexColor("#166534")
             ))
+
+            if intelligence["scenario_insights"]:
+                elements.append(Spacer(1, 15))
+                elements.append(Paragraph("Scenario Insights", self.styles["SectionTitle"]))
+                for insight in intelligence["scenario_insights"]:
+                    elements.append(Paragraph(f"• {insight}", self.styles["Note"]))
 
         elements.append(Spacer(1, 30))
         elements.append(Paragraph("Notes", self.styles["SectionTitle"]))

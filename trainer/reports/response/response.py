@@ -18,6 +18,14 @@ class TrainingCostBreakdownResponse(BaseModel):
     total_cost: float
 
 
+class ScenarioIntelligenceResponse(BaseModel):
+    summary: str
+    best_scenario: Optional[str] = None
+    worst_scenario: Optional[str] = None
+    dominant_cost_component: Optional[str] = None
+    scenario_insights: List[str] = []
+
+
 class ReportConfigResponse(BaseModel):
     training_hours: float
     gpu_hour_price: float
@@ -34,6 +42,7 @@ class ReportConfigResponse(BaseModel):
 class ReportResponse(BaseModel):
     breakdown: TrainingCostBreakdownResponse
     scenarios: List[ScenarioResultResponse] = []
+    intelligence: Optional[ScenarioIntelligenceResponse] = None
     generated_at: datetime
 
 

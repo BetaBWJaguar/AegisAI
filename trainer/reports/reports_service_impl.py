@@ -10,6 +10,7 @@ from trainer.reports.training_report import TrainingCostReportPDF
 from trainer.reports.excel_report import TrainingCostExcelReport
 from trainer.reports.report_config import ReportConfigLoader, TrainingConfig as ReportTrainingConfig, ReportConfig
 from trainer.reports.trainingvalidation import TrainingConfigValidator
+from trainer.reports.intelligence.scenario_intelligence import ScenarioIntelligenceEngine
 
 
 class ReportsServiceImpl(ReportsService):
@@ -74,9 +75,12 @@ class ReportsServiceImpl(ReportsService):
 
         breakdown = report_data["breakdown"]
 
+        intelligence = ScenarioIntelligenceEngine.analyze(breakdown, scenarios)
+
         template_data = {
             "breakdown": breakdown,
-            "scenarios": scenarios
+            "scenarios": scenarios,
+            "intelligence": intelligence
         }
 
         context = SimpleNamespace(
