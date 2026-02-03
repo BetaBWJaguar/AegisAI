@@ -77,7 +77,8 @@ async def calculate_report(report: ReportCreate, current_user=Depends(get_curren
             scenarios.append({
                 "scenario": scenario.scenario_name,
                 "tags": scenario.tags,
-                "total_cost": scenario_result["total_cost"]
+                "total_cost": scenario_result["total_cost"],
+                "currency": scenario_result.get("currency", report.currency)
             })
 
         intelligence_data = ScenarioIntelligenceEngine.analyze(breakdown, scenarios)
@@ -157,7 +158,8 @@ async def generate_pdf_report(report: ReportCreate, current_user=Depends(get_cur
             scenarios.append({
                 "scenario": scenario.scenario_name,
                 "tags": scenario.tags,
-                "total_cost": scenario_result["total_cost"]
+                "total_cost": scenario_result["total_cost"],
+                "currency": scenario_result.get("currency", report.currency)
             })
 
         output_dir = Path("reports")
@@ -248,7 +250,8 @@ async def generate_excel_report(report: ReportCreate, current_user=Depends(get_c
             scenarios.append({
                 "scenario": scenario.scenario_name,
                 "tags": scenario.tags,
-                "total_cost": scenario_result["total_cost"]
+                "total_cost": scenario_result["total_cost"],
+                "currency": scenario_result.get("currency", report.currency)
             })
 
         output_dir = Path("reports")
