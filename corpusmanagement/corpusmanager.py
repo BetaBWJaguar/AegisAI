@@ -42,16 +42,19 @@ class CorpusManager:
         lengths = []
 
         with open(output_file, mode, encoding="utf-8") as f:
-            for i, item in enumerate(dataset):
-                if limit and i >= limit:
+            for item in dataset:
+
+                if limit is not None and written >= limit:
                     break
+
                 text = item.get(text_field, "")
                 text = self.clean_text(text)
                 if not text:
                     continue
 
-                if filters and not all(f(text) for f in filters):
+                if filters and not all(fltr(text) for fltr in filters):
                     continue
+
                 if transformers:
                     for t in transformers:
                         text = t(text)
