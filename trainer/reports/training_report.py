@@ -47,6 +47,12 @@ class TrainingCostReportPDF:
         ))
 
         styles.add(ParagraphStyle(
+            name="TableText",
+            fontSize=9,
+            leading=12,
+        ))
+
+        styles.add(ParagraphStyle(
             name="SectionTitle",
             fontSize=14,
             leading=18,
@@ -330,16 +336,21 @@ class TrainingCostReportPDF:
             elements.append(Paragraph("Scenario Cost Comparison", self.styles["SectionTitle"]))
 
             scenario_table_data = [
-                ["Scenario", f"Total Cost ({currency})", "Comparison to Baseline"]
+                [
+                    Paragraph("Scenario", self.styles["TableText"]),
+                    Paragraph(f"Total Cost ({currency})", self.styles["TableText"]),
+                    Paragraph("Comparison to Baseline", self.styles["TableText"])
+                ]
             ]
 
             for s in scenarios:
                 diff_info = calculate_cost_difference(breakdown["total_cost"], s["total_cost"])
                 comment = generate_scenario_comment(s["scenario"], diff_info)
+
                 scenario_table_data.append([
-                    s["scenario"],
-                    f"{s['total_cost']} {currency}",
-                    comment
+                    Paragraph(s["scenario"], self.styles["TableText"]),
+                    Paragraph(f"{s['total_cost']} {currency}", self.styles["TableText"]),
+                    Paragraph(comment, self.styles["TableText"])
                 ])
 
             elements.append(self._styled_table(
