@@ -71,15 +71,29 @@ class TrainingCostReportPDF:
         return styles
 
     @staticmethod
-    def _styled_table(data, col_widths, header_bg, total_row=False):
+    def _styled_table(data, col_widths, header_bg, total_row=False, styles=None):
+        formatted_data = []
+
+        for row in data:
+            formatted_row = []
+            for cell in row:
+                if isinstance(cell, Paragraph):
+                    formatted_row.append(cell)
+                else:
+                    formatted_row.append(Paragraph(str(cell), styles["TableText"]))
+            formatted_data.append(formatted_row)
+
         style = [
             ("BACKGROUND", (0, 0), (-1, 0), header_bg),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
             ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-            ("TOPPADDING", (0, 0), (-1, -1), 8),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
         ]
 
         if total_row:
@@ -88,7 +102,7 @@ class TrainingCostReportPDF:
                 ("BACKGROUND", (0, -1), (-1, -1), colors.whitesmoke),
             ])
 
-        table = Table(data, colWidths=col_widths)
+        table = Table(formatted_data, colWidths=col_widths, repeatRows=1)
         table.setStyle(TableStyle(style))
         return table
 
@@ -316,7 +330,8 @@ class TrainingCostReportPDF:
             base_table_data,
             col_widths=[260, 140],
             header_bg=colors.HexColor("#1f3a8a"),
-            total_row=True
+            total_row=True,
+            styles=self.styles
         ))
 
         elements.append(Spacer(1, 25))
