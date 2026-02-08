@@ -8,12 +8,14 @@ from error.expectionhandler import ExpectionHandler
 from permcontrol.permissionscontrol import require_perm
 from user.role import Role
 from trainer.reports.create.create import ReportCreate, ReportConfigUpdate
+from trainer.reports.create.public import SimpleReportCreate
 from trainer.reports.response.response import (
     ReportResponse,
     ReportGenerationResponse,
     ReportConfigResponse,
     ScenarioIntelligenceResponse
 )
+from trainer.reports.response.public import SimpleReportResponse
 from trainer.reports.reports_service_impl import ReportsServiceImpl
 from trainer.reports.intelligence.scenario_intelligence import ScenarioIntelligenceEngine
 from error.errortypes import ErrorType
@@ -224,6 +226,138 @@ async def update_report_config(updates: ReportConfigUpdate, current_user=Depends
     except Exception as e:
         raise ExpectionHandler(
             message="Failed to update report configuration.",
+            error_type=ErrorType.INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+
+def build_simple_breakdown(report: SimpleReportCreate):
+    return service.calculate_cost_breakdown(
+        training_hours=report.training_hours,
+        gpu_hour_price=report.gpu_hour_price,
+        cpu_hour_price=report.cpu_hour_price,
+        dataset_size_gb=report.dataset_size_gb,
+        storage_price_per_gb=report.storage_price_per_gb,
+        tokens_used=report.tokens_used,
+        token_price_per_million=report.token_price_per_million,
+        energy_source=report.energy_source,
+        currency=report.currency
+    )
+
+
+@router.post("/public/calculate", response_model=SimpleReportResponse,
+             dependencies=[Depends(require_perm([Role.USER]))])
+async def calculate_simple_report(report: SimpleReportCreate, current_user=Depends(get_current_user)):
+    try:
+        breakdown = build_simple_breakdown(report)
+
+        return SimpleReportResponse(
+            hardware_cost=breakdown["hardware_cost"],
+            storage_cost=breakdown["storage_cost"],
+            token_cost=breakdown["token_cost"],
+            energy_cost=breakdown["energy_cost"],
+            energy_source=breakdown["energy_source"],
+            currency=breakdown["currency"],
+            total_cost=breakdown["total_cost"],
+            generated_at=datetime.utcnow()
+        )
+    except ValueError as e:
+        raise ExpectionHandler(
+            message="Invalid report data provided.",
+            error_type=ErrorType.VALIDATION_ERROR,
+            detail=str(e)
+        )
+
+
+@router.post("/public/generate-pdf",
+             dependencies=[Depends(require_perm([Role.USER, Role.DEVELOPER]))])
+async def generate_simple_pdf_report(report: SimpleReportCreate, current_user=Depends(get_current_user)):
+    try:
+        breakdown = build_simple_breakdown(report)
+
+        output_dir = Path("reports")
+        output_dir.mkdir(exist_ok=True)
+
+        file_name = f"simple_cost_report_{datetime.utcnow():%Y%m%d_%H%M%S}.pdf"
+        output_path = output_dir / file_name
+
+        report_data = {
+            "breakdown": breakdown,
+            "scenarios": [],
+            "title": "Simple AI Training Cost Report"
+        }
+
+        service.generate_pdf_report(report_data, [], str(output_path))
+
+        return FileResponse(output_path, media_type="application/pdf", filename=file_name)
+
+    except Exception as e:
+        raise ExpectionHandler(
+            message="Failed to generate PDF report.",
+            error_type=ErrorType.INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+@router.post("/public/generate-excel",
+             dependencies=[Depends(require_perm([Role.USER, Role.DEVELOPER]))])
+async def generate_simple_excel_report(report: SimpleReportCreate, current_user=Depends(get_current_user)):
+    try:
+        breakdown = build_simple_breakdown(report)
+
+        output_dir = Path("reports")
+        output_dir.mkdir(exist_ok=True)
+
+        file_name = f"simple_cost_report_{datetime.utcnow():%Y%m%d_%H%M%S}.xlsx"
+        output_path = output_dir / file_name
+
+        report_data = {
+            "breakdown": breakdown,
+            "scenarios": [],
+            "title": "Simple AI Training Cost Report",
+            "generated_at": datetime.utcnow()
+        }
+
+        service.generate_excel_report(report_data, str(output_path))
+
+        return FileResponse(output_path,
+                            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            filename=file_name)
+
+    except Exception as e:
+        raise ExpectionHandler(
+            message="Failed to generate Excel report.",
+            error_type=ErrorType.INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+@router.get(
+    "/public/config",
+    response_model=ReportConfigResponse,
+    dependencies=[Depends(require_perm([Role.USER]))]
+)
+async def get_public_report_config(current_user=Depends(get_current_user)):
+    try:
+        config = service.get_report_config()
+
+        return ReportConfigResponse(
+            training_hours=config["training"]["training_hours"],
+            gpu_hour_price=config["training"]["gpu_hour_price"],
+            cpu_hour_price=config["training"]["cpu_hour_price"],
+            dataset_size_gb=config["training"]["dataset_size_gb"],
+            storage_price_per_gb=config["training"]["storage_price_per_gb"],
+            tokens_used=config["training"]["tokens_used"],
+            token_price_per_million=config["training"]["token_price_per_million"],
+            energy_source=config["training"]["energy_source"],
+            currency=config["report"]["currency"],
+            title=config["report"]["title"]
+        )
+
+    except Exception as e:
+        raise ExpectionHandler(
+            message="Failed to retrieve report configuration.",
             error_type=ErrorType.INTERNAL_SERVER_ERROR,
             detail=str(e)
         )

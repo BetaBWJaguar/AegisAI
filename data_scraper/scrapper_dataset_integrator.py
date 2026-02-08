@@ -22,71 +22,68 @@ class ScrapperDatasetIntegrator:
         if not scrapped_data:
             return []
 
-        added_entries = []
+        added_entries: List[Dict] = []
+        label = label or ("SCRAPPED_TEMPLATE" if entry_type == EntryType.TEMPLATE else "SCRAPPED_MANUAL")
 
         if entry_type == EntryType.MANUAL:
             for post in scrapped_data:
+                text = post.get("text", "")
+                if not text:
+                    continue
                 entry = self.dataset_service.add_entry(
                     dataset_id=dataset_id,
-                    text=post.get("text", ""),
-                    label=label or "SCRAPPED_MANUAL",
+                    text=text,
+                    label=label,
                     entry_type=EntryType.MANUAL
                 )
                 if entry:
                     added_entries.append(entry.to_dict())
 
         elif entry_type == EntryType.TEMPLATE:
-            for post in scrapped_data:
+            if not template_id:
+                return []
 
+            template = self.dataset_service.template_service.get_template(template_id)
+            if not template:
+                return []
+
+            pattern = template.pattern
+            placeholders = extract_placeholders(pattern)
+            user_values = values or {}
+
+            for post in scrapped_data:
                 scraped_text = post.get("text", "")
                 if not scraped_text:
                     continue
 
-                template = self.dataset_service.template_service.get_template(template_id)
-                pattern = template.pattern
-
-                placeholders = extract_placeholders(pattern)
-
-                user_values = values or {}
-
+                scraped_lower = scraped_text.lower()
                 matched_values = {}
 
                 for ph in placeholders:
-
-                    if ph in user_values:
-
-                        possible_values = user_values[ph]
-
-                        if isinstance(possible_values, list):
-                            matched = None
-                            for v in possible_values:
-                                if v.lower() in scraped_text.lower():
-                                    matched = v
-                                    break
-
-                            if matched:
-                                matched_values[ph] = matched
-                            else:
-                                matched_values = None
-                                break
-                        else:
-                            if possible_values.lower() in scraped_text.lower():
-                                matched_values[ph] = possible_values
-                            else:
-                                matched_values = None
-                                break
-
-                    else:
+                    possible_values = user_values.get(ph)
+                    if not possible_values:
                         matched_values = None
                         break
 
-                if matched_values is None:
+                    if isinstance(possible_values, list):
+                        match = next((v for v in possible_values if v.lower() in scraped_lower), None)
+                        if not match:
+                            matched_values = None
+                            break
+                        matched_values[ph] = match
+                    else:
+                        if possible_values.lower() not in scraped_lower:
+                            matched_values = None
+                            break
+                        matched_values[ph] = possible_values
+
+                if not matched_values:
                     continue
 
                 entry = self.dataset_service.add_entry(
                     dataset_id=dataset_id,
                     text=scraped_text,
-                    label=label or "SCRAPPED_TEMPLATE",
+                    label=label,
                     entry_type=EntryType.TEMPLATE,
                     template_id=template_id,
                     values=matched_values
@@ -94,8 +91,7 @@ class ScrapperDatasetIntegrator:
 
                 if entry:
                     if isinstance(entry, list):
-                        for e in entry:
-                            added_entries.append(e.to_dict())
+                        added_entries.extend(e.to_dict() for e in entry)
                     else:
                         added_entries.append(entry.to_dict())
 
