@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, Union
+from typing import Dict, Union, Optional
 
 from trainer.reports.trainingvalidation import TrainingConfigValidator
 
@@ -14,6 +14,8 @@ class TrainingConfig:
     tokens_used: int = 0
     token_price_per_million: float = 0.0
     energy_source: str = "EXTERNAL"
+    gpu_model: Optional[str] = None
+    site: Optional[str] = None
 
 
 class TrainingCostTracker:
@@ -51,7 +53,7 @@ class TrainingCostTracker:
             self.energy_cost()
         )), 2)
 
-    def breakdown(self) -> Dict[str, Union[float, str]]:
+    def breakdown(self) -> Dict[str, Union[float, str, None]]:
         return {
             "training_hours": self.config.training_hours,
             "gpu_hour_price": self.config.gpu_hour_price,
@@ -67,4 +69,6 @@ class TrainingCostTracker:
             "energy_source": self.config.energy_source,
             "currency": self.currency,
             "total_cost": self.total_cost(),
+            "gpu_model": self.config.gpu_model,
+            "site": self.config.site,
         }

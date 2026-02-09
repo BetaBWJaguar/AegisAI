@@ -16,6 +16,8 @@ class TrainingCostBreakdownResponse(BaseModel):
     energy_source: str
     currency: str
     total_cost: float
+    gpu_model: Optional[str] = None
+    site: Optional[str] = None
 
 
 class ScenarioIntelligenceResponse(BaseModel):

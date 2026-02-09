@@ -16,7 +16,9 @@ class ReportsService(ABC):
         tokens_used: int,
         token_price_per_million: float,
         energy_source: str,
-        currency: str
+        currency: str,
+        gpu_model: Optional[str] = None,
+        site: Optional[str] = None
     ) -> Dict[str, Any]:
         pass
 

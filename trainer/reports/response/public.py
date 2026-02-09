@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
+from typing import Optional
 
 
 class SimpleReportResponse(BaseModel):
@@ -10,4 +11,6 @@ class SimpleReportResponse(BaseModel):
     energy_source: str
     currency: str
     total_cost: float
+    gpu_model: Optional[str] = None
+    site: Optional[str] = None
     generated_at: datetime

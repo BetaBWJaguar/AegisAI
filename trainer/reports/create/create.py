@@ -25,6 +25,8 @@ class ReportCreate(BaseModel):
     energy_source: str = "EXTERNAL"
     currency: str = "USD"
     title: str = "AI Training Cost Report"
+    gpu_model: Optional[str] = None
+    site: Optional[str] = None
     scenarios: List[ScenarioConfig] = []
 
 

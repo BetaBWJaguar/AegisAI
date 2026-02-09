@@ -30,7 +30,9 @@ class ReportsServiceImpl(ReportsService):
         tokens_used: int,
         token_price_per_million: float,
         energy_source: str,
-        currency: str
+        currency: str,
+        gpu_model: str = None,
+        site: str = None
     ) -> Dict[str, Any]:
         config = TrainingConfig(
             training_hours=training_hours,
@@ -40,7 +42,9 @@ class ReportsServiceImpl(ReportsService):
             storage_price_per_gb=storage_price_per_gb,
             tokens_used=tokens_used,
             token_price_per_million=token_price_per_million,
-            energy_source=energy_source
+            energy_source=energy_source,
+            gpu_model=gpu_model,
+            site=site
         )
 
         TrainingConfigValidator.validate(config)
@@ -63,7 +67,9 @@ class ReportsServiceImpl(ReportsService):
             tokens_used=merged_config.get("tokens_used", 0),
             token_price_per_million=merged_config.get("token_price_per_million", 0.0),
             energy_source=merged_config.get("energy_source", "EXTERNAL"),
-            currency=merged_config.get("currency", "USD")
+            currency=merged_config.get("currency", "USD"),
+            gpu_model=merged_config.get("gpu_model"),
+            site=merged_config.get("site")
         )
 
     def generate_pdf_report(

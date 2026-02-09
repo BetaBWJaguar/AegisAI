@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field, validator
+from typing import Optional
 
 
 class SimpleReportCreate(BaseModel):
@@ -11,6 +12,8 @@ class SimpleReportCreate(BaseModel):
     token_price_per_million: float = Field(default=0.0, ge=0, le=100.0, description="Token price per million, max $100")
     energy_source: str = Field(default="EXTERNAL", description="Energy source (EXTERNAL, RENEWABLE, GRID)")
     currency: str = Field(default="USD", description="Currency (USD, EUR, TRY)")
+    gpu_model: Optional[str] = Field(default=None, description="GPU model used for training (e.g., NVIDIA A100, RTX 4090)")
+    site: Optional[str] = Field(default=None, description="Site or platform where the report was generated from")
 
     @validator('energy_source')
     def validate_energy_source(cls, v):

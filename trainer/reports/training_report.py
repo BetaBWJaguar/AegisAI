@@ -303,6 +303,18 @@ class TrainingCostReportPDF:
             self.styles["Meta"]
         ))
 
+        gpu_model = self.template_data["breakdown"].get("gpu_model")
+        site = self.template_data["breakdown"].get("site")
+        if gpu_model or site:
+            meta_info = []
+            if gpu_model:
+                meta_info.append(f"GPU Model: {gpu_model}")
+            if site:
+                meta_info.append(f"Site: {site}")
+            if meta_info:
+                elements.append(Paragraph(" | ".join(meta_info), self.styles["Meta"]))
+                elements.append(Spacer(1, 10))
+
         intelligence = ScenarioIntelligenceEngine.analyze(breakdown, scenarios)
 
         summary_text = (

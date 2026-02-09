@@ -33,7 +33,9 @@ def build_breakdown_and_scenarios(report: ReportCreate):
         tokens_used=report.tokens_used,
         token_price_per_million=report.token_price_per_million,
         energy_source=report.energy_source,
-        currency=report.currency
+        currency=report.currency,
+        gpu_model=report.gpu_model,
+        site=report.site
     )
 
     base_config = report.dict()
@@ -242,7 +244,9 @@ def build_simple_breakdown(report: SimpleReportCreate):
         tokens_used=report.tokens_used,
         token_price_per_million=report.token_price_per_million,
         energy_source=report.energy_source,
-        currency=report.currency
+        currency=report.currency,
+        gpu_model=report.gpu_model,
+        site=report.site
     )
 
 
@@ -260,6 +264,8 @@ async def calculate_simple_report(report: SimpleReportCreate, current_user=Depen
             energy_source=breakdown["energy_source"],
             currency=breakdown["currency"],
             total_cost=breakdown["total_cost"],
+            gpu_model=breakdown.get("gpu_model"),
+            site=breakdown.get("site"),
             generated_at=datetime.utcnow()
         )
     except ValueError as e:
