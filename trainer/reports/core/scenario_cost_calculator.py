@@ -1,10 +1,10 @@
 from trainer.reports.core.training_scenario import TrainingScenario
-from trainer.reports.training_tracker import TrainingCostTracker
+from trainer.reports.cost_manager.cost_manager import CostManager
 
 
 class ScenarioCostCalculator:
 
-    def __init__(self, tracker: TrainingCostTracker):
+    def __init__(self, tracker: CostManager):
         self.tracker = tracker
 
     def calculate(self, scenario: TrainingScenario) -> dict:

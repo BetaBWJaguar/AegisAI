@@ -1,27 +1,15 @@
-from dataclasses import dataclass
-from typing import Dict, Union, Optional
+from typing import Dict, Union
 
+from trainer.reports.cost_manager.cost_record import TrainingConfig
+from trainer.reports.cost_manager.cost_manager import CostManager
 from trainer.reports.trainingvalidation import TrainingConfigValidator
 
 
-@dataclass(slots=True)
-class TrainingConfig:
-    training_hours: float
-    gpu_hour_price: float
-    cpu_hour_price: float = 0.0
-    dataset_size_gb: float = 0.0
-    storage_price_per_gb: float = 0.0
-    tokens_used: int = 0
-    token_price_per_million: float = 0.0
-    energy_source: str = "EXTERNAL"
-    gpu_model: Optional[str] = None
-    site: Optional[str] = None
-
-
-class TrainingCostTracker:
+class TrainingCostTracker(CostManager):
     __slots__ = ("config", "currency")
 
     def __init__(self, config: TrainingConfig, currency: str):
+        super().__init__(config, currency)
         TrainingConfigValidator.validate(config)
         self.config = config
         self.currency = currency
@@ -43,7 +31,6 @@ class TrainingCostTracker:
 
     def energy_cost(self) -> float:
         return 0.0
-
 
     def total_cost(self) -> float:
         return round(sum((

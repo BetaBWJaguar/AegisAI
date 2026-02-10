@@ -5,10 +5,11 @@ from types import SimpleNamespace
 from typing import Dict, Any, List
 
 from trainer.reports.reports_service import ReportsService
-from trainer.reports.training_tracker import TrainingCostTracker, TrainingConfig
+from trainer.reports.cost_manager.cost_manager import CostManager, calculate_cost_breakdown as calculate_cost_breakdown_impl
+from trainer.reports.cost_manager.cost_record import TrainingConfig
 from trainer.reports.training_report import TrainingCostReportPDF
 from trainer.reports.excel_report import TrainingCostExcelReport
-from trainer.reports.report_config import ReportConfigLoader, TrainingConfig as ReportTrainingConfig, ReportConfig
+from trainer.reports.report_config import ReportConfigLoader
 from trainer.reports.trainingvalidation import TrainingConfigValidator
 from trainer.reports.intelligence.scenario_intelligence import ScenarioIntelligenceEngine
 
@@ -48,8 +49,19 @@ class ReportsServiceImpl(ReportsService):
         )
 
         TrainingConfigValidator.validate(config)
-        tracker = TrainingCostTracker(config, currency)
-        return tracker.breakdown()
+        return calculate_cost_breakdown_impl(
+            training_hours=training_hours,
+            gpu_hour_price=gpu_hour_price,
+            cpu_hour_price=cpu_hour_price,
+            dataset_size_gb=dataset_size_gb,
+            storage_price_per_gb=storage_price_per_gb,
+            tokens_used=tokens_used,
+            token_price_per_million=token_price_per_million,
+            energy_source=energy_source,
+            currency=currency,
+            gpu_model=gpu_model,
+            site=site
+        )
 
     def calculate_scenario_cost(
         self,
@@ -58,7 +70,7 @@ class ReportsServiceImpl(ReportsService):
     ) -> Dict[str, Any]:
         merged_config = {**base_config, **scenario_overrides}
 
-        return self.calculate_cost_breakdown(
+        config = TrainingConfig(
             training_hours=merged_config.get("training_hours", 0.0),
             gpu_hour_price=merged_config.get("gpu_hour_price", 0.0),
             cpu_hour_price=merged_config.get("cpu_hour_price", 0.0),
@@ -67,10 +79,12 @@ class ReportsServiceImpl(ReportsService):
             tokens_used=merged_config.get("tokens_used", 0),
             token_price_per_million=merged_config.get("token_price_per_million", 0.0),
             energy_source=merged_config.get("energy_source", "EXTERNAL"),
-            currency=merged_config.get("currency", "USD"),
             gpu_model=merged_config.get("gpu_model"),
             site=merged_config.get("site")
         )
+
+        manager = CostManager(config, merged_config.get("currency", "USD"))
+        return manager.calculate_scenario_cost(base_config, scenario_overrides)
 
     def generate_pdf_report(
             self,
