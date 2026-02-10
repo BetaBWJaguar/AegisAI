@@ -1,6 +1,6 @@
-from typing import Dict, Any, List, Union
+from typing import Dict, Any, List, Union, Optional
 
-from trainer.reports.cost_manager.cost_record import TrainingConfig
+from trainer.reports.cost_manager.cost_record import TrainingConfig, CostBreakdown
 
 
 class CostManager:
@@ -84,10 +84,14 @@ class CostManager:
 
 
 def find_best_scenario(scenarios: List[Dict[str, Any]]) -> Dict[str, Any]:
+    if not scenarios:
+        raise ValueError("Scenarios list cannot be empty")
     return min(scenarios, key=lambda s: s["total_cost"])
 
 
 def find_worst_scenario(scenarios: List[Dict[str, Any]]) -> Dict[str, Any]:
+    if not scenarios:
+        raise ValueError("Scenarios list cannot be empty")
     return max(scenarios, key=lambda s: s["total_cost"])
 
 
@@ -104,6 +108,8 @@ def find_dominant_cost_component(breakdown: Dict[str, Any]) -> str:
         "Token": breakdown.get("token_cost", 0),
         "Energy": breakdown.get("energy_cost", 0),
     }
+    if all(v == 0 for v in components.values()):
+        return "None"
     return max(components, key=components.get)
 
 
@@ -114,7 +120,7 @@ def generate_scenario_comment(name: str, diff_info: Dict[str, float]) -> str:
     if diff < 0:
         return f"{name} reduces total cost by {abs(pct):.1f}% compared to baseline."
     elif diff > 0:
-        return f"{name} increases total cost by {pct:..1f}% compared to baseline."
+        return f"{name} increases total cost by {pct:.1f}% compared to baseline."
     return f"{name} has the same total cost as the baseline."
 
 
@@ -128,8 +134,8 @@ def calculate_cost_breakdown(
     token_price_per_million: float,
     energy_source: str,
     currency: str,
-    gpu_model: str = None,
-    site: str = None
+    gpu_model: Optional[str] = None,
+    site: Optional[str] = None
 ) -> Dict[str, Any]:
     config = TrainingConfig(
         training_hours=training_hours,
