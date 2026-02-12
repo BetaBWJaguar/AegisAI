@@ -78,7 +78,7 @@ class TrainerServiceImpl(TrainerService):
         bf16 = bool(user_args.get("bf16", False))
         fp16 = bool(user_args.get("fp16", cuda and not bf16))
 
-        defaults: Dict[str, Any] = {
+        defaults = {
             "output_dir": output_dir,
             "overwrite_output_dir": True,
             "num_train_epochs": 3,
@@ -88,9 +88,6 @@ class TrainerServiceImpl(TrainerService):
             "weight_decay": 0.01,
             "warmup_ratio": 0.0,
             "logging_steps": 25,
-            "save_strategy": "epoch",
-            "evaluation_strategy": "epoch",
-            "load_best_model_at_end": True,
             "metric_for_best_model": "f1_macro",
             "greater_is_better": True,
             "report_to": [],
@@ -99,10 +96,6 @@ class TrainerServiceImpl(TrainerService):
         }
 
         merged = {**defaults, **user_args}
-
-        if merged.get("evaluation_strategy") in (None, "no") and merged.get("load_best_model_at_end"):
-            merged["evaluation_strategy"] = "epoch"
-
         return TrainingArguments(**merged)
 
     def train_language_model(
