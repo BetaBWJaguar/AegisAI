@@ -1,20 +1,21 @@
 # -*- coding: utf-8 -*-
 import random
-from typing import List, Dict, Any
-from pathlib import Path
-import shutil
-
+from typing import List, Dict, Any, Optional
 import numpy as np
 import torch
+
 from transformers import (
     BertForMaskedLM,
     AutoTokenizer,
     AutoModelForSequenceClassification,
     Trainer,
-    TrainingArguments, DataCollatorWithPadding
+    TrainingArguments,
+    DataCollatorWithPadding,
+    EvalPrediction,
 )
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from datasets import Dataset, ClassLabel
+
 from trainer.trainer_utils import (
     train_tokenizer,
     prepare_bert_config,
@@ -30,21 +31,79 @@ from trainer.service.trainer_service import TrainerService
 from dataset_builder.dataset_builder_serviceimpl import DatasetBuilderServiceImpl
 
 
-def compute_metrics(pred):
-    logits, labels = pred
+def compute_metrics(pred: EvalPrediction) -> Dict[str, float]:
+    logits = pred.predictions
+    labels = pred.label_ids
     preds = np.argmax(logits, axis=1)
 
     return {
         "accuracy": float(accuracy_score(labels, preds)),
-        "precision": float(precision_score(labels, preds, average="macro", zero_division=0)),
-        "recall": float(recall_score(labels, preds, average="macro", zero_division=0)),
-        "f1": float(f1_score(labels, preds, average="macro", zero_division=0)),
+        "precision_macro": float(precision_score(labels, preds, average="macro", zero_division=0)),
+        "recall_macro": float(recall_score(labels, preds, average="macro", zero_division=0)),
+        "f1_macro": float(f1_score(labels, preds, average="macro", zero_division=0)),
+        "precision_weighted": float(precision_score(labels, preds, average="weighted", zero_division=0)),
+        "recall_weighted": float(recall_score(labels, preds, average="weighted", zero_division=0)),
+        "f1_weighted": float(f1_score(labels, preds, average="weighted", zero_division=0)),
     }
 
 
 class TrainerServiceImpl(TrainerService):
     def __init__(self, config_file: str = "config.json"):
         self.dataset_service = DatasetBuilderServiceImpl(config_file)
+
+    @staticmethod
+    def _device_info() -> Dict[str, Any]:
+        cuda = torch.cuda.is_available()
+        info = {"cuda": cuda, "device": "cuda" if cuda else "cpu"}
+        if cuda:
+            try:
+                info["gpu_name"] = torch.cuda.get_device_name(0)
+            except Exception:
+                info["gpu_name"] = "unknown"
+        return info
+
+    @staticmethod
+    def _validate_model_size(model_size: str) -> None:
+        allowed = {"tiny", "small", "base", "large"}
+        if model_size not in allowed:
+            raise ValueError(f"Invalid model_size='{model_size}'. Allowed: {sorted(list(allowed))}")
+
+    @staticmethod
+    def _merge_training_args(user_args: Optional[Dict[str, Any]], output_dir: str) -> TrainingArguments:
+
+        user_args = dict(user_args or {})
+
+        cuda = torch.cuda.is_available()
+
+        bf16 = bool(user_args.get("bf16", False))
+        fp16 = bool(user_args.get("fp16", cuda and not bf16))
+
+        defaults: Dict[str, Any] = {
+            "output_dir": output_dir,
+            "overwrite_output_dir": True,
+            "num_train_epochs": 3,
+            "per_device_train_batch_size": 8,
+            "per_device_eval_batch_size": 8,
+            "learning_rate": 5e-5,
+            "weight_decay": 0.01,
+            "warmup_ratio": 0.0,
+            "logging_steps": 25,
+            "save_strategy": "epoch",
+            "evaluation_strategy": "epoch",
+            "load_best_model_at_end": True,
+            "metric_for_best_model": "f1_macro",
+            "greater_is_better": True,
+            "report_to": [],
+            "fp16": fp16,
+            "bf16": bf16,
+        }
+
+        merged = {**defaults, **user_args}
+
+        if merged.get("evaluation_strategy") in (None, "no") and merged.get("load_best_model_at_end"):
+            merged["evaluation_strategy"] = "epoch"
+
+        return TrainingArguments(**merged)
 
     def train_language_model(
             self,
@@ -67,10 +126,21 @@ class TrainerServiceImpl(TrainerService):
         data_collator = create_data_collator(hf_tokenizer)
         args = create_training_args(output_dir)
 
-        trainer = create_trainer(model, args, tokenized_ds, data_collator)
-        print("IS USING CUDA?", torch.cuda.is_available())
-        trainer.train()
+        random.seed(42)
+        np.random.seed(42)
+        torch.manual_seed(42)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(42)
 
+        trainer = create_trainer(model, args, tokenized_ds, data_collator)
+
+        dev = self._device_info()
+        print("[Trainer] Device:", dev)
+
+        if dev["cuda"]:
+            model.to("cuda")
+
+        trainer.train()
         save_trained_model(trainer, output_dir, hf_tokenizer)
 
         return {
@@ -87,9 +157,8 @@ class TrainerServiceImpl(TrainerService):
             model_path: str,
             dataset_id: str,
             output_dir: str,
-            training_args
+            training_args: Dict[str, Any],
     ) -> Dict[str, Any]:
-
         dataset = self.dataset_service.get_dataset(dataset_id)
         if not dataset:
             raise ValueError(f"Dataset '{dataset_id}' not found in database.")
@@ -102,8 +171,8 @@ class TrainerServiceImpl(TrainerService):
         random.seed(42)
         random.shuffle(valid_entries)
 
-        texts = [t for t, l in valid_entries]
-        labels = [l for t, l in valid_entries]
+        texts = [t for t, _ in valid_entries]
+        labels = [l for _, l in valid_entries]
 
         unique_labels = sorted(list(set(labels)))
         label2id = {label: i for i, label in enumerate(unique_labels)}
@@ -118,6 +187,9 @@ class TrainerServiceImpl(TrainerService):
             label2id=label2id
         )
 
+        model.config.id2label = id2label
+        model.config.label2id = label2id
+
         ds = Dataset.from_dict({"text": texts, "label": y})
         ds = ds.cast_column("label", ClassLabel(num_classes=len(unique_labels), names=unique_labels))
 
@@ -128,30 +200,43 @@ class TrainerServiceImpl(TrainerService):
                 padding="max_length",
                 max_length=128
             ),
-            batched=True
+            batched=True,
+            desc="Tokenizing"
         )
 
-        tokenized_ds = tokenized_ds.train_test_split(
-            test_size=0.1,
-            seed=42,
-            stratify_by_column="label"
-        )
-        args = TrainingArguments(**training_args)
+        try:
+            split = tokenized_ds.train_test_split(
+                test_size=0.1,
+                seed=42,
+                stratify_by_column="label"
+            )
+        except Exception:
+            split = tokenized_ds.train_test_split(
+                test_size=0.1,
+                seed=42
+            )
+
+        args = self._merge_training_args(training_args, output_dir=output_dir)
         data_collator = DataCollatorWithPadding(tokenizer)
+
+        dev = self._device_info()
+        print("[Trainer] Device:", dev)
 
         trainer = Trainer(
             model=model,
             args=args,
-            train_dataset=tokenized_ds["train"],
-            eval_dataset=tokenized_ds["test"],
+            train_dataset=split["train"],
+            eval_dataset=split["test"],
             data_collator=data_collator,
             compute_metrics=compute_metrics
         )
 
         trainer.train()
-
         metrics = trainer.evaluate()
-        model.save_pretrained(output_dir)
+
+        trainer.save_model(output_dir)
+        # noinspection PyUnresolvedReferences
+        trainer.save_state()
         tokenizer.save_pretrained(output_dir)
 
         return {
