@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 from dataset_builder.dataset_builder import DatasetBuilder, DatasetEntry, DatasetType
+from dataset_builder.entrytype import EntryType
 
 
 class DatasetBuilderService(ABC):
@@ -10,7 +11,9 @@ class DatasetBuilderService(ABC):
         pass
 
     @abstractmethod
-    def add_entry(self, dataset_id: str, text: str, label: str) -> Optional[DatasetEntry]:
+    def add_entry(self, dataset_id: str, text: str, label: str, entry_type: EntryType = None,
+                  template_id: Optional[str] = None, values: Optional[dict] = None,
+                  augment: bool = False) -> Optional[DatasetEntry]:
         pass
 
     @abstractmethod
@@ -34,7 +37,7 @@ class DatasetBuilderService(ABC):
         pass
 
     @abstractmethod
-    def add_entries_bulk(self, dataset_id: str, entries: List[dict]) -> List[DatasetEntry]:
+    def add_entries_bulk(self, dataset_id: str, entries: List[dict], augment: bool = False) -> List[DatasetEntry]:
         pass
 
     @abstractmethod
@@ -43,5 +46,10 @@ class DatasetBuilderService(ABC):
         pass
 
     @abstractmethod
-    def merge_datasets(self, primary_id: str, secondary_id: str, remove_dupes: bool,new_dataset: bool) -> Optional[DatasetBuilder]:
+    def merge_datasets(self, primary_id: str, secondary_id: str, remove_dupes: bool, new_dataset: bool,
+                      augment: bool = False) -> Optional[DatasetBuilder]:
+        pass
+
+    @abstractmethod
+    def augment_entries(self, dataset_id: str, num_augmentations: int = 1) -> List[DatasetEntry]:
         pass

@@ -89,7 +89,8 @@ async def add_entry(
         label: Optional[str] = None,
         entry_type: EntryType = EntryType.MANUAL,
         template_id: Optional[str] = None,
-        values: Optional[dict] = None
+        values: Optional[dict] = None,
+        augment: bool = False
 ):
     try:
         entry = service.add_entry(
@@ -98,7 +99,8 @@ async def add_entry(
             label=label,
             entry_type=entry_type,
             template_id=template_id,
-            values=values
+            values=values,
+            augment=augment
         )
 
         if not entry:
@@ -235,9 +237,9 @@ async def export_dataset(dataset_id: str, export_type: str):
     response_model=dict,
     dependencies=[Depends(require_perm([Role.DEVELOPER, Role.ADMIN]))]
 )
-async def add_entries_bulk(dataset_id: str, entries: List[dict]):
+async def add_entries_bulk(dataset_id: str, entries: List[dict], augment: bool = False):
     try:
-        added_entries = service.add_entries_bulk(dataset_id, entries)
+        added_entries = service.add_entries_bulk(dataset_id, entries, augment=augment)
         if not added_entries:
             raise ExpectionHandler(
                 message=f"Dataset with ID '{dataset_id}' not found.",
@@ -290,13 +292,14 @@ async def merge_datasets(
         secondary_id: str,
         remove_dupes: bool,
         new_dataset: bool,
-        new_dataset_info: Optional[DatasetCreate] = None
+        new_dataset_info: Optional[DatasetCreate] = None,
+        augment: bool = False
 ):
     try:
         if new_dataset and new_dataset_info:
             service.temp_new_dataset_info = new_dataset_info
 
-        merged = service.merge_datasets(primary_id, secondary_id, remove_dupes, new_dataset)
+        merged = service.merge_datasets(primary_id, secondary_id, remove_dupes, new_dataset, augment=augment)
 
         if not merged:
             raise ExpectionHandler(
@@ -311,6 +314,36 @@ async def merge_datasets(
     except Exception as e:
         raise ExpectionHandler(
             message="Failed to merge datasets.",
+            error_type=ErrorType.DATABASE_ERROR,
+            detail=str(e)
+        )
+
+
+@router.post(
+    "/{dataset_id}/augment",
+    response_model=dict,
+    dependencies=[Depends(require_perm([Role.DEVELOPER, Role.ADMIN]))]
+)
+async def augment_entries(dataset_id: str, num_augmentations: int = 1):
+    try:
+        augmented_entries = service.augment_entries(dataset_id, num_augmentations)
+        if not augmented_entries:
+            raise ExpectionHandler(
+                message=f"Dataset with ID '{dataset_id}' not found or has no entries.",
+                error_type=ErrorType.NOT_FOUND
+            )
+
+        return {
+            "status": "success",
+            "count": len(augmented_entries),
+            "entries": [e.to_dict() for e in augmented_entries]
+        }
+
+    except ExpectionHandler:
+        raise
+    except Exception as e:
+        raise ExpectionHandler(
+            message="Failed to augment entries.",
             error_type=ErrorType.DATABASE_ERROR,
             detail=str(e)
         )

@@ -8,13 +8,14 @@ from pymongo import MongoClient
 from dataset_builder.dataset_builder import DatasetBuilder, DatasetEntry, DatasetType
 from dataset_builder.dataset_builder_service import DatasetBuilderService
 from dataset_builder.entrytype import EntryType
+from dataset_builder.augmentation import TextAugmenter
 from config_loader import ConfigLoader
 from template.templateserviceimpl import TemplateServiceImpl
 from template.utils.templategenerator import TemplateGenerator
 
 
 class DatasetBuilderServiceImpl(DatasetBuilderService):
-    def __init__(self, config_file: str = "config.json"):
+    def __init__(self, config_file: str = "config.json", augmentation_prob: float = 0.2):
         cfg = ConfigLoader(config_file).get_database_config()
         uri = f"mongodb://{cfg['username']}:{cfg['password']}@{cfg['host']}:{cfg['port']}/{cfg['authSource']}"
 
@@ -23,6 +24,7 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
         self.collection = self.db["datasets"]
         self.template_service = TemplateServiceImpl()
         self.temp_new_dataset_info = None
+        self.augmenter = TextAugmenter(prob=augmentation_prob)
 
 
     def create_dataset(self, name: str, description: str, dataset_type: DatasetType) -> DatasetBuilder:
@@ -36,7 +38,8 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
     def add_entry(self, dataset_id: str, text: Optional[str], label: str,
                   entry_type: EntryType = EntryType.MANUAL,
                   template_id: Optional[str] = None,
-                  values: Optional[dict] = None):
+                  values: Optional[dict] = None,
+                  augment: bool = False):
 
         dataset = self.get_dataset(dataset_id)
         if not dataset:
@@ -52,6 +55,9 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
 
             if values and all(isinstance(v, str) for v in values.values()):
                 filled_text = tpl.pattern.format(**values)
+                
+                if augment:
+                    filled_text = self.augmenter.augment(filled_text)
 
                 entry = DatasetEntry.create(
                     text=filled_text,
@@ -84,8 +90,9 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
 
             added_entries = []
             for var in variations:
+                augmented_text = self.augmenter.augment(var["text"]) if augment else var["text"]
                 entry = DatasetEntry.create(
-                    text=var["text"],
+                    text=augmented_text,
                     label=label,
                     entry_type=EntryType.TEMPLATE,
                     template_id=template_id,
@@ -102,6 +109,9 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
 
         if not text and values and "text" in values:
             text = values["text"]
+
+        if augment and text:
+            text = self.augmenter.augment(text)
 
         entry = DatasetEntry.create(
             text=text,
@@ -226,7 +236,7 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
         buffer.seek(0)
         return buffer.read()
 
-    def add_entries_bulk(self, dataset_id: str, entries: List[dict]) -> List[DatasetEntry]:
+    def add_entries_bulk(self, dataset_id: str, entries: List[dict], augment: bool = False) -> List[DatasetEntry]:
         dataset = self.get_dataset(dataset_id)
         if not dataset:
             return []
@@ -243,6 +253,9 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
 
             if not text or not label or not entry_type:
                 raise ValueError("Each entry must include 'text', 'label', and 'entry_type' fields.")
+
+            if augment and text:
+                text = self.augmenter.augment(text)
 
             entry = DatasetEntry.create(
                 text=text,
@@ -284,7 +297,8 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
             primary_id: str,
             secondary_id: str,
             remove_dupes: bool,
-            new_dataset: bool
+            new_dataset: bool,
+            augment: bool = False
     ) -> Optional[DatasetBuilder]:
         primary = self.get_dataset(primary_id)
         secondary = self.get_dataset(secondary_id)
@@ -297,6 +311,8 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
         for e in all_entries:
             if e.values is None:
                 e.values = {}
+            if augment and e.text:
+                e.text = self.augmenter.augment(e.text)
 
         if remove_dupes:
             unique_map = {}
@@ -342,5 +358,37 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
         )
 
         return primary
+
+
+    def augment_entries(self, dataset_id: str, num_augmentations: int = 1) -> List[DatasetEntry]:
+        dataset = self.get_dataset(dataset_id)
+        if not dataset:
+            return []
+
+        augmented_entries = []
+        now = datetime.utcnow()
+
+        for entry in dataset.entries:
+            for _ in range(num_augmentations):
+                augmented_text = self.augmenter.augment(entry.text)
+                new_entry = DatasetEntry.create(
+                    text=augmented_text,
+                    label=entry.label,
+                    entry_type=EntryType.MANUAL,
+                    template_id=None,
+                    values={}
+                )
+                augmented_entries.append(new_entry)
+
+        if augmented_entries:
+            self.collection.update_one(
+                {"id": dataset_id},
+                {
+                    "$push": {"entries": {"$each": [e.to_dict() for e in augmented_entries]}},
+                    "$set": {"updated_at": now.isoformat()}
+                }
+            )
+
+        return augmented_entries
 
 
