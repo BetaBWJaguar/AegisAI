@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from typing import List, Dict
+from typing import List, Dict, Optional
 import time
 
 from data_scraper.scrapper_logging import ScrapeLogger
@@ -16,7 +16,12 @@ class ScrapperServiceImpl(ScrapperService):
         self.cache = ScrapperCache(ttl=3600)
         self.logger = ScrapeLogger()
 
-    def scrape_reddit(self, query: str, limit: int = 50, subreddits: List[str] = None) -> List[Dict[str, str]]:
+    def scrape_reddit(self, query: str, limit: int = 50, subreddits: Optional[List[str]] = None) -> List[Dict[str, str]]:
+        if not query or not query.strip():
+            raise ValueError("Query cannot be empty")
+        if limit <= 0:
+            raise ValueError("Limit must be positive")
+            
         start_time = time.time()
 
         cached = self.cache.get(query, limit, subreddits)
@@ -33,7 +38,17 @@ class ScrapperServiceImpl(ScrapperService):
         try:
             data = self.reddit_scrapper.fetch(query=query, limit=limit, subreddits=subreddits)
             duration = round(time.time() - start_time, 2)
-            self.logger.log_success(query, "reddit", len(data), duration)
+            
+            if not data:
+                self.logger.log({
+                    "status": "warning",
+                    "platform": "reddit",
+                    "query": query,
+                    "result_count": 0,
+                    "message": "No results found"
+                })
+            else:
+                self.logger.log_success(query, "reddit", len(data), duration)
 
             self.cache.set(query, limit, subreddits, data)
 
