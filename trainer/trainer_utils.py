@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import json
 from pathlib import Path
 from typing import List, Dict, Any
 from tokenizers.implementations import BertWordPieceTokenizer
@@ -13,13 +14,16 @@ from transformers import (
 from datasets import load_dataset
 
 
-MODEL_SIZES: Dict[str, Dict[str, int]] = {
-    "15M":  {"hidden_size": 256,  "num_hidden_layers": 4,  "num_attention_heads": 4},
-    "30M":  {"hidden_size": 512,  "num_hidden_layers": 6,  "num_attention_heads": 8},
-    "110M": {"hidden_size": 768,  "num_hidden_layers": 12, "num_attention_heads": 12},
-    "300M": {"hidden_size": 1024, "num_hidden_layers": 16, "num_attention_heads": 16},
-    "340M": {"hidden_size": 1024, "num_hidden_layers": 24, "num_attention_heads": 16},
-}
+def load_model_sizes(json_path: str) -> Dict[str, Dict[str, int]]:
+    path = Path(json_path)
+
+    if not path.exists():
+        raise FileNotFoundError(f"Model size config not found: {json_path}")
+
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    return data
 
 
 def optimize_tokenizer(tokenizer: BertTokenizerFast, texts: List[str], max_length: int = None):
@@ -67,14 +71,19 @@ def train_tokenizer(
 
 
 
-def prepare_bert_config(vocab_size: int, model_size: str) -> BertConfig:
-    if model_size not in MODEL_SIZES:
+def prepare_bert_config(
+        vocab_size: int,
+        model_size: str,
+        model_sizes: Dict[str, Dict[str, int]]
+) -> BertConfig:
+
+    if model_size not in model_sizes:
         raise ValueError(
             f"Unsupported model_size '{model_size}'. "
-            f"Available: {', '.join(MODEL_SIZES.keys())}"
+            f"Available: {', '.join(model_sizes.keys())}"
         )
 
-    cfg = MODEL_SIZES[model_size]
+    cfg = model_sizes[model_size]
 
     return BertConfig(
         vocab_size=vocab_size,

@@ -25,7 +25,7 @@ from trainer.trainer_utils import (
     create_data_collator,
     create_training_args,
     create_trainer,
-    save_trained_model,
+    save_trained_model, load_model_sizes,
 )
 from trainer.service.trainer_service import TrainerService
 from dataset_builder.dataset_builder_serviceimpl import DatasetBuilderServiceImpl
@@ -107,9 +107,13 @@ class TrainerServiceImpl(TrainerService):
         vocab_path = train_tokenizer(corpus_files, output_dir + "/tokenizer")
 
         hf_tokenizer = load_hf_tokenizer(vocab_path)
+        model_sizes = load_model_sizes(
+            r"T:\TunaRP\AegisAI\trainer\model_sizes.json"
+        )
         config = prepare_bert_config(
             vocab_size=len(hf_tokenizer.get_vocab()),
-            model_size=model_size
+            model_size=model_size,
+            model_sizes=model_sizes
         )
         model = BertForMaskedLM(config)
 
