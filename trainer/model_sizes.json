@@ -1,27 +1,45 @@
 {
-  "15M": {
+  "MINI_10M": {
     "hidden_size": 256,
     "num_hidden_layers": 4,
     "num_attention_heads": 4
   },
-  "30M": {
-    "hidden_size": 512,
+  "MINI_20M": {
+    "hidden_size": 384,
     "num_hidden_layers": 6,
-    "num_attention_heads": 8
+    "num_attention_heads": 6
   },
-  "110M": {
+
+  "SMALL_100M": {
     "hidden_size": 768,
     "num_hidden_layers": 12,
     "num_attention_heads": 12
   },
-  "300M": {
-    "hidden_size": 1024,
-    "num_hidden_layers": 16,
-    "num_attention_heads": 16
-  },
-  "340M": {
+  "SMALL_300M": {
     "hidden_size": 1024,
     "num_hidden_layers": 24,
     "num_attention_heads": 16
+  },
+
+  "MEDIUM_500M": {
+    "hidden_size": 1280,
+    "num_hidden_layers": 24,
+    "num_attention_heads": 20
+  },
+  "MEDIUM_1B": {
+    "hidden_size": 1536,
+    "num_hidden_layers": 24,
+    "num_attention_heads": 24
+  },
+
+  "LARGE_2B": {
+    "hidden_size": 2048,
+    "num_hidden_layers": 24,
+    "num_attention_heads": 32
+  },
+  "LARGE_3B": {
+    "hidden_size": 2560,
+    "num_hidden_layers": 32,
+    "num_attention_heads": 32
   }
 }
