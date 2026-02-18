@@ -254,17 +254,26 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
             if not text or not label or not entry_type:
                 raise ValueError("Each entry must include 'text', 'label', and 'entry_type' fields.")
 
-            if augment and text:
-                text = self.augmenter.augment(text)
+            texts_to_add = [text]
 
-            entry = DatasetEntry.create(
-                text=text,
-                label=label,
-                entry_type=EntryType(entry_type),
-                template_id=template_id,
-                values=values
-            )
-            added_entries.append(entry)
+            if augment:
+                augmented = self.augmenter.augment(text)
+
+
+                if isinstance(augmented, list):
+                    texts_to_add.extend(augmented)
+                elif augmented:
+                    texts_to_add.append(augmented)
+
+            for t in texts_to_add:
+                entry = DatasetEntry.create(
+                    text=t,
+                    label=label,
+                    entry_type=EntryType(entry_type),
+                    template_id=template_id,
+                    values=values
+                )
+                added_entries.append(entry)
 
         self.collection.update_one(
             {"id": dataset_id},
