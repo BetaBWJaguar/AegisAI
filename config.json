@@ -22,5 +22,8 @@
     "reddit": {
       "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0 Safari/537.36"
     }
+  },
+  "trainer": {
+    "model_sizes_path": "T:/TunaRP/AegisAI/trainer/model_sizes.json"
   }
 }

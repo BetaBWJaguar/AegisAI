@@ -16,6 +16,7 @@ from transformers import (
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from datasets import Dataset, ClassLabel
 
+from config_loader import ConfigLoader
 from trainer.trainer_utils import (
     train_tokenizer,
     prepare_bert_config,
@@ -50,6 +51,8 @@ def compute_metrics(pred: EvalPrediction) -> Dict[str, float]:
 class TrainerServiceImpl(TrainerService):
     def __init__(self, config_file: str = "config.json"):
         self.dataset_service = DatasetBuilderServiceImpl(config_file)
+        self.config_loader = ConfigLoader(config_file)
+        self.trainer_config = self.config_loader.get_trainer_config()
 
     @staticmethod
     def _device_info() -> Dict[str, Any]:
@@ -61,6 +64,12 @@ class TrainerServiceImpl(TrainerService):
             except Exception:
                 info["gpu_name"] = "unknown"
         return info
+
+    def _get_model_sizes_path(self) -> str:
+        path = self.trainer_config.get("model_sizes_path")
+        if not path:
+            raise ValueError("Path is not found!")
+        return path
 
     @staticmethod
     def _validate_model_size(model_size: str) -> None:
@@ -108,7 +117,7 @@ class TrainerServiceImpl(TrainerService):
 
         hf_tokenizer = load_hf_tokenizer(vocab_path)
         model_sizes = load_model_sizes(
-            r"T:\TunaRP\AegisAI\trainer\model_sizes.json"
+            self._get_model_sizes_path()
         )
         config = prepare_bert_config(
             vocab_size=len(hf_tokenizer.get_vocab()),

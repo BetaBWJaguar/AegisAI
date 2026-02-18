@@ -47,3 +47,6 @@ class ConfigLoader:
         if not site_cfg:
             raise KeyError(f"Scrapper config for '{site}' not found in config.json")
         return site_cfg
+
+    def get_trainer_config(self) -> dict:
+        return self.config.get("trainer", {})
