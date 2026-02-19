@@ -35,15 +35,22 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
         return ds
 
 
-    def add_entry(self, dataset_id: str, text: Optional[str], label: str,
-                  entry_type: EntryType = EntryType.MANUAL,
-                  template_id: Optional[str] = None,
-                  values: Optional[dict] = None,
-                  augment: bool = False):
-
+    def add_entry(
+            self,
+            dataset_id: str,
+            text: Optional[str],
+            label: str,
+            entry_type: EntryType = EntryType.MANUAL,
+            template_id: Optional[str] = None,
+            values: Optional[dict] = None,
+            augment: bool = False
+    ):
         dataset = self.get_dataset(dataset_id)
         if not dataset:
             return None
+
+        now = datetime.utcnow()
+        texts_to_add = []
 
         if entry_type == EntryType.TEMPLATE:
             if not template_id:
@@ -54,83 +61,128 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
                 return None
 
             if values and all(isinstance(v, str) for v in values.values()):
-                filled_text = tpl.pattern.format(**values)
-                
-                if augment:
-                    filled_text = self.augmenter.augment(filled_text)
+                base_text = tpl.pattern.format(**values)
+                texts_to_add.append((base_text, values))
+            else:
+                dataset_values = {}
+                for e in dataset.entries:
+                    if e.values:
+                        for k, v in e.values.items():
+                            dataset_values.setdefault(k, set()).add(v)
+                dataset_values = {k: list(v) for k, v in dataset_values.items()}
 
-                entry = DatasetEntry.create(
-                    text=filled_text,
-                    label=label,
-                    entry_type=EntryType.TEMPLATE,
-                    template_id=template_id,
-                    values=values
+                generator = TemplateGenerator(tpl.pattern)
+                input_values = values.get("values") if values and "values" in values else values
+                variations = generator.generate_from_dataset_values(input_values or dataset_values)
+
+                for var in variations:
+                    texts_to_add.append((var["text"], var["values"]))
+
+            final_entries = []
+
+            for base_text, val in texts_to_add:
+                final_entries.append(
+                    DatasetEntry.create(
+                        text=base_text,
+                        label=label,
+                        entry_type=EntryType.TEMPLATE,
+                        template_id=template_id,
+                        values=val or {}
+                    )
                 )
 
-                self.collection.update_one(
-                    {"id": dataset_id},
-                    {"$push": {"entries": entry.to_dict()},
-                     "$set": {"updated_at": datetime.utcnow().isoformat()}}
-                )
+                if augment and base_text:
+                    augmented = self.augmenter.augment(base_text)
 
-                return entry
+                    if isinstance(augmented, list):
+                        for aug in augmented:
+                            if aug and aug != base_text:
+                                final_entries.append(
+                                    DatasetEntry.create(
+                                        text=aug,
+                                        label=label,
+                                        entry_type=EntryType.TEMPLATE,
+                                        template_id=template_id,
+                                        values=val or {}
+                                    )
+                                )
+                    elif augmented and augmented != base_text:
+                        final_entries.append(
+                            DatasetEntry.create(
+                                text=augmented,
+                                label=label,
+                                entry_type=EntryType.TEMPLATE,
+                                template_id=template_id,
+                                values=val or {}
+                            )
+                        )
 
-            dataset_values = {}
-            for e in dataset.entries:
-                if e.values:
-                    for k, v in e.values.items():
-                        dataset_values.setdefault(k, set()).add(v)
-            dataset_values = {k: list(v) for k, v in dataset_values.items()}
+            if not final_entries:
+                return None
 
-            generator = TemplateGenerator(tpl.pattern)
-            input_values = values.get("values") if values and "values" in values else values
+            self.collection.update_one(
+                {"id": dataset_id},
+                {
+                    "$push": {"entries": {"$each": [e.to_dict() for e in final_entries]}},
+                    "$set": {"updated_at": now.isoformat()}
+                }
+            )
 
-            variations = generator.generate_from_dataset_values(input_values or dataset_values)
-
-
-            added_entries = []
-            for var in variations:
-                augmented_text = self.augmenter.augment(var["text"]) if augment else var["text"]
-                entry = DatasetEntry.create(
-                    text=augmented_text,
-                    label=label,
-                    entry_type=EntryType.TEMPLATE,
-                    template_id=template_id,
-                    values=var["values"]
-                )
-                self.collection.update_one(
-                    {"id": dataset_id},
-                    {"$push": {"entries": entry.to_dict()},
-                     "$set": {"updated_at": datetime.utcnow().isoformat()}}
-                )
-                added_entries.append(entry)
-
-            return added_entries
+            return final_entries if len(final_entries) > 1 else final_entries[0]
 
         if not text and values and "text" in values:
             text = values["text"]
 
-        if augment and text:
-            text = self.augmenter.augment(text)
-
-        entry = DatasetEntry.create(
-            text=text,
-            label=label,
-            entry_type=EntryType.MANUAL,
-            template_id=None,
-            values={}
-        )
-
-        update_result = self.collection.update_one(
-            {"id": dataset_id},
-            {"$push": {"entries": entry.to_dict()},
-             "$set": {"updated_at": datetime.utcnow().isoformat()}}
-        )
-
-        if update_result.matched_count == 0:
+        if not text:
             return None
 
-        return entry
+        final_entries = []
+
+        final_entries.append(
+            DatasetEntry.create(
+                text=text,
+                label=label,
+                entry_type=EntryType.MANUAL,
+                template_id=None,
+                values={}
+            )
+        )
+
+        if augment and text:
+            augmented = self.augmenter.augment(text)
+
+            if isinstance(augmented, list):
+                for aug in augmented:
+                    if aug and aug != text:
+                        final_entries.append(
+                            DatasetEntry.create(
+                                text=aug,
+                                label=label,
+                                entry_type=EntryType.MANUAL,
+                                template_id=None,
+                                values={}
+                            )
+                        )
+            elif augmented and augmented != text:
+                final_entries.append(
+                    DatasetEntry.create(
+                        text=augmented,
+                        label=label,
+                        entry_type=EntryType.MANUAL,
+                        template_id=None,
+                        values={}
+                    )
+                )
+
+        self.collection.update_one(
+            {"id": dataset_id},
+            {
+                "$push": {"entries": {"$each": [e.to_dict() for e in final_entries]}},
+                "$set": {"updated_at": now.isoformat()}
+            }
+        )
+
+        return final_entries if len(final_entries) > 1 else final_entries[0]
 
 
     def remove_entry(self, dataset_id: str, entry_id: str) -> bool:
