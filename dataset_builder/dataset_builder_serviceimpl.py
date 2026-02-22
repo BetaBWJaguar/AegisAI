@@ -378,23 +378,48 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
         if not primary or not secondary:
             return None
 
-        all_entries = primary.entries + secondary.entries
+        combined_entries = primary.entries + secondary.entries
+        merged_entries = []
 
-        for e in all_entries:
-            if e.values is None:
-                e.values = {}
-            if augment and e.text:
-                e.text = self.augmenter.augment(e.text)
+        for entry in combined_entries:
+
+            unique_texts = set()
+
+            if entry.text:
+                unique_texts.add(entry.text)
+
+
+                if augment:
+                    augmented = self.augmenter.augment(entry.text)
+                    augmented_list = augmented if isinstance(augmented, list) else [augmented]
+
+                    for aug in augmented_list:
+                        if aug:
+                            unique_texts.add(aug)
+
+
+                if self.use_synonyms and self.synonym_replacer:
+                    synonym_text = self.synonym_replacer.replace(entry.text)
+                    if synonym_text:
+                        unique_texts.add(synonym_text)
+
+            for text_variant in unique_texts:
+                new_entry = DatasetEntry.create(
+                    text=text_variant,
+                    label=entry.label,
+                    entry_type=entry.entry_type,
+                    template_id=entry.template_id,
+                    values=entry.values or {}
+                )
+                merged_entries.append(new_entry)
 
         if remove_dupes:
             unique_map = {}
-            for e in all_entries:
+            for e in merged_entries:
                 key = (e.text.strip().lower(), e.label.lower())
                 if key not in unique_map:
                     unique_map[key] = e
             merged_entries = list(unique_map.values())
-        else:
-            merged_entries = all_entries
 
         if new_dataset:
             info = getattr(self, "temp_new_dataset_info", None)
@@ -433,34 +458,53 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
 
 
     def augment_entries(self, dataset_id: str, num_augmentations: int = 1) -> List[DatasetEntry]:
+
         dataset = self.get_dataset(dataset_id)
         if not dataset:
             return []
 
-        augmented_entries = []
+        new_entries = []
         now = datetime.utcnow()
 
         for entry in dataset.entries:
+
+            unique_texts = set()
+
             for _ in range(num_augmentations):
-                augmented_text = self.augmenter.augment(entry.text)
+
+                if entry.text:
+
+                    augmented = self.augmenter.augment(entry.text)
+                    augmented_list = augmented if isinstance(augmented, list) else [augmented]
+
+                    for aug in augmented_list:
+                        if aug:
+                            unique_texts.add(aug)
+
+                    if self.use_synonyms and self.synonym_replacer:
+                        synonym_text = self.synonym_replacer.replace(entry.text)
+                        if synonym_text:
+                            unique_texts.add(synonym_text)
+
+            for text_variant in unique_texts:
                 new_entry = DatasetEntry.create(
-                    text=augmented_text,
+                    text=text_variant,
                     label=entry.label,
                     entry_type=EntryType.MANUAL,
                     template_id=None,
                     values={}
                 )
-                augmented_entries.append(new_entry)
+                new_entries.append(new_entry)
 
-        if augmented_entries:
+        if new_entries:
             self.collection.update_one(
                 {"id": dataset_id},
                 {
-                    "$push": {"entries": {"$each": [e.to_dict() for e in augmented_entries]}},
+                    "$push": {"entries": {"$each": [e.to_dict() for e in new_entries]}},
                     "$set": {"updated_at": now.isoformat()}
                 }
             )
 
-        return augmented_entries
+        return new_entries
 
 
