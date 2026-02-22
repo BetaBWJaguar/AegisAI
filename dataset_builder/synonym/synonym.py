@@ -1,12 +1,16 @@
 import random
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 
 class SynonymReplacer:
 
-
-    def __init__(self, synonym_dict: Dict[str, List[str]], prob: float = 0.2, seed: int = None):
-        self.synonym_dict = synonym_dict
+    def __init__(
+        self,
+        synonym_dict: Optional[Dict[str, List[str]]] = None,
+        prob: float = 0.2,
+        seed: int = None
+    ):
+        self.synonym_dict = synonym_dict or {}
         self.prob = prob
 
         if seed is not None:

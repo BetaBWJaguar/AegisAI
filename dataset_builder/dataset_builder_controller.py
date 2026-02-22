@@ -11,7 +11,7 @@ from permcontrol.permissionscontrol import require_perm
 from user.role import Role
 
 router = APIRouter()
-service = DatasetBuilderServiceImpl("config.json")
+service = DatasetBuilderServiceImpl("config.json", use_synonyms=True)
 
 
 @router.post(
@@ -344,6 +344,26 @@ async def augment_entries(dataset_id: str, num_augmentations: int = 1):
     except Exception as e:
         raise ExpectionHandler(
             message="Failed to augment entries.",
+            error_type=ErrorType.DATABASE_ERROR,
+            detail=str(e)
+        )
+
+
+@router.post(
+    "/synonyms/reload",
+    response_model=dict,
+    dependencies=[Depends(require_perm([Role.DEVELOPER, Role.ADMIN]))]
+)
+async def reload_synonyms():
+    try:
+        service.reload_synonyms()
+        return {
+            "status": "success",
+            "message": "Synonyms reloaded successfully."
+        }
+    except Exception as e:
+        raise ExpectionHandler(
+            message="Failed to reload synonyms.",
             error_type=ErrorType.DATABASE_ERROR,
             detail=str(e)
         )

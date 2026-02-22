@@ -9,13 +9,15 @@ from dataset_builder.dataset_builder import DatasetBuilder, DatasetEntry, Datase
 from dataset_builder.dataset_builder_service import DatasetBuilderService
 from dataset_builder.entrytype import EntryType
 from dataset_builder.augmentation import TextAugmenter
+from dataset_builder.synonym.synonym import SynonymReplacer
+from dataset_builder.synonym.synonym_serviceimpl import SynonymServiceImpl
 from config_loader import ConfigLoader
 from template.templateserviceimpl import TemplateServiceImpl
 from template.utils.templategenerator import TemplateGenerator
 
 
 class DatasetBuilderServiceImpl(DatasetBuilderService):
-    def __init__(self, config_file: str = "config.json", augmentation_prob: float = 0.2):
+    def __init__(self, config_file: str = "config.json", augmentation_prob: float = 0.2, use_synonyms: bool = False):
         cfg = ConfigLoader(config_file).get_database_config()
         uri = f"mongodb://{cfg['username']}:{cfg['password']}@{cfg['host']}:{cfg['port']}/{cfg['authSource']}"
 
@@ -25,6 +27,25 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
         self.template_service = TemplateServiceImpl()
         self.temp_new_dataset_info = None
         self.augmenter = TextAugmenter(prob=augmentation_prob)
+        self.use_synonyms = use_synonyms
+
+        self.synonym_service = SynonymServiceImpl(config_file)
+        self.synonym_replacer = None
+
+        if self.use_synonyms:
+            self._load_synonyms()
+
+    def _load_synonyms(self):
+        try:
+            synonym_dict = self.synonym_service.get_all_synonyms()
+            self.synonym_replacer = SynonymReplacer(synonym_dict=synonym_dict, prob=0.3)
+        except Exception as e:
+            print(f"Warning: Failed to load synonyms: {e}")
+            self.synonym_replacer = None
+
+    def reload_synonyms(self):
+        if self.use_synonyms:
+            self._load_synonyms()
 
 
     def create_dataset(self, name: str, description: str, dataset_type: DatasetType) -> DatasetBuilder:
@@ -50,9 +71,20 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
             return None
 
         now = datetime.utcnow()
-        texts_to_add = []
+        final_entries = []
+
+        def create_entry(entry_text, entry_type, template_id=None, values=None):
+            return DatasetEntry.create(
+                text=entry_text,
+                label=label,
+                entry_type=entry_type,
+                template_id=template_id,
+                values=values or {}
+            )
+
 
         if entry_type == EntryType.TEMPLATE:
+
             if not template_id:
                 raise ValueError("template_id is required for TEMPLATE entry type")
 
@@ -60,9 +92,11 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
             if not tpl:
                 return None
 
+            generated_texts = []
+
             if values and all(isinstance(v, str) for v in values.values()):
                 base_text = tpl.pattern.format(**values)
-                texts_to_add.append((base_text, values))
+                generated_texts.append((base_text, values))
             else:
                 dataset_values = {}
                 for e in dataset.entries:
@@ -76,103 +110,72 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
                 variations = generator.generate_from_dataset_values(input_values or dataset_values)
 
                 for var in variations:
-                    texts_to_add.append((var["text"], var["values"]))
+                    generated_texts.append((var["text"], var["values"]))
 
-            final_entries = []
+            for base_text, val in generated_texts:
 
-            for base_text, val in texts_to_add:
-                final_entries.append(
-                    DatasetEntry.create(
-                        text=base_text,
-                        label=label,
-                        entry_type=EntryType.TEMPLATE,
-                        template_id=template_id,
-                        values=val or {}
-                    )
-                )
+                unique_texts = set()
 
-                if augment and base_text:
+                unique_texts.add(base_text)
+
+
+                if augment:
                     augmented = self.augmenter.augment(base_text)
+                    augmented_list = augmented if isinstance(augmented, list) else [augmented]
 
-                    if isinstance(augmented, list):
-                        for aug in augmented:
-                            if aug and aug != base_text:
-                                final_entries.append(
-                                    DatasetEntry.create(
-                                        text=aug,
-                                        label=label,
-                                        entry_type=EntryType.TEMPLATE,
-                                        template_id=template_id,
-                                        values=val or {}
-                                    )
-                                )
-                    elif augmented and augmented != base_text:
-                        final_entries.append(
-                            DatasetEntry.create(
-                                text=augmented,
-                                label=label,
-                                entry_type=EntryType.TEMPLATE,
-                                template_id=template_id,
-                                values=val or {}
-                            )
+                    for aug in augmented_list:
+                        if aug:
+                            unique_texts.add(aug)
+
+                if self.use_synonyms and self.synonym_replacer:
+                    synonym_text = self.synonym_replacer.replace(base_text)
+                    if synonym_text:
+                        unique_texts.add(synonym_text)
+
+                for t in unique_texts:
+                    final_entries.append(
+                        create_entry(
+                            entry_text=t,
+                            entry_type=EntryType.TEMPLATE,
+                            template_id=template_id,
+                            values=val
                         )
+                    )
+        else:
 
-            if not final_entries:
+            if not text and values and "text" in values:
+                text = values["text"]
+
+            if not text:
                 return None
 
-            self.collection.update_one(
-                {"id": dataset_id},
-                {
-                    "$push": {"entries": {"$each": [e.to_dict() for e in final_entries]}},
-                    "$set": {"updated_at": now.isoformat()}
-                }
-            )
+            unique_texts = set()
 
-            return final_entries if len(final_entries) > 1 else final_entries[0]
+            unique_texts.add(text)
 
-        if not text and values and "text" in values:
-            text = values["text"]
+            if augment:
+                augmented = self.augmenter.augment(text)
+                augmented_list = augmented if isinstance(augmented, list) else [augmented]
 
-        if not text:
-            return None
+                for aug in augmented_list:
+                    if aug:
+                        unique_texts.add(aug)
 
-        final_entries = []
+            if self.use_synonyms and self.synonym_replacer:
+                synonym_text = self.synonym_replacer.replace(text)
+                if synonym_text:
+                    unique_texts.add(synonym_text)
 
-        final_entries.append(
-            DatasetEntry.create(
-                text=text,
-                label=label,
-                entry_type=EntryType.MANUAL,
-                template_id=None,
-                values={}
-            )
-        )
-
-        if augment and text:
-            augmented = self.augmenter.augment(text)
-
-            if isinstance(augmented, list):
-                for aug in augmented:
-                    if aug and aug != text:
-                        final_entries.append(
-                            DatasetEntry.create(
-                                text=aug,
-                                label=label,
-                                entry_type=EntryType.MANUAL,
-                                template_id=None,
-                                values={}
-                            )
-                        )
-            elif augmented and augmented != text:
+            for t in unique_texts:
                 final_entries.append(
-                    DatasetEntry.create(
-                        text=augmented,
-                        label=label,
-                        entry_type=EntryType.MANUAL,
-                        template_id=None,
-                        values={}
+                    create_entry(
+                        entry_text=t,
+                        entry_type=EntryType.MANUAL
                     )
                 )
+
+        if not final_entries:
+            return None
 
         self.collection.update_one(
             {"id": dataset_id},
@@ -306,18 +309,23 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
             if not text or not label or not entry_type:
                 raise ValueError("Each entry must include 'text', 'label', and 'entry_type' fields.")
 
-            texts_to_add = [text]
+            unique_texts = set()
+            unique_texts.add(text)
 
             if augment:
                 augmented = self.augmenter.augment(text)
+                augmented_list = augmented if isinstance(augmented, list) else [augmented]
 
+                for aug in augmented_list:
+                    if aug:
+                        unique_texts.add(aug)
 
-                if isinstance(augmented, list):
-                    texts_to_add.extend(augmented)
-                elif augmented:
-                    texts_to_add.append(augmented)
+            if self.use_synonyms and self.synonym_replacer:
+                synonym_text = self.synonym_replacer.replace(text)
+                if synonym_text:
+                    unique_texts.add(synonym_text)
 
-            for t in texts_to_add:
+            for t in unique_texts:
                 entry = DatasetEntry.create(
                     text=t,
                     label=label,
@@ -326,6 +334,9 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
                     values=values
                 )
                 added_entries.append(entry)
+
+        if not added_entries:
+            return []
 
         self.collection.update_one(
             {"id": dataset_id},

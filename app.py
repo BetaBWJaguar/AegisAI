@@ -10,6 +10,7 @@ from user.utility.failedloginattempt_service import FailedLoginAttemptService
 from utility.client_ip_middleware import ClientIPMiddleware
 from workspace.workspacecontroller import router as workspace_router
 from dataset_builder.dataset_builder_controller import router as dataset_router
+from dataset_builder.synonym.synonym_controller import router as synonym_router
 from template.templatecontroller import router as template_router
 from data_scraper.scrapper_controller import router as scrapper_router
 from auditmanager.auditlog_controller import router as audit_router
@@ -37,6 +38,7 @@ app.include_router(user_router, prefix="/users", tags=["users"])
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(workspace_router, prefix="/workspaces", tags=["workspaces"])
 app.include_router(dataset_router, prefix="/datasets", tags=["datasets"])
+app.include_router(synonym_router, prefix="/synonyms", tags=["synonyms"])
 app.include_router(template_router,prefix="/templates", tags=["templates"])
 app.include_router(scrapper_router, prefix="/scrapper", tags=["scrapper"])
 app.include_router(audit_router,prefix="/auditlog", tags=["auditlog"])
