@@ -31,13 +31,11 @@ class SynonymReplacer:
             return match.groups()
         return "", word, ""
 
-    def replace(self, text: str) -> str:
+    def replace(self, text: str) -> List[str]:
         words = text.split()
-        replaced_words = []
-        replaced_count = 0
-        used_words = set()
+        variants = set()
 
-        for word in words:
+        for i, word in enumerate(words):
 
             prefix, core, suffix = self._clean_word(word)
             key = core.lower()
@@ -46,28 +44,17 @@ class SynonymReplacer:
                     key in self.synonym_dict
                     and len(key) >= self.min_word_length
                     and key not in self.stopwords
-                    and random.random() < self.prob
             ):
 
-                if self.avoid_duplicate_replacements and key in used_words:
-                    replaced_words.append(word)
-                    continue
+                for synonym in self.synonym_dict[key]:
 
-                if self.max_replacements and replaced_count >= self.max_replacements:
-                    replaced_words.append(word)
-                    continue
+                    new_words = words.copy()
 
-                replacement = random.choice(self.synonym_dict[key])
+                    replacement = synonym
+                    if core and core[0].isupper():
+                        replacement = replacement.capitalize()
 
-                if core[0].isupper():
-                    replacement = replacement.capitalize()
+                    new_words[i] = prefix + replacement + suffix
+                    variants.add(" ".join(new_words))
 
-                replaced_word = prefix + replacement + suffix
-                replaced_words.append(replaced_word)
-
-                used_words.add(key)
-                replaced_count += 1
-            else:
-                replaced_words.append(word)
-
-        return " ".join(replaced_words)
+        return list(variants)

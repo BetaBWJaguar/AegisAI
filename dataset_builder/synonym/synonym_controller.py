@@ -1,11 +1,21 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Body
 from typing import Dict, List
+from pydantic import BaseModel, Field
 
 from dataset_builder.synonym.synonym_serviceimpl import SynonymServiceImpl
 from error.errortypes import ErrorType
 from error.expectionhandler import ExpectionHandler
 from permcontrol.permissionscontrol import require_perm
 from user.role import Role
+
+
+class SynonymRequest(BaseModel):
+    word: str = Field(...)
+    synonyms: List[str] = Field(...)
+
+
+class SynonymUpdateRequest(BaseModel):
+    synonyms: List[str] = Field(...)
 
 router = APIRouter()
 service = SynonymServiceImpl("config.json")
@@ -56,20 +66,20 @@ async def get_synonym(word: str):
     response_model=dict,
     dependencies=[Depends(require_perm([Role.DEVELOPER, Role.ADMIN]))]
 )
-async def add_synonym(word: str, synonyms: List[str]):
+async def add_synonym(request: SynonymRequest):
     try:
-        if not word:
+        if not request.word:
             raise ExpectionHandler(
                 message="Word is required.",
                 error_type=ErrorType.VALIDATION_ERROR
             )
-        if not synonyms:
+        if not request.synonyms:
             raise ExpectionHandler(
                 message="At least one synonym is required.",
                 error_type=ErrorType.VALIDATION_ERROR
             )
 
-        success = service.add_synonym(word, synonyms)
+        success = service.add_synonym(request.word, request.synonyms)
         if not success:
             raise ExpectionHandler(
                 message="Failed to add synonym.",
@@ -78,9 +88,9 @@ async def add_synonym(word: str, synonyms: List[str]):
 
         return {
             "status": "success",
-            "message": f"Synonyms for word '{word}' added successfully.",
-            "word": word.lower(),
-            "synonyms": [s.lower() for s in synonyms]
+            "message": f"Synonyms for word '{request.word}' added successfully.",
+            "word": request.word.lower(),
+            "synonyms": [s.lower() for s in request.synonyms]
         }
     except ExpectionHandler:
         raise
@@ -97,7 +107,7 @@ async def add_synonym(word: str, synonyms: List[str]):
     response_model=dict,
     dependencies=[Depends(require_perm([Role.DEVELOPER, Role.ADMIN]))]
 )
-async def add_synonyms_bulk(synonym_dict: Dict[str, List[str]]):
+async def add_synonyms_bulk(synonym_dict: Dict[str, List[str]] = Body(...)):
     try:
         if not synonym_dict:
             raise ExpectionHandler(
@@ -132,20 +142,20 @@ async def add_synonyms_bulk(synonym_dict: Dict[str, List[str]]):
     response_model=dict,
     dependencies=[Depends(require_perm([Role.DEVELOPER, Role.ADMIN]))]
 )
-async def update_synonym(word: str, synonyms: List[str]):
+async def update_synonym(word: str, request: SynonymUpdateRequest):
     try:
         if not word:
             raise ExpectionHandler(
                 message="Word is required.",
                 error_type=ErrorType.VALIDATION_ERROR
             )
-        if not synonyms:
+        if not request.synonyms:
             raise ExpectionHandler(
                 message="At least one synonym is required.",
                 error_type=ErrorType.VALIDATION_ERROR
             )
 
-        success = service.update_synonym(word, synonyms)
+        success = service.update_synonym(word, request.synonyms)
         if not success:
             raise ExpectionHandler(
                 message=f"Synonyms for word '{word}' not found.",
@@ -156,7 +166,7 @@ async def update_synonym(word: str, synonyms: List[str]):
             "status": "success",
             "message": f"Synonyms for word '{word}' updated successfully.",
             "word": word.lower(),
-            "synonyms": [s.lower() for s in synonyms]
+            "synonyms": [s.lower() for s in request.synonyms]
         }
     except ExpectionHandler:
         raise

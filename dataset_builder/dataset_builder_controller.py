@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Response
+from fastapi import APIRouter, HTTPException, Depends, Response, Body
 from typing import List, Optional
 
 from dataset_builder.dataset_builder_serviceimpl import DatasetBuilderServiceImpl
@@ -85,11 +85,11 @@ async def get_dataset(dataset_id: str):
 )
 async def add_entry(
         dataset_id: str,
-        text: Optional[str] = None,
-        label: Optional[str] = None,
-        entry_type: EntryType = EntryType.MANUAL,
-        template_id: Optional[str] = None,
-        values: Optional[dict] = None,
+        text: Optional[str] = Body(None),
+        label: Optional[str] = Body(None),
+        entry_type: EntryType = Body(EntryType.MANUAL),
+        template_id: Optional[str] = Body(None),
+        values: Optional[dict] = Body(None),
         augment: bool = False
 ):
     try:

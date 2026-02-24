@@ -38,14 +38,23 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
     def _load_synonyms(self):
         try:
             synonym_dict = self.synonym_service.get_all_synonyms()
-            self.synonym_replacer = SynonymReplacer(synonym_dict=synonym_dict, prob=0.3)
+
+            print("=== SYNONYM DEBUG ===")
+            print("Synonym count:", len(synonym_dict))
+            print("Synonym dict:", synonym_dict)
+            print("=====================")
+
+            self.synonym_replacer = SynonymReplacer(
+                synonym_dict=synonym_dict,
+                prob=1.0
+            )
+
         except Exception as e:
             print(f"Warning: Failed to load synonyms: {e}")
             self.synonym_replacer = None
 
     def reload_synonyms(self):
-        if self.use_synonyms:
-            self._load_synonyms()
+        self._load_synonyms()
 
 
     def create_dataset(self, name: str, description: str, dataset_type: DatasetType) -> DatasetBuilder:
@@ -128,9 +137,14 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
                             unique_texts.add(aug)
 
                 if self.use_synonyms and self.synonym_replacer:
-                    synonym_text = self.synonym_replacer.replace(base_text)
-                    if synonym_text:
-                        unique_texts.add(synonym_text)
+                    synonym_texts = self.synonym_replacer.replace(text)
+
+                    if isinstance(synonym_texts, list):
+                        for syn_text in synonym_texts:
+                            if syn_text:
+                                unique_texts.add(syn_text)
+                    elif synonym_texts:
+                        unique_texts.add(synonym_texts)
 
                 for t in unique_texts:
                     final_entries.append(
@@ -162,9 +176,14 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
                         unique_texts.add(aug)
 
             if self.use_synonyms and self.synonym_replacer:
-                synonym_text = self.synonym_replacer.replace(text)
-                if synonym_text:
-                    unique_texts.add(synonym_text)
+                synonym_texts = self.synonym_replacer.replace(text)
+
+                if isinstance(synonym_texts, list):
+                    for syn_text in synonym_texts:
+                        if syn_text:
+                            unique_texts.add(syn_text)
+                elif synonym_texts:
+                    unique_texts.add(synonym_texts)
 
             for t in unique_texts:
                 final_entries.append(
@@ -321,9 +340,14 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
                         unique_texts.add(aug)
 
             if self.use_synonyms and self.synonym_replacer:
-                synonym_text = self.synonym_replacer.replace(text)
-                if synonym_text:
-                    unique_texts.add(synonym_text)
+                synonym_texts = self.synonym_replacer.replace(text)
+
+                if isinstance(synonym_texts, list):
+                    for syn_text in synonym_texts:
+                        if syn_text:
+                            unique_texts.add(syn_text)
+                elif synonym_texts:
+                    unique_texts.add(synonym_texts)
 
             for t in unique_texts:
                 entry = DatasetEntry.create(
@@ -399,9 +423,14 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
 
 
                 if self.use_synonyms and self.synonym_replacer:
-                    synonym_text = self.synonym_replacer.replace(entry.text)
-                    if synonym_text:
-                        unique_texts.add(synonym_text)
+                    synonym_texts = self.synonym_replacer.replace(entry.text)
+
+                    if isinstance(synonym_texts, list):
+                        for syn_text in synonym_texts:
+                            if syn_text:
+                                unique_texts.add(syn_text)
+                    elif synonym_texts:
+                        unique_texts.add(synonym_texts)
 
             for text_variant in unique_texts:
                 new_entry = DatasetEntry.create(
@@ -482,9 +511,14 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
                             unique_texts.add(aug)
 
                     if self.use_synonyms and self.synonym_replacer:
-                        synonym_text = self.synonym_replacer.replace(entry.text)
-                        if synonym_text:
-                            unique_texts.add(synonym_text)
+                        synonym_texts = self.synonym_replacer.replace(entry.text)
+
+                        if isinstance(synonym_texts, list):
+                            for syn_text in synonym_texts:
+                                if syn_text:
+                                    unique_texts.add(syn_text)
+                        elif synonym_texts:
+                            unique_texts.add(synonym_texts)
 
             for text_variant in unique_texts:
                 new_entry = DatasetEntry.create(
