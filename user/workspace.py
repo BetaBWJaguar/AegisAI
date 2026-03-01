@@ -3,6 +3,7 @@ from datetime import datetime
 import uuid
 from typing import List, Optional, Dict
 
+from contentcontrols.utils.contentcontrolsettings import ContentControlSettings
 from security.breach.doxxing_settings import DoxxingSettings
 from trainer.modelregistry import ModelRegistry
 from user.censorsettings import CensorSettings
@@ -36,6 +37,7 @@ class Workspace:
     model_id: str = None
     model_name: str = None
     model_version: str = None
+    content_control_settings: ContentControlSettings = field(default_factory=ContentControlSettings)
 
     @staticmethod
     def create(

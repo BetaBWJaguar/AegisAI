@@ -111,6 +111,37 @@ class WorkspaceServiceImpl(WorkspaceService):
                     raw_settings = updates["doxxing_settings"]
                     ws.doxxing_settings = DoxxingSettings.from_dict(raw_settings)
 
+                if "content_control_settings" in updates:
+                    raw = updates["content_control_settings"]
+
+                    cc = ws.content_control_settings
+
+                    if "enabled" in raw:
+                        cc.enabled = bool(raw["enabled"])
+
+                    if "spam" in raw:
+                        spam = raw["spam"]
+
+                        if "enabled" in spam:
+                            cc.spam.enabled = bool(spam["enabled"])
+
+                        if "rate_limit_count" in spam:
+                            cc.spam.rate_limit_count = int(spam["rate_limit_count"])
+
+                        if "rate_limit_window_seconds" in spam:
+                            cc.spam.rate_limit_window_seconds = int(spam["rate_limit_window_seconds"])
+
+                        if "burst_limit" in spam:
+                            cc.spam.burst_limit = int(spam["burst_limit"])
+
+                        if "cooldown_seconds" in spam:
+                            cc.spam.cooldown_seconds = int(spam["cooldown_seconds"])
+
+                        if "duplicate_check" in spam:
+                            cc.spam.duplicate_check = bool(spam["duplicate_check"])
+
+                    ws.updated_at = datetime.utcnow()
+
                 ws.updated_at = datetime.utcnow()
 
                 self.collection.update_one({"id": str(user.id)}, {"$set": user.to_dict()})
