@@ -137,4 +137,20 @@ class Workspace:
         else:
             data["doxxing_settings"] = {}
 
+        if self.content_control_settings:
+            data["content_control_settings"] = {
+                "enabled": self.content_control_settings.enabled,
+                "spam": {
+                    "enabled": self.content_control_settings.spam.enabled,
+                    "rate_limit_count": self.content_control_settings.spam.rate_limit_count,
+                    "rate_limit_window_seconds": self.content_control_settings.spam.rate_limit_window_seconds,
+                    "duplicate_check": self.content_control_settings.spam.duplicate_check,
+                    "duplicate_reset_seconds": self.content_control_settings.spam.duplicate_reset_seconds,
+                    "burst_limit": self.content_control_settings.spam.burst_limit,
+                    "cooldown_seconds": self.content_control_settings.spam.cooldown_seconds
+                }
+            }
+        else:
+            data["content_control_settings"] = {}
+
         return data

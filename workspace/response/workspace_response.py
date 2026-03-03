@@ -4,6 +4,21 @@ from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 
 
+class SpamSettingsResponse(BaseModel):
+    enabled: bool
+    rate_limit_count: int
+    rate_limit_window_seconds: int
+    duplicate_check: bool
+    duplicate_reset_seconds: int
+    burst_limit: int
+    cooldown_seconds: int
+
+
+class ContentControlSettingsResponse(BaseModel):
+    enabled: bool
+    spam: SpamSettingsResponse
+
+
 class DoxxingPIIConfigResponse(BaseModel):
     enabled: bool
     weight: Optional[float] = None
@@ -48,5 +63,6 @@ class WorkspaceResponse(BaseModel):
     rules: List[RuleResponse] = []
     censor_settings: Dict[str, Any] = {}
     doxxing_settings: DoxxingSettingsResponse
+    content_control_settings: ContentControlSettingsResponse
     created_at: datetime
     updated_at: datetime
