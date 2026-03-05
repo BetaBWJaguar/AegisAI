@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, Dict
 
 from contentcontrols.detectors.spam_control import SpamControl, SpamResult
@@ -11,7 +11,7 @@ class ContentDecision:
     reason: Optional[str] = None
     risk: Optional[str] = None
     action: Optional[str] = None
-    metadata: Optional[Dict] = None
+    metadata: Dict = field(default_factory=dict)
 
 
 class ContentControlEngine:
@@ -35,7 +35,12 @@ class ContentControlEngine:
                 allowed=False,
                 reason="Empty message",
                 risk="LOW",
-                action=self.workspace.get_advisory_action("LOW")
+                action=self.workspace.get_advisory_action("LOW"),
+                metadata={
+                    "detector": "engine",
+                    "message_length": 0,
+                    "user_id": user_id
+                }
             )
 
         spam_result: SpamResult = self.spam_control.check(
@@ -54,7 +59,13 @@ class ContentControlEngine:
                 risk=risk_level,
                 action=action,
                 metadata={
-                    "type": spam_result.spam_type.value if spam_result.spam_type else None
+                    "detector": "spam_control",
+                    "spam_type": spam_result.spam_type.value if spam_result.spam_type else None,
+                    "score": getattr(spam_result, "score", None),
+                    "repeat_count": getattr(spam_result, "repeat_count", None),
+                    "message_length": len(message),
+                    "user_id": user_id,
+                    "user_role": user_role
                 }
             )
 
