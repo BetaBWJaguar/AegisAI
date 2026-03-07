@@ -140,6 +140,7 @@ class Workspace:
         if self.content_control_settings:
             data["content_control_settings"] = {
                 "enabled": self.content_control_settings.enabled,
+                "use_score_based_decision": self.content_control_settings.use_score_based_decision,
                 "spam": {
                     "enabled": self.content_control_settings.spam.enabled,
                     "rate_limit_count": self.content_control_settings.spam.rate_limit_count,
@@ -147,7 +148,19 @@ class Workspace:
                     "duplicate_check": self.content_control_settings.spam.duplicate_check,
                     "duplicate_reset_seconds": self.content_control_settings.spam.duplicate_reset_seconds,
                     "burst_limit": self.content_control_settings.spam.burst_limit,
-                    "cooldown_seconds": self.content_control_settings.spam.cooldown_seconds
+                    "burst_window_seconds": self.content_control_settings.spam.burst_window_seconds,
+                    "cooldown_seconds": self.content_control_settings.spam.cooldown_seconds,
+                    "exempt_roles": self.content_control_settings.spam.exempt_roles,
+                    "max_message_length": self.content_control_settings.spam.max_message_length,
+                    "max_emojis": self.content_control_settings.spam.max_emojis,
+                    "max_repeated_char": self.content_control_settings.spam.max_repeated_char
+                },
+                "score_thresholds": {
+                    "enabled": self.content_control_settings.score_thresholds.enabled,
+                    "low_threshold": self.content_control_settings.score_thresholds.low_threshold,
+                    "medium_threshold": self.content_control_settings.score_thresholds.medium_threshold,
+                    "high_threshold": self.content_control_settings.score_thresholds.high_threshold,
+                    "critical_threshold": self.content_control_settings.score_thresholds.critical_threshold
                 }
             }
         else:

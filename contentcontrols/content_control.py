@@ -11,6 +11,7 @@ class ContentDecision:
     reason: Optional[str] = None
     risk: Optional[str] = None
     action: Optional[str] = None
+    score: float = 0.0
     metadata: Dict = field(default_factory=dict)
 
 
@@ -22,6 +23,22 @@ class ContentControlEngine:
         self.spam_control = SpamControl(
             workspace.content_control_settings.spam
         )
+
+    def _determine_risk_from_score(self, score: float) -> str:
+        settings = self.workspace.content_control_settings
+        thresholds = settings.score_thresholds
+        
+        if not thresholds.enabled:
+            return "LOW"
+        
+        if score >= thresholds.critical_threshold:
+            return "CRITICAL"
+        elif score >= thresholds.high_threshold:
+            return "HIGH"
+        elif score >= thresholds.medium_threshold:
+            return "MEDIUM"
+        else:
+            return "LOW"
 
     def evaluate(self, user_id: str, message: str, user_role: Optional[str] = None) -> ContentDecision:
 
@@ -50,7 +67,11 @@ class ContentControlEngine:
         )
 
         if not spam_result.allowed:
-            risk_level = spam_result.risk.value if spam_result.risk else "LOW"
+            if settings.use_score_based_decision and settings.score_thresholds.enabled:
+                risk_level = self._determine_risk_from_score(spam_result.score)
+            else:
+                risk_level = spam_result.risk.value if spam_result.risk else "LOW"
+            
             action = self.workspace.get_advisory_action(risk_level)
 
             return ContentDecision(
@@ -58,14 +79,16 @@ class ContentControlEngine:
                 reason=spam_result.reason,
                 risk=risk_level,
                 action=action,
+                score=spam_result.score,
                 metadata={
                     "detector": "spam_control",
                     "spam_type": spam_result.spam_type.value if spam_result.spam_type else None,
-                    "score": getattr(spam_result, "score", None),
+                    "score": spam_result.score,
                     "repeat_count": getattr(spam_result, "repeat_count", None),
                     "message_length": len(message),
                     "user_id": user_id,
-                    "user_role": user_role
+                    "user_role": user_role,
+                    "decision_mode": "score_based" if settings.use_score_based_decision else "risk_based"
                 }
             )
 

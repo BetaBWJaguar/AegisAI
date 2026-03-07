@@ -119,6 +119,9 @@ class WorkspaceServiceImpl(WorkspaceService):
                     if "enabled" in raw:
                         cc.enabled = bool(raw["enabled"])
 
+                    if "use_score_based_decision" in raw:
+                        cc.use_score_based_decision = bool(raw["use_score_based_decision"])
+
                     if "spam" in raw:
                         spam = raw["spam"]
 
@@ -134,11 +137,47 @@ class WorkspaceServiceImpl(WorkspaceService):
                         if "burst_limit" in spam:
                             cc.spam.burst_limit = int(spam["burst_limit"])
 
+                        if "burst_window_seconds" in spam:
+                            cc.spam.burst_window_seconds = int(spam["burst_window_seconds"])
+
                         if "cooldown_seconds" in spam:
                             cc.spam.cooldown_seconds = int(spam["cooldown_seconds"])
 
                         if "duplicate_check" in spam:
                             cc.spam.duplicate_check = bool(spam["duplicate_check"])
+
+                        if "duplicate_reset_seconds" in spam:
+                            cc.spam.duplicate_reset_seconds = int(spam["duplicate_reset_seconds"])
+
+                        if "exempt_roles" in spam:
+                            cc.spam.exempt_roles = list(spam["exempt_roles"])
+
+                        if "max_message_length" in spam:
+                            cc.spam.max_message_length = int(spam["max_message_length"])
+
+                        if "max_emojis" in spam:
+                            cc.spam.max_emojis = int(spam["max_emojis"])
+
+                        if "max_repeated_char" in spam:
+                            cc.spam.max_repeated_char = int(spam["max_repeated_char"])
+
+                    if "score_thresholds" in raw:
+                        thresholds = raw["score_thresholds"]
+
+                        if "enabled" in thresholds:
+                            cc.score_thresholds.enabled = bool(thresholds["enabled"])
+
+                        if "low_threshold" in thresholds:
+                            cc.score_thresholds.low_threshold = float(thresholds["low_threshold"])
+
+                        if "medium_threshold" in thresholds:
+                            cc.score_thresholds.medium_threshold = float(thresholds["medium_threshold"])
+
+                        if "high_threshold" in thresholds:
+                            cc.score_thresholds.high_threshold = float(thresholds["high_threshold"])
+
+                        if "critical_threshold" in thresholds:
+                            cc.score_thresholds.critical_threshold = float(thresholds["critical_threshold"])
 
                     ws.updated_at = datetime.utcnow()
 

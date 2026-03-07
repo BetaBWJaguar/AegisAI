@@ -7,4 +7,5 @@ class ContentDecisionResponse(BaseModel):
     risk: Optional[str] = None
     action: Optional[str] = None
     reason: Optional[str] = None
+    score: float = 0.0
     metadata: Optional[Dict[str, Any]] = None

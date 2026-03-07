@@ -37,6 +37,7 @@ async def evaluate_content(request: ContentEvaluateRequest):
             risk=decision.risk,
             action=decision.action,
             reason=decision.reason,
+            score=decision.score,
             metadata=decision.metadata
         )
 

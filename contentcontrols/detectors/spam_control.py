@@ -23,19 +23,14 @@ class SpamRisk(str, Enum):
 @dataclass
 class SpamSettings:
     enabled: bool = True
-
     rate_limit_count: int = 5
     rate_limit_window_seconds: int = 10
-
     duplicate_check: bool = True
     duplicate_reset_seconds: int = 30
-
     burst_limit: int = 20
     burst_window_seconds: int = 60
-
     cooldown_seconds: int = 60
     exempt_roles: List[str] = field(default_factory=list)
-
     max_message_length: int = 1000
     max_emojis: int = 20
     max_repeated_char: int = 10
@@ -47,6 +42,7 @@ class SpamResult:
     spam_type: Optional[SpamType] = None
     risk: Optional[SpamRisk] = None
     reason: Optional[str] = None
+    score: float = 0.0
 
 
 class SpamControl:
@@ -72,7 +68,7 @@ class SpamControl:
 
 
         if self._cooldowns.get(user_id, 0) > now:
-            return SpamResult(False, SpamType.COOLDOWN, SpamRisk.HIGH, "User in cooldown")
+            return SpamResult(False, SpamType.COOLDOWN, SpamRisk.HIGH, "User in cooldown", score=90.0)
 
 
         content_spam = self._content_spam(message)
@@ -82,14 +78,14 @@ class SpamControl:
 
         if self._rate_limit(user_id, now):
             self._apply_cooldown(user_id, now)
-            return SpamResult(False, SpamType.RATE_LIMIT, SpamRisk.MEDIUM, "Rate limit exceeded")
+            return SpamResult(False, SpamType.RATE_LIMIT, SpamRisk.MEDIUM, "Rate limit exceeded", score=65.0)
 
         if self.settings.duplicate_check and self._duplicate(user_id, message, now):
-            return SpamResult(False, SpamType.DUPLICATE, SpamRisk.LOW, "Duplicate message")
+            return SpamResult(False, SpamType.DUPLICATE, SpamRisk.LOW, "Duplicate message", score=35.0)
 
         if self._burst(user_id, now):
             self._apply_cooldown(user_id, now)
-            return SpamResult(False, SpamType.BURST, SpamRisk.HIGH, "Burst spam detected")
+            return SpamResult(False, SpamType.BURST, SpamRisk.HIGH, "Burst spam detected", score=85.0)
 
         return SpamResult(True)
 
@@ -134,21 +130,25 @@ class SpamControl:
     def _content_spam(self, message: str) -> Optional[SpamResult]:
 
         if len(message) > self.settings.max_message_length:
-            return SpamResult(False, SpamType.CONTENT, SpamRisk.MEDIUM, "Message too long")
+            score = 50.0 + min(50.0, (len(message) - self.settings.max_message_length) / 10.0)
+            return SpamResult(False, SpamType.CONTENT, SpamRisk.MEDIUM, "Message too long", score=score)
 
 
         if "http://" in message or "https://" in message:
-            return SpamResult(False, SpamType.CONTENT, SpamRisk.HIGH, "Link detected")
+            return SpamResult(False, SpamType.CONTENT, SpamRisk.HIGH, "Link detected", score=75.0)
 
 
         emojis = re.findall(r'[^\w\s]', message)
         if len(emojis) > self.settings.max_emojis:
-            return SpamResult(False, SpamType.CONTENT, SpamRisk.MEDIUM, "Too many symbols/emojis")
+            score = 40.0 + min(40.0, (len(emojis) - self.settings.max_emojis) * 2.0)
+            return SpamResult(False, SpamType.CONTENT, SpamRisk.MEDIUM, "Too many symbols/emojis", score=score)
 
 
         for char in set(message):
             if message.count(char) > self.settings.max_repeated_char:
-                return SpamResult(False, SpamType.CONTENT, SpamRisk.MEDIUM, "Character flood")
+                repeat_count = message.count(char)
+                score = 45.0 + min(45.0, (repeat_count - self.settings.max_repeated_char) * 3.0)
+                return SpamResult(False, SpamType.CONTENT, SpamRisk.MEDIUM, "Character flood", score=score)
 
         return None
 
