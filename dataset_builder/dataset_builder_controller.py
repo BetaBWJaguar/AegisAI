@@ -90,6 +90,7 @@ async def add_entry(
         entry_type: EntryType = Body(EntryType.MANUAL),
         template_id: Optional[str] = Body(None),
         values: Optional[dict] = Body(None),
+        sublabel: Optional[str] = Body(None),
         augment: bool = False
 ):
     try:
@@ -100,6 +101,7 @@ async def add_entry(
             entry_type=entry_type,
             template_id=template_id,
             values=values,
+            sublabel=sublabel,
             augment=augment
         )
 

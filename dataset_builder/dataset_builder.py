@@ -16,30 +16,26 @@ class DatasetEntry:
     label: str
     entry_type: EntryType
     template_id: Optional[str] = None
+    sublabel: Optional[str] = None
     values: Optional[Dict[str, str]] = None
     created_at: datetime = field(default_factory=datetime.utcnow)
 
     @staticmethod
-    def create(text: str, label: str, template_id: Optional[str] = None, values: Optional[Dict[str, str]] = None,
-               entry_type: EntryType = None) -> "DatasetEntry":
+    def create(text: str,
+               label: str,
+               template_id: Optional[str] = None,
+               values: Optional[Dict[str, str]] = None,
+               entry_type: EntryType = None,
+               sublabel: Optional[str] = None,) -> "DatasetEntry":
         return DatasetEntry(
             id=uuid.uuid4(),
             text=text,
             label=label,
+            sublabel=sublabel,
             template_id=template_id,
             values=values,
             entry_type=entry_type
         )
-
-    def to_dict(self) -> dict:
-        return {
-            "id": str(self.id),
-            "text": self.text,
-            "label": self.label,
-            "template_id": self.template_id,
-            "values": self.values,
-            "created_at": self.created_at.isoformat()
-        }
 
 
 @dataclass
@@ -68,8 +64,8 @@ class DatasetBuilder:
 
     def add_entry(self, text: str, label: str,
                   template_id: Optional[str] = None,
-                  values: Optional[Dict[str, str]] = None) -> DatasetEntry:
-        entry = DatasetEntry.create(text, label, template_id, values)
+                  values: Optional[Dict[str, str]] = None,sublabel=None) -> DatasetEntry:
+        entry = DatasetEntry.create(text, label, template_id, values,sublabel)
         self.entries.append(entry)
         self.updated_at = datetime.utcnow()
         return entry

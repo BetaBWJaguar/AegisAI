@@ -73,6 +73,7 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
             entry_type: EntryType = EntryType.MANUAL,
             template_id: Optional[str] = None,
             values: Optional[dict] = None,
+            sublabel: Optional[str] = None,
             augment: bool = False
     ):
         dataset = self.get_dataset(dataset_id)
@@ -82,13 +83,14 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
         now = datetime.utcnow()
         final_entries = []
 
-        def create_entry(entry_text, entry_type, template_id=None, values=None):
+        def create_entry(entry_text, entry_type, template_id=None, values=None, sublabel=None):
             return DatasetEntry.create(
                 text=entry_text,
                 label=label,
                 entry_type=entry_type,
                 template_id=template_id,
-                values=values or {}
+                values=values or {},
+                sublabel=sublabel
             )
 
 
@@ -152,7 +154,8 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
                             entry_text=t,
                             entry_type=EntryType.TEMPLATE,
                             template_id=template_id,
-                            values=val
+                            values=val,
+                            sublabel=sublabel
                         )
                     )
         else:
@@ -189,7 +192,8 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
                 final_entries.append(
                     create_entry(
                         entry_text=t,
-                        entry_type=EntryType.MANUAL
+                        entry_type=EntryType.MANUAL,
+                        sublabel=sublabel
                     )
                 )
 
@@ -243,6 +247,7 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
                     entry_type=e.get("entry_type"),
                     template_id=e.get("template_id"),
                     values=e.get("values"),
+                    sublabel=e.get("sublabel"),
                     created_at=datetime.fromisoformat(e["created_at"]) if e.get("created_at") else datetime.utcnow()
                 ) for e in doc.get("entries", [])
             ],
@@ -267,6 +272,7 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
                             label=e["label"],
                             template_id=e.get("template_id"),
                             values=e.get("values"),
+                            sublabel=e.get("sublabel"),
                             created_at=datetime.fromisoformat(e["created_at"]) if e.get("created_at") else datetime.utcnow()
                         ) for e in doc.get("entries", [])
                     ],
@@ -355,7 +361,8 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
                     label=label,
                     entry_type=EntryType(entry_type),
                     template_id=template_id,
-                    values=values
+                    values=values,
+                    sublabel=entry_data.get("sublabel")
                 )
                 added_entries.append(entry)
 
@@ -438,7 +445,8 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
                     label=entry.label,
                     entry_type=entry.entry_type,
                     template_id=entry.template_id,
-                    values=entry.values or {}
+                    values=entry.values or {},
+                    sublabel=entry.sublabel
                 )
                 merged_entries.append(new_entry)
 
@@ -526,7 +534,8 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
                     label=entry.label,
                     entry_type=EntryType.MANUAL,
                     template_id=None,
-                    values={}
+                    values={},
+                    sublabel=entry.sublabel
                 )
                 new_entries.append(new_entry)
 

@@ -13,7 +13,7 @@ class DatasetBuilderService(ABC):
     @abstractmethod
     def add_entry(self, dataset_id: str, text: str, label: str, entry_type: EntryType = None,
                   template_id: Optional[str] = None, values: Optional[dict] = None,
-                  augment: bool = False) -> Optional[DatasetEntry]:
+                  sublabel: Optional[str] = None, augment: bool = False) -> Optional[DatasetEntry]:
         pass
 
     @abstractmethod
