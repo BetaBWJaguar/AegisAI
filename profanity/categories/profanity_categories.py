@@ -1,42 +1,29 @@
-from typing import Dict, List, Tuple
-from collections import defaultdict
+from typing import Dict, List
+from profanity.categories.profanity_categories_util import (
+    build_category_tree,
+    get_main_categories,
+    get_subcategories,
+    build_label,
+    parse_label
+)
 
 
 class ProfanityCategories:
 
     def __init__(self):
-        self.category_tree: Dict[str, List[str]] = defaultdict(list)
+        self.category_tree: Dict[str, List[str]] = {}
 
     def build_from_dataset(self, dataset: List[dict]) -> None:
-        for item in dataset:
-            category = item.get("label")
-            subcategory = item.get("sublabel")
-
-            if not category:
-                continue
-
-            if subcategory and subcategory not in self.category_tree[category]:
-                self.category_tree[category].append(subcategory)
-
-            if category not in self.category_tree:
-                self.category_tree[category] = []
+        self.category_tree = build_category_tree(dataset)
 
     def get_main_categories(self) -> List[str]:
-        return list(self.category_tree.keys())
+        return get_main_categories(self.category_tree)
 
     def get_subcategories(self, category: str) -> List[str]:
-        return self.category_tree.get(category, [])
+        return get_subcategories(self.category_tree, category)
 
     def build_label(self, category: str, subcategory: str) -> str:
-        if not subcategory or subcategory == "NONE":
-            return category
+        return build_label(category, subcategory)
 
-        return f"{category}_{subcategory}"
-
-    def parse_label(self, label: str) -> Tuple[str, str]:
-        parts = label.split("_", 1)
-
-        if len(parts) == 1:
-            return parts[0], "NONE"
-
-        return parts[0], parts[1]
+    def parse_label(self, label: str) -> tuple[str, str]:
+        return parse_label(label)
