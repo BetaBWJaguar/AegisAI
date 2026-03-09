@@ -37,6 +37,18 @@ class DatasetEntry:
             entry_type=entry_type
         )
 
+    def to_dict(self) -> dict:
+        return {
+            "id": str(self.id),
+            "text": self.text,
+            "label": self.label,
+            "entry_type": self.entry_type.value if hasattr(self.entry_type, 'value') else self.entry_type,
+            "template_id": self.template_id,
+            "sublabel": self.sublabel,
+            "values": self.values,
+            "created_at": self.created_at.isoformat() if self.created_at else None
+        }
+
 
 @dataclass
 class DatasetBuilder:
