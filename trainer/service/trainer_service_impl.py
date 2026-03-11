@@ -30,6 +30,9 @@ from trainer.trainer_utils import (
 )
 from trainer.service.trainer_service import TrainerService
 from dataset_builder.dataset_builder_serviceimpl import DatasetBuilderServiceImpl
+from profanity.categories.profanity_categories import ProfanityCategories
+from profanity.categories.profanity_categories_util import build_label
+from profanity.categories.profanity_label_validator import ProfanityLabelValidator
 
 
 def compute_metrics(pred: EvalPrediction) -> Dict[str, float]:
@@ -171,8 +174,20 @@ class TrainerServiceImpl(TrainerService):
         if not dataset.entries:
             raise ValueError(f"Dataset '{dataset_id}' has no entries.")
 
-        valid_entries = [(e.text, e.label) for e in dataset.entries if e.text and e.label is not None]
+        dataset_dict = [e.to_dict() for e in dataset.entries]
+        profanity_categories = ProfanityCategories()
+        profanity_categories.build_from_dataset(dataset_dict)
+        
+        validator = ProfanityLabelValidator(profanity_categories)
+        is_valid, invalid_rows = validator.validate_dataset(dataset_dict)
+        if not is_valid:
+            raise ValueError(f"Dataset '{dataset_id}' contains invalid labels. Invalid rows: {invalid_rows}")
 
+        valid_entries = []
+        for e in dataset.entries:
+            if e.text and e.label is not None:
+                combined_label = build_label(e.label, e.sublabel)
+                valid_entries.append((e.text, combined_label))
 
         random.seed(42)
         random.shuffle(valid_entries)
