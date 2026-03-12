@@ -53,3 +53,7 @@ class DatasetBuilderService(ABC):
     @abstractmethod
     def augment_entries(self, dataset_id: str, num_augmentations: int = 1) -> List[DatasetEntry]:
         pass
+
+    @abstractmethod
+    def get_dataset_statistics(self, dataset_id: str) -> Optional[dict]:
+        pass

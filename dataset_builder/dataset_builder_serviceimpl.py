@@ -11,6 +11,7 @@ from dataset_builder.entrytype import EntryType
 from dataset_builder.augmentation import TextAugmenter
 from dataset_builder.synonym.synonym import SynonymReplacer
 from dataset_builder.synonym.synonym_serviceimpl import SynonymServiceImpl
+from profanity.categories.dataset_statistics import DatasetStatistics
 from config_loader import ConfigLoader
 from template.templateserviceimpl import TemplateServiceImpl
 from template.utils.templategenerator import TemplateGenerator
@@ -550,4 +551,19 @@ class DatasetBuilderServiceImpl(DatasetBuilderService):
 
         return new_entries
 
+    def get_dataset_statistics(self, dataset_id: str) -> Optional[dict]:
+        dataset = self.get_dataset(dataset_id)
+        if not dataset:
+            return None
+
+        dataset_list = [
+            {
+                "label": entry.label,
+                "sublabel": entry.sublabel
+            }
+            for entry in dataset.entries
+        ]
+
+        stats = DatasetStatistics(dataset_list)
+        return stats.summary()
 

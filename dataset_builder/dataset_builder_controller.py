@@ -371,3 +371,26 @@ async def reload_synonyms():
         )
 
 
+@router.get(
+    "/{dataset_id}/statistics",
+    response_model=dict,
+    dependencies=[Depends(require_perm([Role.DEVELOPER, Role.ADMIN]))]
+)
+async def get_dataset_statistics(dataset_id: str):
+    try:
+        stats = service.get_dataset_statistics(dataset_id)
+        if not stats:
+            raise ExpectionHandler(
+                message=f"Dataset with ID '{dataset_id}' not found.",
+                error_type=ErrorType.NOT_FOUND
+            )
+        return stats
+    except ExpectionHandler:
+        raise
+    except Exception as e:
+        raise ExpectionHandler(
+            message="Failed to get dataset statistics.",
+            error_type=ErrorType.DATABASE_ERROR,
+            detail=str(e)
+        )
+
