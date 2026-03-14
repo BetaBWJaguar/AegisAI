@@ -8,12 +8,13 @@ class ProfanityLabelValidator:
         self.categories = categories
 
     def validate_label(self, label: str) -> bool:
+
         category, subcategory = self.categories.parse_label(label)
 
         if category not in self.categories.get_main_categories():
             return False
 
-        if subcategory:
+        if subcategory and subcategory != "NONE":
             if subcategory not in self.categories.get_subcategories(category):
                 return False
 
@@ -29,7 +30,7 @@ class ProfanityLabelValidator:
         if category not in self.categories.get_main_categories():
             return False
 
-        if subcategory:
+        if subcategory and subcategory != "NONE":
             if subcategory not in self.categories.get_subcategories(category):
                 return False
 

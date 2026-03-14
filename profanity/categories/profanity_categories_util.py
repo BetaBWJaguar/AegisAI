@@ -4,7 +4,7 @@ from collections import defaultdict
 
 def build_category_tree(dataset: List[dict]) -> Dict[str, List[str]]:
     category_tree: Dict[str, List[str]] = defaultdict(list)
-    
+
     for item in dataset:
         category = item.get("label")
         subcategory = item.get("sublabel")
@@ -12,12 +12,10 @@ def build_category_tree(dataset: List[dict]) -> Dict[str, List[str]]:
         if not category:
             continue
 
-        if subcategory and subcategory not in category_tree[category]:
-            category_tree[category].append(subcategory)
+        if subcategory and subcategory != "NONE":
+            if subcategory not in category_tree[category]:
+                category_tree[category].append(subcategory)
 
-        if category not in category_tree:
-            category_tree[category] = []
-    
     return dict(category_tree)
 
 
