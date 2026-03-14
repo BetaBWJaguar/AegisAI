@@ -4,6 +4,7 @@ from enum import Enum
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 from collections import defaultdict
+from urllib.parse import urlparse
 
 
 class SpamType(str, Enum):
@@ -34,6 +35,11 @@ class SpamSettings:
     max_message_length: int = 1000
     max_emojis: int = 20
     max_repeated_char: int = 10
+    blocked_domains: List[str] = field(default_factory=list)
+    allowed_domains: List[str] = field(default_factory=list)
+    suspicious_tlds: List[str] = field(default_factory=lambda: [
+        ".xyz", ".click", ".top", ".gq", ".tk"
+    ])
 
 
 @dataclass
@@ -127,16 +133,57 @@ class SpamControl:
         self._burst_timestamps[user_id].append(now)
         return False
 
+    def _extract_urls(self, message: str) -> List[str]:
+        url_pattern = r'https?://[^\s]+'
+        return re.findall(url_pattern, message)
+
+    def _extract_domain(self, url: str) -> str:
+        parsed = urlparse(url)
+        return parsed.netloc.lower()
+
+    def _link_spam(self, message: str) -> Optional[SpamResult]:
+
+        urls = self._extract_urls(message)
+
+        if not urls:
+            return None
+
+        for url in urls:
+            domain = self._extract_domain(url)
+
+            if self.settings.allowed_domains and domain in self.settings.allowed_domains:
+                continue
+
+            if domain in self.settings.blocked_domains:
+                return SpamResult(
+                    False,
+                    SpamType.CONTENT,
+                    SpamRisk.HIGH,
+                    f"Blocked domain detected: {domain}",
+                    score=90.0
+                )
+
+            for tld in self.settings.suspicious_tlds:
+                if domain.endswith(tld):
+                    return SpamResult(
+                        False,
+                        SpamType.CONTENT,
+                        SpamRisk.MEDIUM,
+                        f"Suspicious domain TLD: {domain}",
+                        score=70.0
+                    )
+
+        return None
+
     def _content_spam(self, message: str) -> Optional[SpamResult]:
+
+        link_spam = self._link_spam(message)
+        if link_spam:
+            return link_spam
 
         if len(message) > self.settings.max_message_length:
             score = 50.0 + min(50.0, (len(message) - self.settings.max_message_length) / 10.0)
             return SpamResult(False, SpamType.CONTENT, SpamRisk.MEDIUM, "Message too long", score=score)
-
-
-        if "http://" in message or "https://" in message:
-            return SpamResult(False, SpamType.CONTENT, SpamRisk.HIGH, "Link detected", score=75.0)
-
 
         emojis = re.findall(r'[^\w\s]', message)
         if len(emojis) > self.settings.max_emojis:

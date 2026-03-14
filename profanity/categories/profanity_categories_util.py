@@ -16,18 +16,21 @@ def build_category_tree(dataset: List[dict]) -> Dict[str, List[str]]:
             if subcategory not in category_tree[category]:
                 category_tree[category].append(subcategory)
 
+        if category not in category_tree:
+            category_tree[category] = []
+
     return dict(category_tree)
 
 
 def get_main_categories(category_tree: Dict[str, List[str]]) -> List[str]:
-    return list(category_tree.keys())
+    return sorted(category_tree.keys())
 
 
 def get_subcategories(category_tree: Dict[str, List[str]], category: str) -> List[str]:
-    return category_tree.get(category, [])
+    return sorted(category_tree.get(category, []))
 
 
-def build_label(category: str, subcategory: str) -> str:
+def build_label(category: str, subcategory: str | None) -> str:
     if not subcategory or subcategory == "NONE":
         return category
 

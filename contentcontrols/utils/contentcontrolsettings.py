@@ -25,6 +25,11 @@ class SpamSettings:
     max_message_length: int = 1000
     max_emojis: int = 20
     max_repeated_char: int = 10
+    blocked_domains: List[str] = field(default_factory=list)
+    allowed_domains: List[str] = field(default_factory=list)
+    suspicious_tlds: List[str] = field(default_factory=lambda: [
+        ".xyz", ".click", ".top", ".gq", ".tk"
+    ])
 
 
 @dataclass

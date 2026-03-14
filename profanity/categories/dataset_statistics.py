@@ -7,6 +7,9 @@ class DatasetStatistics:
     def __init__(self, dataset: List[dict]):
         self.dataset = dataset
 
+    def dataset_size(self) -> int:
+        return len(self.dataset)
+
     def count_categories(self) -> Dict[str, int]:
         stats = defaultdict(int)
 
@@ -25,14 +28,16 @@ class DatasetStatistics:
             category = item.get("label")
             subcategory = item.get("sublabel")
 
-            if category and subcategory:
-                key = f"{category}_{subcategory}"
-                stats[key] += 1
+            if not category:
+                continue
+
+            if not subcategory or subcategory == "NONE":
+                continue
+
+            key = f"{category}_{subcategory}"
+            stats[key] += 1
 
         return dict(stats)
-
-    def dataset_size(self) -> int:
-        return len(self.dataset)
 
     def summary(self) -> Dict:
         return {
