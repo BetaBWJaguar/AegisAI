@@ -17,12 +17,12 @@ class ContentControlServiceImpl(ContentControlService):
         now = time.time()
 
         expired = [
-            wid for wid, data in self._engines.items()
-            if now - data["created_at"] > self.ENGINE_TTL_SECONDS
+            wid for wid, data in list(self._engines.items())
+            if now - data.get("created_at", 0) > self.ENGINE_TTL_SECONDS
         ]
 
         for wid in expired:
-            del self._engines[wid]
+            self._engines.pop(wid, None)
 
     def evaluate_content(
             self,
@@ -32,25 +32,34 @@ class ContentControlServiceImpl(ContentControlService):
             user_role: Optional[str] = None
     ) -> ContentDecision:
 
+        if workspace is None:
+            raise ValueError("Workspace cannot be None")
+
+        if message is None:
+            raise ValueError("Message cannot be None")
+
         self._cleanup_cache()
 
         workspace_id = str(workspace.id)
 
-        if workspace_id not in self._engines:
-            self._engines[workspace_id] = {
+        cache_entry = self._engines.get(workspace_id)
+
+        if cache_entry is None:
+            cache_entry = {
                 "engine": ContentControlEngine(workspace),
                 "created_at": time.time()
             }
+            self._engines[workspace_id] = cache_entry
 
-        cache_entry = self._engines[workspace_id]
         engine: ContentControlEngine = cache_entry["engine"]
 
         if engine.workspace.updated_at < workspace.updated_at:
-            self._engines[workspace_id] = {
+            cache_entry = {
                 "engine": ContentControlEngine(workspace),
                 "created_at": time.time()
             }
-            engine = self._engines[workspace_id]["engine"]
+            self._engines[workspace_id] = cache_entry
+            engine = cache_entry["engine"]
 
         if not user_identifier:
             user_identifier = "anonymous"
