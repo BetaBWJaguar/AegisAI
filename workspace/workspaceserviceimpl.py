@@ -161,6 +161,15 @@ class WorkspaceServiceImpl(WorkspaceService):
                         if "max_repeated_char" in spam:
                             cc.spam.max_repeated_char = int(spam["max_repeated_char"])
 
+                        if "blocked_domains" in spam:
+                            cc.spam.blocked_domains = list(spam["blocked_domains"])
+
+                        if "allowed_domains" in spam:
+                            cc.spam.allowed_domains = list(spam["allowed_domains"])
+
+                        if "suspicious_tlds" in spam:
+                            cc.spam.suspicious_tlds = list(spam["suspicious_tlds"])
+
                     if "score_thresholds" in raw:
                         thresholds = raw["score_thresholds"]
 

@@ -11,12 +11,30 @@ class SpamSettingsResponse(BaseModel):
     duplicate_check: bool
     duplicate_reset_seconds: int
     burst_limit: int
+    burst_window_seconds: int
     cooldown_seconds: int
+    exempt_roles: List[str]
+    max_message_length: int
+    max_emojis: int
+    max_repeated_char: int
+    blocked_domains: List[str]
+    allowed_domains: List[str]
+    suspicious_tlds: List[str]
+
+
+class ScoreThresholdsResponse(BaseModel):
+    enabled: bool
+    low_threshold: float
+    medium_threshold: float
+    high_threshold: float
+    critical_threshold: float
 
 
 class ContentControlSettingsResponse(BaseModel):
     enabled: bool
+    use_score_based_decision: bool
     spam: SpamSettingsResponse
+    score_thresholds: ScoreThresholdsResponse
 
 
 class DoxxingPIIConfigResponse(BaseModel):

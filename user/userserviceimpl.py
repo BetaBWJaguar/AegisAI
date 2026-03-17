@@ -71,6 +71,7 @@ class UserServiceImpl(UserService):
         from user.rule import Rule
         from user.violations import Violation
         from user.device import Device
+        from contentcontrols.utils.contentcontrolsettings import ContentControlSettings
 
         if "workspaces" in doc and doc["workspaces"]:
             doc["workspaces"] = [
@@ -100,6 +101,7 @@ class UserServiceImpl(UserService):
                         }
                     ),
                     doxxing_settings=DoxxingSettings.from_dict(ws.get("doxxing_settings", {})) if ws.get("doxxing_settings") else DoxxingSettings(),
+                    content_control_settings=ContentControlSettings.from_dict(ws.get("content_control_settings", {})) if ws.get("content_control_settings") else ContentControlSettings(),
                     advisory_policy={
                         risk.upper(): action.upper()
                         for risk, action in ws.get("advisory_policy", {}).items()

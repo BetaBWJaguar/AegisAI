@@ -153,7 +153,10 @@ class Workspace:
                     "exempt_roles": self.content_control_settings.spam.exempt_roles,
                     "max_message_length": self.content_control_settings.spam.max_message_length,
                     "max_emojis": self.content_control_settings.spam.max_emojis,
-                    "max_repeated_char": self.content_control_settings.spam.max_repeated_char
+                    "max_repeated_char": self.content_control_settings.spam.max_repeated_char,
+                    "blocked_domains": self.content_control_settings.spam.blocked_domains,
+                    "allowed_domains": self.content_control_settings.spam.allowed_domains,
+                    "suspicious_tlds": self.content_control_settings.spam.suspicious_tlds
                 },
                 "score_thresholds": {
                     "enabled": self.content_control_settings.score_thresholds.enabled,
