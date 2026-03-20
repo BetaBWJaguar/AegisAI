@@ -6,20 +6,23 @@ import hashlib
 import yake
 from multilangsetup.normalizers.turkish_normalizer import TurkishNormalizer
 from multilangsetup.normalizers.english_normalizer import EnglishNormalizer
+from multilangsetup.normalizers.german_normalizer import GermanNormalizer
 
 
-SUPPORTED_LANGUAGES = ["tr", "en"]
+SUPPORTED_LANGUAGES = ["tr", "en", "de"]
 
 NORMALIZERS = {
     "tr": TurkishNormalizer,
-    "en": EnglishNormalizer
+    "en": EnglishNormalizer,
+    "de": GermanNormalizer
 }
 
 @lru_cache(maxsize=len(SUPPORTED_LANGUAGES))
 def get_spacy_model(lang: str):
     model_map = {
         "en": "en_core_web_sm",
-        "tr": None
+        "tr": None,
+        "de": "de_core_news_sm"
     }
     model_name = model_map.get(lang)
     if model_name:
@@ -126,6 +129,33 @@ class MultiLangProcessor:
                 "avg_syllables_per_word": round(avg_syllables_per_word, 2)
             })
 
+        elif lang == "de":
+            from multilangsetup.normalizers.german_normalizer import GermanNormalizer
+
+            complex_words = [w for w in words if len(w) > 6]
+
+            capitalized_words = [w for w in words if w[0].isupper() if w]
+            all_caps_words = [w for w in words if w.isupper() if w]
+
+            avg_sentence_length = word_count / len(sentences) if len(sentences) > 0 else 0
+            syllable_count = sum(GermanNormalizer._count_syllables(w) for w in words)
+            avg_syllables_per_word = syllable_count / word_count if word_count > 0 else 0
+
+            readability_score = 0.1935 * (word_count / len(sentences) if len(sentences) > 0 else 0) + 0.1672 * avg_syllables_per_word - 0.1297
+            readability_score = max(0, min(100, readability_score))
+
+            base_analysis.update({
+                "complex_word_count": len(complex_words),
+                "complex_word_ratio": len(complex_words) / word_count if word_count > 0 else 0,
+                "capitalized_word_count": len(capitalized_words),
+                "capitalization_ratio": len(capitalized_words) / word_count if word_count > 0 else 0,
+                "all_caps_word_count": len(all_caps_words),
+                "readability_score": round(readability_score, 2),
+                "avg_sentence_length": round(avg_sentence_length, 2),
+                "syllable_count": syllable_count,
+                "avg_syllables_per_word": round(avg_syllables_per_word, 2)
+            })
+
         return base_analysis
 
     @staticmethod
@@ -150,6 +180,9 @@ class MultiLangProcessor:
         if lang == "en":
             from multilangsetup.normalizers.english_normalizer import EnglishNormalizer
             preprocessed_text = EnglishNormalizer.preprocess_for_analysis(text)
+        elif lang == "de":
+            from multilangsetup.normalizers.german_normalizer import GermanNormalizer
+            preprocessed_text = GermanNormalizer.preprocess_for_analysis(text)
         else:
             preprocessed_text = text
 
@@ -201,6 +234,25 @@ class MultiLangProcessor:
                 "sentence_count": len(list(doc.sents)),
                 "dependency_parse": [{"token": token.text, "dep": token.dep_, "head": token.head.text} for token in doc]
             })
+        elif lang == "de":
+            noun_phrases = [chunk.text for chunk in doc.noun_chunks]
+            verb_phrases = []
+
+            for i, token in enumerate(doc):
+                if token.pos_ == "VERB":
+                    verb_phrase = token.text
+                    j = i - 1
+                    while j >= 0 and doc[j].pos_ in ["AUX", "ADV"]:
+                        verb_phrase = doc[j].text + " " + verb_phrase
+                        j -= 1
+                    verb_phrases.append(verb_phrase)
+            
+            features.update({
+                "noun_phrases": noun_phrases,
+                "verb_phrases": verb_phrases,
+                "sentence_count": len(list(doc.sents)),
+                "dependency_parse": [{"token": token.text, "dep": token.dep_, "head": token.head.text} for token in doc]
+            })
 
         return features
 
@@ -209,6 +261,10 @@ class MultiLangProcessor:
         if lang == "en":
             from multilangsetup.normalizers.english_normalizer import EnglishNormalizer
             preprocessed_text = EnglishNormalizer.preprocess_for_keywords(text)
+            kw_extractor = yake.KeywordExtractor(lan=lang, n=2, dedupLim=0.7, top=15)
+        elif lang == "de":
+            from multilangsetup.normalizers.german_normalizer import GermanNormalizer
+            preprocessed_text = GermanNormalizer.preprocess_for_keywords(text)
             kw_extractor = yake.KeywordExtractor(lan=lang, n=2, dedupLim=0.7, top=15)
         else:
             preprocessed_text = text
