@@ -1,0 +1,32 @@
+{
+  "language_code": "de",
+  "settings": {
+    "normalize_unicode": true,
+    "to_lowercase": true,
+    "remove_punctuation": false,
+    "remove_numbers": false,
+    "collapse_whitespace": true,
+    "remove_stopwords": false,
+    "max_text_length": 1000
+  },
+  "special_rules": {
+    "normalize_german_chars": true,
+    "replace_diacritics": true,
+    "normalize_spacing": true,
+    "normalize_quotes": true,
+    "umlaut_to_ascii": false,
+    "sharp_s_to_ss": false,
+    "leet_mapping": {
+      "!": "i",
+      "1": "i",
+      "3": "e",
+      "4": "a",
+      "5": "s",
+      "7": "t",
+      "@": "a",
+      "|": "l",
+      "0": "o",
+      "8": "b"
+    }
+  }
+}

@@ -2,10 +2,12 @@ import re
 import unicodedata
 
 from multilangsetup.normalizers.turkish_normalizer import TurkishNormalizer
+from multilangsetup.normalizers.german_normalizer import GermanNormalizer
 from obsf.obfuscation_config_loader import ObfuscationConfigLoader
 from multilangsetup.obsfucationresolver.obsfucation_helper import ObfuscationHelper
 from multilangsetup.obsfucationresolver.obsfucation_util import ObfuscationUtil
 from multilangsetup.constants.english import EN_STOPWORDS, EN_CONTRACTIONS
+from multilangsetup.constants.german import DE_STOPWORDS
 
 
 class ObfuscationResolver:
@@ -59,16 +61,24 @@ class ObfuscationResolver:
         if lang == "tr":
             text = TurkishNormalizer.normalize_all(text, to_lower=False)
 
+        if lang == "de":
+            text = GermanNormalizer.normalize_all(text, to_lower=False)
+
         if merged_cfg.get("to_lowercase", True):
             if lang == "tr":
                 text = TurkishNormalizer.to_lower_turkish(text)
             else:
                 text = text.lower()
 
-        if merged_cfg.get("remove_stopwords", False) and lang == "en":
-            words = text.split()
-            words = [w for w in words if w not in EN_STOPWORDS]
-            text = " ".join(words)
+        if merged_cfg.get("remove_stopwords", False):
+            if lang == "en":
+                words = text.split()
+                words = [w for w in words if w not in EN_STOPWORDS]
+                text = " ".join(words)
+            elif lang == "de":
+                words = text.split()
+                words = [w for w in words if w not in DE_STOPWORDS]
+                text = " ".join(words)
 
         return text.strip()
 
@@ -88,6 +98,9 @@ class ObfuscationResolver:
 
         if lang == "tr":
             text = ObfuscationResolver._apply_turkish_rules(text, rules)
+
+        if lang == "de":
+            text = ObfuscationResolver._apply_german_rules(text, rules)
 
         return text
 
@@ -138,5 +151,31 @@ class ObfuscationResolver:
 
         if rules.get("normalize_quotes", True):
             text = TurkishNormalizer.normalize_quotes(text)
+
+        return text
+
+    @staticmethod
+    def _apply_german_rules(text: str, rules: dict) -> str:
+
+        if rules.get("normalize_german_chars", False):
+            replacements = {
+                "Ä": "Ae", "Ö": "Oe", "Ü": "Ue",
+                "ä": "ae", "ö": "oe", "ü": "ue",
+                "ß": "ss"
+            }
+            for k, v in replacements.items():
+                text = text.replace(k, v)
+
+        if rules.get("umlaut_to_ascii", False):
+            text = GermanNormalizer.normalize_umlauts(text, to_ascii=True)
+
+        if rules.get("sharp_s_to_ss", False):
+            text = text.replace("ß", "ss")
+
+        if rules.get("normalize_spacing", True):
+            text = re.sub(r"\s+", " ", text).strip()
+
+        if rules.get("normalize_quotes", True):
+            text = GermanNormalizer.normalize_quotes(text)
 
         return text
