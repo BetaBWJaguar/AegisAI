@@ -7,7 +7,7 @@ from obsf.obfuscation_config_loader import ObfuscationConfigLoader
 from multilangsetup.obsfucationresolver.obsfucation_helper import ObfuscationHelper
 from multilangsetup.obsfucationresolver.obsfucation_util import ObfuscationUtil
 from multilangsetup.constants.english import EN_STOPWORDS, EN_CONTRACTIONS
-from multilangsetup.constants.german import DE_STOPWORDS
+from multilangsetup.constants.german import DE_STOPWORDS, DE_CONTRACTIONS
 
 
 class ObfuscationResolver:
@@ -165,6 +165,10 @@ class ObfuscationResolver:
             }
             for k, v in replacements.items():
                 text = text.replace(k, v)
+
+        if rules.get("expand_contractions", False):
+            for k, v in DE_CONTRACTIONS.items():
+                text = re.sub(rf"\b{k}\b", v, text, flags=re.IGNORECASE)
 
         if rules.get("umlaut_to_ascii", False):
             text = GermanNormalizer.normalize_umlauts(text, to_ascii=True)
