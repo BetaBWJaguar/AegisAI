@@ -2,7 +2,7 @@ import math
 import re
 import unicodedata
 from collections import Counter
-from multilangsetup.constants.german import DE_STOPWORDS
+from multilangsetup.constants.german import DE_STOPWORDS, DE_CONTRACTIONS
 
 CHAR_TRANSLATION_TABLE = str.maketrans({
     "–": "-",
@@ -30,6 +30,11 @@ RE_SS = re.compile(r'ss')
 RE_UE = re.compile(r'ue')
 RE_OE = re.compile(r'oe')
 RE_AE = re.compile(r'ae')
+
+CONTRACTION_PATTERN = re.compile(
+    r'(%s)' % '|'.join(map(re.escape, DE_CONTRACTIONS.keys())),
+    flags=re.IGNORECASE
+)
 
 VOWELS = "aeiouyäöü"
 
@@ -76,6 +81,16 @@ class GermanNormalizer:
         return RE_REPEAT_LETTER.sub(r'\1\1', text)
 
     @staticmethod
+    def expand_contractions(text: str) -> str:
+        if not isinstance(text, str):
+            return ""
+
+        def expand(match):
+            return DE_CONTRACTIONS.get(match.group(0).lower(), match.group(0))
+
+        return CONTRACTION_PATTERN.sub(expand, text)
+
+    @staticmethod
     def normalize_umlauts(text: str, to_ascii: bool = False) -> str:
         if to_ascii:
             replacements = {
@@ -116,6 +131,7 @@ class GermanNormalizer:
     def normalize_all(cls, text: str,
                       to_lower: bool = True,
                       to_ascii: bool = False,
+                      expand_contractions: bool = True,
                       remove_stopwords: bool = False) -> str:
 
         if not text:
@@ -127,6 +143,9 @@ class GermanNormalizer:
         text = cls.remove_urls_emails_mentions(text)
         text = cls.normalize_quotes(text)
         text = cls.normalize_umlauts(text, to_ascii=to_ascii)
+
+        if expand_contractions:
+            text = cls.expand_contractions(text)
 
         if to_lower:
             text = cls.to_lower(text)
