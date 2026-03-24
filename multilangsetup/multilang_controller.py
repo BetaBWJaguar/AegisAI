@@ -5,7 +5,7 @@ from typing import List, Dict
 from multilangsetup.multilang_serviceimpl import MultiLangServiceImpl
 from multilangsetup.multilang_step import Step
 from multilangsetup.obsfucationresolver.obsfucation_resolver import ObfuscationResolver
-from multilangsetup.schemas.multilang_request import PrepareRequest
+from multilangsetup.schemas.multilang_request import PrepareRequest, BulkRequest
 from multilangsetup.schemas.multilang_response import PrepareResponse
 
 from error.errortypes import ErrorType
@@ -60,13 +60,13 @@ async def prepare_text(data: PrepareRequest):
     "/bulk",
     dependencies=[Depends(require_perm([Role.DEVELOPER, Role.ADMIN]))]
 )
-async def prepare_bulk(payload: Dict[str, List[str]]):
+async def prepare_bulk(payload: BulkRequest):
     try:
-        texts = payload.get("texts", [])
-        apply_resolver = payload.get("apply_obfuscation_resolver", False)
-        lang = payload.get("lang", None)
+        texts = payload.texts
+        apply_resolver = payload.apply_obfuscation_resolver
+        lang = payload.lang
 
-        if not texts or not isinstance(texts, list):
+        if not texts:
             raise ExpectionHandler(
                 message="No texts provided.",
                 error_type=ErrorType.VALIDATION_ERROR

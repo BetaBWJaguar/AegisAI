@@ -64,9 +64,8 @@ class GermanNormalizer:
     @staticmethod
     def normalize_quotes(text: str) -> str:
         text = text.replace("«", '"').replace("»", '"')
-        text = text.replace("„", '"').replace("""", '"')
+        text = text.replace("„", '"').replace(""", '"')
         text = text.replace("‚", "'").replace(""", "'")
-        text = text.replace("»", "'").replace("«", "'")
         text = text.replace("‹", "'").replace("›", "'")
         return text
 

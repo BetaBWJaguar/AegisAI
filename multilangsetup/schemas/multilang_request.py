@@ -14,3 +14,12 @@ class PrepareRequest(BaseModel):
         default=True,
         description="Whether to apply ObfuscationResolver for symbol and noise cleaning."
     )
+
+
+class BulkRequest(BaseModel):
+    texts: List[str] = Field(..., description="List of texts to be processed.")
+    lang: Optional[str] = Field(None, description="Language code (e.g., 'tr', 'en', 'de'). If not provided, auto-detection will be used.")
+    apply_obfuscation_resolver: bool = Field(
+        default=False,
+        description="Whether to apply ObfuscationResolver for symbol and noise cleaning."
+    )
