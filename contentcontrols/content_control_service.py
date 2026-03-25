@@ -8,11 +8,6 @@ from user.workspace import Workspace
 class ContentControlService(ABC):
 
     @abstractmethod
-    def evaluate_content(
-            self,
-            workspace: Workspace,
-            message: str,
-            user_identifier: str,
-            user_role: Optional[str] = None
-    ) -> ContentDecision:
-        pass
+    def evaluate_content(self, workspace: Workspace, message: str, user_identifier: str,
+                        user_role: Optional[str] = None) -> ContentDecision:
+        ...
