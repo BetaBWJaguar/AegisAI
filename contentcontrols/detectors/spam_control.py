@@ -197,6 +197,26 @@ class SpamControl:
                 score = 45.0 + min(45.0, (repeat_count - self.settings.max_repeated_char) * 3.0)
                 return SpamResult(False, SpamType.CONTENT, SpamRisk.MEDIUM, "Character flood", score=score)
 
+        uppercase_ratio = sum(1 for c in message if c.isupper()) / max(1, len(message))
+
+        if uppercase_ratio > 0.7 and len(message) > 10:
+            return SpamResult(
+                False,
+                SpamType.CONTENT,
+                SpamRisk.MEDIUM,
+                "Excessive uppercase usage",
+                score=55.0
+            )
+
+        if len(message.split()) == 1 and len(message) > 20:
+            return SpamResult(
+                False,
+                SpamType.CONTENT,
+                SpamRisk.LOW,
+                "Single long word spam",
+                score=35.0
+            )
+
         return None
 
     def _apply_cooldown(self, user_id: str, now: float):
