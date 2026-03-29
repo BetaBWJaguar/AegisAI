@@ -1,8 +1,12 @@
+import time
 from dataclasses import dataclass, field
-from typing import Optional, Dict
+from typing import Optional, Dict, TYPE_CHECKING
 
 from contentcontrols.detectors.spam_control import SpamControl, SpamResult
 from user.workspace import Workspace
+
+if TYPE_CHECKING:
+    from contentcontrols.content_metrics import ContentMetrics
 
 
 @dataclass
@@ -32,11 +36,13 @@ class ContentDecision:
 
 class ContentControlEngine:
 
-    def __init__(self, workspace: Workspace):
+    def __init__(self, workspace: Workspace, metrics: Optional['ContentMetrics'] = None):
         self.workspace = workspace
+        self._metrics = metrics
 
         self.spam_control = SpamControl(
-            workspace.content_control_settings.spam
+            workspace.content_control_settings.spam,
+            metrics=metrics
         )
 
     def _determine_risk_from_score(self, score: float) -> str:
@@ -62,11 +68,13 @@ class ContentControlEngine:
             user_role: Optional[str] = None,
             metadata: Optional[Dict] = None
     ) -> ContentDecision:
-
+        start_time = time.time()
+        
         settings = self.workspace.content_control_settings
         metadata = metadata or {}
 
         if not settings.enabled:
+            response_time_ms = (time.time() - start_time) * 1000
             return ContentDecision.allow()
 
         if not message or not message.strip():
@@ -102,6 +110,14 @@ class ContentControlEngine:
             user_role=user_role
         )
 
+        if self._metrics:
+            detector_response_time = (time.time() - start_time) * 1000
+            self._metrics.record_detector_performance(
+                detector_type="spam_control",
+                response_time_ms=detector_response_time,
+                blocked=not spam_result.allowed
+            )
+
         if not spam_result.allowed:
             if settings.use_score_based_decision and settings.score_thresholds.enabled:
                 risk_level = self._determine_risk_from_score(spam_result.score)
@@ -130,12 +146,14 @@ class ContentControlEngine:
                 }
             )
 
+        response_time_ms = (time.time() - start_time) * 1000
         return ContentDecision(
             allowed=True,
             metadata={
                 "detector": "clean",
                 "message_length": len(message),
                 "user_id": user_id,
+                "response_time_ms": response_time_ms,
                 **metadata
             }
         )

@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from auditmanager.auditlogserviceimpl import AuditLogServiceImpl
 from contentcontrols.content_control_serviceimpl import ContentControlServiceImpl
@@ -10,6 +10,8 @@ from contentcontrols.schemas.content_control_response import (
 )
 from error.expectionhandler import ExpectionHandler
 from error.errortypes import ErrorType
+from permcontrol.permissionscontrol import require_perm
+from user.role import Role
 from user.userserviceimpl import UserServiceImpl
 from workspace.workspaceserviceimpl import WorkspaceServiceImpl
 
@@ -147,6 +149,18 @@ async def get_content_control_settings(user_id: str, workspace_id: str):
     except Exception as e:
         raise ExpectionHandler(
             message="Error occurred while retrieving content control settings.",
+            error_type=ErrorType.INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@router.get("/metrics/all",
+            dependencies=[Depends(require_perm([Role.ADMIN, Role.DEVELOPER]))])
+async def get_all_metrics():
+    try:
+        return content_control_service.get_metrics().export_metrics()
+    except Exception as e:
+        raise ExpectionHandler(
+            message="Error occurred while retrieving all metrics.",
             error_type=ErrorType.INTERNAL_SERVER_ERROR,
             detail=str(e)
         )

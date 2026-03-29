@@ -2,9 +2,12 @@ import time
 import re
 from enum import Enum
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, TYPE_CHECKING
 from collections import defaultdict
 from urllib.parse import urlparse
+
+if TYPE_CHECKING:
+    from contentcontrols.content_metrics import ContentMetrics
 
 
 class SpamType(str, Enum):
@@ -53,8 +56,9 @@ class SpamResult:
 
 class SpamControl:
 
-    def __init__(self, settings: SpamSettings):
+    def __init__(self, settings: SpamSettings, metrics: Optional['ContentMetrics'] = None):
         self.settings = settings
+        self._metrics = metrics
         self._timestamps: Dict[str, List[float]] = defaultdict(list)
         self._burst_timestamps: Dict[str, List[float]] = defaultdict(list)
         self._last_message: Dict[str, str] = {}
@@ -62,6 +66,7 @@ class SpamControl:
         self._cooldowns: Dict[str, float] = {}
 
     def check(self, user_id: str, message: str, user_role: Optional[str] = None) -> SpamResult:
+        start_time = time.time()
 
         if not self.settings.enabled:
             return SpamResult(True)
@@ -72,27 +77,66 @@ class SpamControl:
         now = time.time()
         message = self._normalize(message)
 
-
         if self._cooldowns.get(user_id, 0) > now:
+            response_time_ms = (time.time() - start_time) * 1000
+            if self._metrics:
+                self._metrics.record_detector_performance(
+                    detector_type="spam_control_cooldown",
+                    response_time_ms=response_time_ms,
+                    blocked=True
+                )
             return SpamResult(False, SpamType.COOLDOWN, SpamRisk.HIGH, "User in cooldown", score=90.0)
-
 
         content_spam = self._content_spam(message)
         if content_spam:
+            response_time_ms = (time.time() - start_time) * 1000
+            if self._metrics:
+                self._metrics.record_detector_performance(
+                    detector_type="spam_control_content",
+                    response_time_ms=response_time_ms,
+                    blocked=True
+                )
             return content_spam
-
 
         if self._rate_limit(user_id, now):
             self._apply_cooldown(user_id, now)
+            response_time_ms = (time.time() - start_time) * 1000
+            if self._metrics:
+                self._metrics.record_detector_performance(
+                    detector_type="spam_control_rate_limit",
+                    response_time_ms=response_time_ms,
+                    blocked=True
+                )
             return SpamResult(False, SpamType.RATE_LIMIT, SpamRisk.MEDIUM, "Rate limit exceeded", score=65.0)
 
         if self.settings.duplicate_check and self._duplicate(user_id, message, now):
+            response_time_ms = (time.time() - start_time) * 1000
+            if self._metrics:
+                self._metrics.record_detector_performance(
+                    detector_type="spam_control_duplicate",
+                    response_time_ms=response_time_ms,
+                    blocked=True
+                )
             return SpamResult(False, SpamType.DUPLICATE, SpamRisk.LOW, "Duplicate message", score=35.0)
 
         if self._burst(user_id, now):
             self._apply_cooldown(user_id, now)
+            response_time_ms = (time.time() - start_time) * 1000
+            if self._metrics:
+                self._metrics.record_detector_performance(
+                    detector_type="spam_control_burst",
+                    response_time_ms=response_time_ms,
+                    blocked=True
+                )
             return SpamResult(False, SpamType.BURST, SpamRisk.HIGH, "Burst spam detected", score=85.0)
 
+        response_time_ms = (time.time() - start_time) * 1000
+        if self._metrics:
+            self._metrics.record_detector_performance(
+                detector_type="spam_control",
+                response_time_ms=response_time_ms,
+                blocked=False
+            )
         return SpamResult(True)
 
     def _normalize(self, message: str) -> str:

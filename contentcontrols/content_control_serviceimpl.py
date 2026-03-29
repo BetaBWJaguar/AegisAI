@@ -3,6 +3,7 @@ from typing import Optional, Dict
 
 from contentcontrols.content_control_service import ContentControlService
 from contentcontrols.content_control import ContentDecision, ContentControlEngine
+from contentcontrols.content_metrics import ContentMetrics
 from user.workspace import Workspace
 
 
@@ -10,8 +11,9 @@ class ContentControlServiceImpl(ContentControlService):
 
     ENGINE_TTL_SECONDS = 600
 
-    def __init__(self):
+    def __init__(self, metrics: Optional[ContentMetrics] = None):
         self._engines: Dict[str, dict] = {}
+        self._metrics = metrics or ContentMetrics()
 
     def _cleanup_cache(self):
         now = time.time()
@@ -19,7 +21,7 @@ class ContentControlServiceImpl(ContentControlService):
                         if now - data.get("created_at", 0) <= self.ENGINE_TTL_SECONDS}
 
     def _create_engine_entry(self, workspace: Workspace) -> dict:
-        return {"engine": ContentControlEngine(workspace), "created_at": time.time()}
+        return {"engine": ContentControlEngine(workspace, metrics=self._metrics), "created_at": time.time()}
 
     def evaluate_content(self, workspace: Workspace, message: str, user_identifier: str,
                         user_role: Optional[str] = None, metadata: Optional[dict] = None,
@@ -43,13 +45,31 @@ class ContentControlServiceImpl(ContentControlService):
         if needs_refresh:
             cache_entry = self._create_engine_entry(workspace)
             self._engines[workspace_id] = cache_entry
+            self._metrics.record_cache_miss()
+        else:
+            self._metrics.record_cache_hit()
 
         user_identifier = user_identifier or "anonymous"
         metadata = metadata or {}
 
         try:
-            return cache_entry["engine"].evaluate(
+            decision = cache_entry["engine"].evaluate(
                 user_id=user_identifier, message=message, user_role=user_role, metadata=metadata)
+            
+            response_time_ms = getattr(decision.metadata, 'response_time_ms', 0)
+            detector = decision.metadata.get('detector', 'unknown') if decision.metadata else 'unknown'
+            
+            self._metrics.record_evaluation(
+                user_id=user_identifier,
+                allowed=decision.allowed,
+                detector=detector,
+                response_time_ms=response_time_ms
+            )
+            
+            return decision
         except Exception as e:
             print(f"[ContentControl ERROR] workspace={workspace_id} error={str(e)}")
             return ContentDecision.allow()
+
+    def get_metrics(self) -> ContentMetrics:
+        return self._metrics
