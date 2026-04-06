@@ -33,6 +33,7 @@ from dataset_builder.dataset_builder_serviceimpl import DatasetBuilderServiceImp
 from profanity.categories.profanity_categories import ProfanityCategories
 from profanity.categories.profanity_categories_util import build_label
 from profanity.categories.profanity_label_validator import ProfanityLabelValidator
+from profanity.categories.label_encoder import LabelEncoder
 
 
 def compute_metrics(pred: EvalPrediction) -> Dict[str, float]:
@@ -195,10 +196,12 @@ class TrainerServiceImpl(TrainerService):
         texts = [t for t, _ in valid_entries]
         labels = [l for _, l in valid_entries]
 
-        unique_labels = sorted(list(set(labels)))
-        label2id = {label: i for i, label in enumerate(unique_labels)}
+        label_encoder = LabelEncoder(profanity_categories)
+        label_encoder.fit()
+        label2id = label_encoder.get_mapping()
         id2label = {v: k for k, v in label2id.items()}
-        y = [label2id[label] for label in labels]
+        y = [label_encoder.encode(label) for label in labels]
+        unique_labels = sorted(label2id.keys())
 
         tokenizer = AutoTokenizer.from_pretrained(model_path)
         model = AutoModelForSequenceClassification.from_pretrained(
