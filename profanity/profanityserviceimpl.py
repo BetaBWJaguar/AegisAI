@@ -6,6 +6,7 @@ from logs.predictionlogmanager import PredictionLogger
 from profanity.maskingrules.maskingruleautomation import MaskingRuleAutomation
 from profanity.messagelevelmetadata import MessageLevelMetadata
 from profanity.profanityservice import ProfanityService
+from profanity.categories.profanity_label_validator import ProfanityLabelValidator
 from multilangsetup.multilang_step import Step
 from multilangsetup.multilang_processor import MultiLangProcessor, SUPPORTED_LANGUAGES
 from multilangsetup.obsfucationresolver.obsfucation_resolver import ObfuscationResolver
@@ -14,13 +15,14 @@ from trainer.modelregistry import ModelRegistry
 
 class ProfanityServiceImpl(ProfanityService):
 
-    def __init__(self, workspace_service, model_root: str = "models"):
+    def __init__(self, workspace_service, model_root: str = "models", label_validator: Optional[ProfanityLabelValidator] = None):
         self.workspace_service = workspace_service
         self.model_root = model_root
         self.registry = ModelRegistry()
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model_cache = {}
         self.tokenizer_cache = {}
+        self.label_validator = label_validator
 
         self.default_pipeline = [
             Step.NORMALIZE,
@@ -105,6 +107,12 @@ class ProfanityServiceImpl(ProfanityService):
             predicted_id, f"class_{predicted_id}"
         )
         confidence = float(probs[predicted_id])
+
+        if self.label_validator and not self.label_validator.validate_label(predicted_label):
+            raise ValueError(
+                f"Invalid predicted label '{predicted_label}'. "
+                f"Label does not match known profanity categories."
+            )
 
         PredictionLogger.log(text, predicted_label, confidence)
 
