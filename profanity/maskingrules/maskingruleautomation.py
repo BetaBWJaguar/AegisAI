@@ -1,7 +1,13 @@
 from profanity.maskingrules.maskingruleutil import MaskingRuleUtil
+from profanity.maskingrules.enhanced_risk_calculator import EnhancedRiskCalculator
 
 
 class MaskingRuleAutomation:
+
+    def __init__(self, use_enhanced_risk: bool = True, risk_calculator_config: dict = None):
+        self.use_enhanced_risk = use_enhanced_risk
+        category_weights = risk_calculator_config.get("category_weights") if risk_calculator_config else None
+        self.risk_calculator = EnhancedRiskCalculator(category_weights=category_weights)
 
     @staticmethod
     def _calculate_risk(confidence: float) -> str:
@@ -13,12 +19,23 @@ class MaskingRuleAutomation:
             return "MEDIUM"
         return "LOW"
 
+    def _calculate_enhanced_risk(
+        self,
+        confidence: float,
+        category: str,
+        text: str
+    ) -> str:
+        return self.risk_calculator.calculate_risk(
+            confidence=confidence,
+            category=category,
+            text=text
+        )
+
     @staticmethod
     def _value_or_str(obj):
         return obj.value if hasattr(obj, "value") else str(obj)
 
-    @staticmethod
-    def apply_if_needed(text, workspace, predicted_label, confidence):
+    def apply_if_needed(self, text, workspace, predicted_label, confidence):
 
         confidence = round(confidence, 4)
 
@@ -45,7 +62,7 @@ class MaskingRuleAutomation:
             return result
 
         result["threshold"] = rule.threshold
-        result["visibility"] = MaskingRuleAutomation._value_or_str(rule.visibility)
+        result["visibility"] = self._value_or_str(rule.visibility)
 
         if confidence < rule.threshold:
             return result
@@ -54,7 +71,7 @@ class MaskingRuleAutomation:
             return result
 
 
-        mode = MaskingRuleAutomation._value_or_str(rule.mode)
+        mode = self._value_or_str(rule.mode)
         if confidence >= 0.90:
             mode = "FULL"
 
@@ -68,7 +85,10 @@ class MaskingRuleAutomation:
         })
 
 
-        risk = MaskingRuleAutomation._calculate_risk(confidence)
+        if self.use_enhanced_risk:
+            risk = self._calculate_enhanced_risk(confidence, predicted_label, text)
+        else:
+            risk = self._calculate_risk(confidence)
         result["risk"] = risk
 
 

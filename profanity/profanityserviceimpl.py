@@ -11,11 +11,19 @@ from multilangsetup.multilang_step import Step
 from multilangsetup.multilang_processor import MultiLangProcessor, SUPPORTED_LANGUAGES
 from multilangsetup.obsfucationresolver.obsfucation_resolver import ObfuscationResolver
 from trainer.modelregistry import ModelRegistry
+from config_loader import ConfigLoader
 
 
 class ProfanityServiceImpl(ProfanityService):
 
-    def __init__(self, workspace_service, model_root: str = "models", label_validator: Optional[ProfanityLabelValidator] = None):
+    def __init__(
+        self,
+        workspace_service,
+        model_root: str = "models",
+        label_validator: Optional[ProfanityLabelValidator] = None,
+        use_enhanced_risk: bool = True,
+        config_loader: Optional[ConfigLoader] = None
+    ):
         self.workspace_service = workspace_service
         self.model_root = model_root
         self.registry = ModelRegistry()
@@ -23,6 +31,10 @@ class ProfanityServiceImpl(ProfanityService):
         self.model_cache = {}
         self.tokenizer_cache = {}
         self.label_validator = label_validator
+        self.config_loader = config_loader or ConfigLoader()
+        profanity_config = self.config_loader.get_profanity_config()
+        self.use_enhanced_risk = profanity_config.get("use_enhanced_risk", use_enhanced_risk)
+        self.risk_calculator_config = profanity_config.get("risk_calculator", {})
 
         self.default_pipeline = [
             Step.NORMALIZE,
@@ -116,7 +128,11 @@ class ProfanityServiceImpl(ProfanityService):
 
         PredictionLogger.log(text, predicted_label, confidence)
 
-        mask_meta = MaskingRuleAutomation.apply_if_needed(
+        masking_automation = MaskingRuleAutomation(
+            use_enhanced_risk=self.use_enhanced_risk,
+            risk_calculator_config=self.risk_calculator_config
+        )
+        mask_meta = masking_automation.apply_if_needed(
             text=text,
             workspace=workspace,
             predicted_label=predicted_label,

@@ -25,5 +25,24 @@
   },
   "trainer": {
     "model_sizes_path": "T:/TunaRP/AegisAI/trainer/model_sizes.json"
+  },
+  "profanity": {
+    "use_enhanced_risk": true,
+    "risk_calculator": {
+      "category_weights": {
+        "sexual": 1.3,
+        "hate_speech": 1.4,
+        "harassment": 1.2,
+        "profanity": 1.0,
+        "violence": 1.3,
+        "self_harm": 1.5
+      },
+      "risk_thresholds": {
+        "CRITICAL": 0.90,
+        "HIGH": 0.75,
+        "MEDIUM": 0.60,
+        "LOW": 0.0
+      }
+    }
   }
 }

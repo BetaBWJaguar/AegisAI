@@ -50,3 +50,6 @@ class ConfigLoader:
 
     def get_trainer_config(self) -> dict:
         return self.config.get("trainer", {})
+
+    def get_profanity_config(self) -> dict:
+        return self.config.get("profanity", {})
