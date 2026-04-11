@@ -198,11 +198,10 @@ class TrainerServiceImpl(TrainerService):
 
         label_encoder = LabelEncoder(profanity_categories)
         label_encoder.fit()
-        label2id = label_encoder.get_mapping()
-        id2label = label_encoder.get_reverse_mapping()
+        label2id = label_encoder.mapping
+        id2label = label_encoder.reverse_mapping
         y = label_encoder.encode_batch(labels)
-        unique_labels = label_encoder.get_all_labels()
-
+        unique_labels = label_encoder.labels
         tokenizer = AutoTokenizer.from_pretrained(model_path)
         model = AutoModelForSequenceClassification.from_pretrained(
             model_path,
