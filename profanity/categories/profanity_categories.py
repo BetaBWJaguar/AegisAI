@@ -27,3 +27,25 @@ class ProfanityCategories:
 
     def parse_label(self, label: str) -> tuple[str, str]:
         return parse_label(label)
+
+    def get_all_labels(self) -> List[str]:
+        labels = []
+        for category in self.get_main_categories():
+            subs = self.get_subcategories(category)
+            if subs:
+                labels.extend([self.build_label(category, sub) for sub in subs])
+            else:
+                labels.append(category)
+        return sorted(labels)
+
+    def is_valid_label(self, label: str) -> bool:
+        try:
+            category, subcategory = self.parse_label(label)
+            if category not in self.get_main_categories():
+                return False
+            subs = self.get_subcategories(category)
+            if subs and subcategory not in subs:
+                return False
+            return True
+        except Exception:
+            return False
