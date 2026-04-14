@@ -1,3 +1,4 @@
+from typing import Optional
 from profanity.maskingrules.maskingruleutil import MaskingRuleUtil
 from profanity.maskingrules.enhanced_risk_calculator import EnhancedRiskCalculator
 
@@ -23,12 +24,16 @@ class MaskingRuleAutomation:
         self,
         confidence: float,
         category: str,
-        text: str
+        text: str,
+        detected_word: Optional[str] = None,
+        detected_position: Optional[int] = None
     ) -> str:
         return self.risk_calculator.calculate_risk(
             confidence=confidence,
             category=category,
-            text=text
+            text=text,
+            detected_word=detected_word,
+            detected_position=detected_position
         )
 
     @staticmethod

@@ -24,9 +24,17 @@ class EnhancedRiskCalculator:
         self,
         confidence: float,
         category: str,
-        text: Optional[str] = None
+        text: Optional[str] = None,
+        detected_word: Optional[str] = None,
+        detected_position: Optional[int] = None
     ) -> str:
-        risk_score = confidence * self._get_category_weight(category) * self._calculate_length_factor(text)
+        risk_score = (
+            confidence *
+            self._get_category_weight(category) *
+            self._calculate_length_factor(text) *
+            self._calculate_repetition_factor(text, detected_word) *
+            self._calculate_context_factor(text, detected_position)
+        )
         return self._determine_risk_level(max(0.0, min(1.0, risk_score)))
 
     def _get_category_weight(self, category: str) -> float:
