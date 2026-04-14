@@ -48,3 +48,50 @@ class EnhancedRiskCalculator:
 
     def _determine_risk_level(self, risk_score: float) -> str:
         return self._RISK_LEVELS[bisect_left(self._RISK_THRESHOLDS, risk_score)]
+
+    def _calculate_repetition_factor(self, text: Optional[str], detected_word: Optional[str] = None) -> float:
+        if not text or not detected_word:
+            return 1.0
+        
+        text_lower = text.lower()
+        word_lower = detected_word.lower()
+        
+        count = text_lower.count(word_lower)
+        
+        if count <= 1:
+            return 1.0
+        elif count == 2:
+            return 1.1
+        elif count == 3:
+            return 1.2
+        elif count == 4:
+            return 1.3
+        else:
+            return 1.5
+
+    def _calculate_context_factor(self, text: Optional[str], detected_position: Optional[int] = None) -> float:
+        if not text or detected_position is None:
+            return 1.0
+        
+        text_before = text[:detected_position]
+        text_after = text[detected_position:]
+        
+        open_quotes_single = text_before.count("'") - text_before.count("\\'")
+        open_quotes_double = text_before.count('"') - text_before.count('\\"')
+        
+        close_quotes_single = text_after.count("'") - text_after.count("\\'")
+        close_quotes_double = text_after.count('"') - text_after.count('\\"')
+        
+        in_single_quotes = open_quotes_single % 2 == 1 and close_quotes_single % 2 == 1
+        in_double_quotes = open_quotes_double % 2 == 1 and close_quotes_double % 2 == 1
+        
+        if in_single_quotes or in_double_quotes:
+            return 0.7
+        
+
+        reference_patterns = ["the word", "saying", "called", "term", "phrase", "referring to"]
+        for pattern in reference_patterns:
+            if pattern in text_before[-50:]:
+                return 0.8
+        
+        return 1.0
