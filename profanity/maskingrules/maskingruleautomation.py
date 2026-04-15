@@ -8,7 +8,11 @@ class MaskingRuleAutomation:
     def __init__(self, use_enhanced_risk: bool = True, risk_calculator_config: dict = None):
         self.use_enhanced_risk = use_enhanced_risk
         category_weights = risk_calculator_config.get("category_weights") if risk_calculator_config else None
-        self.risk_calculator = EnhancedRiskCalculator(category_weights=category_weights)
+        risk_thresholds = risk_calculator_config.get("risk_thresholds") if risk_calculator_config else None
+        self.risk_calculator = EnhancedRiskCalculator(
+            category_weights=category_weights,
+            risk_thresholds=risk_thresholds
+        )
 
     @staticmethod
     def _calculate_risk(confidence: float) -> str:

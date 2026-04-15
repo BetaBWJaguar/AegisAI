@@ -14,11 +14,26 @@ class EnhancedRiskCalculator:
         "self_harm": 1.5,
     }
 
-    _RISK_THRESHOLDS: Tuple[float, ...] = (0.60, 0.75, 0.90)
+    _DEFAULT_RISK_THRESHOLDS: Tuple[float, ...] = (0.60, 0.75, 0.90)
     _RISK_LEVELS: Tuple[str, ...] = ("LOW", "MEDIUM", "HIGH", "CRITICAL")
 
-    def __init__(self, category_weights: Optional[Dict[str, float]] = None):
+    def __init__(
+        self,
+        category_weights: Optional[Dict[str, float]] = None,
+        risk_thresholds: Optional[Dict[str, float]] = None
+    ):
         self.category_weights = category_weights if category_weights is not None else self.CATEGORY_WEIGHTS
+        self._RISK_THRESHOLDS = self._parse_risk_thresholds(risk_thresholds)
+
+    def _parse_risk_thresholds(self, risk_thresholds: Optional[Dict[str, float]]) -> Tuple[float, ...]:
+        if risk_thresholds is None:
+            return self._DEFAULT_RISK_THRESHOLDS
+        
+        return (
+            risk_thresholds.get("MEDIUM", self._DEFAULT_RISK_THRESHOLDS[0]),
+            risk_thresholds.get("HIGH", self._DEFAULT_RISK_THRESHOLDS[1]),
+            risk_thresholds.get("CRITICAL", self._DEFAULT_RISK_THRESHOLDS[2])
+        )
 
     def calculate_risk(
         self,

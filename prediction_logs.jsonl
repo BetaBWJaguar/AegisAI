@@ -39,3 +39,12 @@
 {"time": 1765476004.8601696, "text": "Sg", "label": "INSULT", "offensive_prob": 0.9707896709442139}
 {"time": 1765476057.2626326, "text": "Sg", "label": "INSULT", "offensive_prob": 0.9707896709442139}
 {"time": 1765476144.4419136, "text": "Sg", "label": "INSULT", "offensive_prob": 0.9707896709442139}
+{"time": 1776276909.6270814, "text": "Sg", "label": "PROFANITY_SWEAR", "offensive_prob": 0.5650330185890198}
+{"time": 1776276938.7296538, "text": "Test", "label": "PROFANITY_SWEAR", "offensive_prob": 0.5649102926254272}
+{"time": 1776276953.6513555, "text": "The weather is fucking amazing today", "label": "PROFANITY_SWEAR", "offensive_prob": 0.5655364394187927}
+{"time": 1776276980.6280484, "text": "shit", "label": "PROFANITY_SWEAR", "offensive_prob": 0.5670361518859863}
+{"time": 1776277325.784426, "text": "fucking", "label": "PROFANITY_SWEAR", "offensive_prob": 0.5672236680984497}
+{"time": 1776277339.1969066, "text": "I cooked some fucking pasta for dinner", "label": "PROFANITY_SWEAR", "offensive_prob": 0.5663641691207886}
+{"time": 1776277352.859583, "text": "hell", "label": "PROFANITY_SWEAR", "offensive_prob": 0.5638688206672668}
+{"time": 1776277361.47535, "text": "I cooked some fucking pasta for dinner", "label": "PROFANITY_SWEAR", "offensive_prob": 0.5663641691207886}
+{"time": 1776277368.7110713, "text": "Sg", "label": "PROFANITY_SWEAR", "offensive_prob": 0.5650330185890198}
