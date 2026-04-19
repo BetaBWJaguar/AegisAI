@@ -14,6 +14,12 @@ class MaskingRuleAutomation:
             risk_thresholds=risk_thresholds
         )
 
+    def update_category_weights(self, category_weights: dict) -> None:
+        self.risk_calculator.update_category_weights(category_weights)
+
+    def update_risk_thresholds(self, risk_thresholds: dict) -> None:
+        self.risk_calculator.update_risk_thresholds(risk_thresholds)
+
     @staticmethod
     def _calculate_risk(confidence: float) -> str:
         if confidence >= 0.95:

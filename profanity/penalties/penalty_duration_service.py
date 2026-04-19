@@ -1,0 +1,18 @@
+# -*- coding: utf-8 -*-
+from profanity.penalties.penalty_duration_calculator import PenaltyDurationCalculator
+
+
+class PenaltyDurationService:
+
+    def __init__(
+        self,
+        base_durations: dict,
+        category_multipliers: dict
+    ):
+        self.calculator = PenaltyDurationCalculator(
+            base_durations=base_durations,
+            category_multipliers=category_multipliers
+        )
+
+    def calculate(self, penalties: list) -> dict:
+        return self.calculator.calculate_duration(penalties)
