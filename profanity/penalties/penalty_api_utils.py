@@ -38,3 +38,26 @@ def format_penalty_response(total_duration: int, penalties_count: int, processed
             "processed_at": processed_at or datetime.utcnow().isoformat()
         }
     }
+
+
+def filter_penalties_by_risk_level(penalties: List[Dict], risk_levels: List[str]) -> List[Dict]:
+    if not penalties or not risk_levels:
+        return []
+    
+    normalized_levels = {level.upper() for level in risk_levels if level.upper() in VALID_RISK_LEVELS}
+    
+    return [
+        penalty for penalty in penalties
+        if penalty.get("risk_level", "").upper() in normalized_levels
+    ]
+
+
+def sort_penalties_by_confidence(penalties: List[Dict], descending: bool = True) -> List[Dict]:
+    if not penalties:
+        return []
+    
+    return sorted(
+        penalties,
+        key=lambda p: p.get("confidence", 1.0),
+        reverse=descending
+    )
