@@ -13,3 +13,6 @@ class CalculatePenaltyRequest(BaseModel):
     penalties: List[PenaltyItem] = Field(...)
     base_durations: Optional[dict] = Field(None)
     category_multipliers: Optional[dict] = Field(None)
+    filter_by_risk_levels: Optional[List[str]] = Field(None)
+    sort_by_confidence: Optional[bool] = Field(True)
+    sort_descending: Optional[bool] = Field(True)

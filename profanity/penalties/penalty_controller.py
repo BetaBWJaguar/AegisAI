@@ -5,7 +5,9 @@ from typing import Dict, Optional
 from profanity.penalties.penalty_duration_service import PenaltyDurationService
 from profanity.penalties.penalty_api_utils import (
     validate_penalties_list,
-    format_penalty_response
+    format_penalty_response,
+    filter_penalties_by_risk_level,
+    sort_penalties_by_confidence
 )
 from profanity.schemas.penalty_request import CalculatePenaltyRequest
 from profanity.schemas.penalty_response import PenaltyDurationResponse
@@ -30,6 +32,12 @@ async def calculate_penalty_duration(request: CalculatePenaltyRequest):
                 message=error_message,
                 error_type=ErrorType.VALIDATION_ERROR
             )
+        
+        if request.filter_by_risk_levels:
+            valid_penalties = filter_penalties_by_risk_level(valid_penalties, request.filter_by_risk_levels)
+        
+        if request.sort_by_confidence:
+            valid_penalties = sort_penalties_by_confidence(valid_penalties, request.sort_descending)
 
         base_durations = request.base_durations if request.base_durations is not None else {}
         category_multipliers = request.category_multipliers if request.category_multipliers is not None else {}
@@ -79,6 +87,9 @@ async def calculate_penalty_duration_bulk(payload: Dict):
 
         base_durations = payload.get("base_durations", {})
         category_multipliers = payload.get("category_multipliers", {})
+        filter_by_risk_levels = payload.get("filter_by_risk_levels")
+        sort_by_confidence = payload.get("sort_by_confidence", True)
+        sort_descending = payload.get("sort_descending", True)
         
         penalty_service = PenaltyDurationService(
             base_durations=base_durations,
@@ -97,6 +108,12 @@ async def calculate_penalty_duration_bulk(payload: Dict):
                         "error": error_message
                     })
                     continue
+                
+                if filter_by_risk_levels:
+                    valid_penalties = filter_penalties_by_risk_level(valid_penalties, filter_by_risk_levels)
+                
+                if sort_by_confidence:
+                    valid_penalties = sort_penalties_by_confidence(valid_penalties, sort_descending)
                 
                 result = penalty_service.calculate(valid_penalties)
                 
