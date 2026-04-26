@@ -61,3 +61,39 @@ def sort_penalties_by_confidence(penalties: List[Dict], descending: bool = True)
         key=lambda p: p.get("confidence", 1.0),
         reverse=descending
     )
+
+
+def aggregate_penalties_by_category(penalties: List[Dict]) -> Dict[str, Dict]:
+    if not penalties:
+        return {}
+    
+    aggregation = {}
+    
+    for penalty in penalties:
+        category = penalty.get("category", "UNCATEGORIZED")
+        confidence = penalty.get("confidence", 0.0)
+        risk_level = penalty.get("risk_level", "").upper()
+        
+        if category not in aggregation:
+            aggregation[category] = {
+                "count": 0,
+                "total_confidence": 0.0,
+                "risk_levels": {"LOW": 0, "MEDIUM": 0, "HIGH": 0, "CRITICAL": 0}
+            }
+        
+        aggregation[category]["count"] += 1
+        aggregation[category]["total_confidence"] += confidence
+        
+        if risk_level in VALID_RISK_LEVELS:
+            aggregation[category]["risk_levels"][risk_level] += 1
+    
+    for category_data in aggregation.values():
+        if category_data["count"] > 0:
+            category_data["avg_confidence"] = round(
+                category_data["total_confidence"] / category_data["count"], 4
+            )
+        else:
+            category_data["avg_confidence"] = 0.0
+        del category_data["total_confidence"]
+    
+    return aggregation
