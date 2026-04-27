@@ -16,3 +16,4 @@ class CalculatePenaltyRequest(BaseModel):
     filter_by_risk_levels: Optional[List[str]] = Field(None)
     sort_by_confidence: Optional[bool] = Field(True)
     sort_descending: Optional[bool] = Field(True)
+    include_category_stats: Optional[bool] = Field(False)

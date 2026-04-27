@@ -7,7 +7,8 @@ from profanity.penalties.penalty_api_utils import (
     validate_penalties_list,
     format_penalty_response,
     filter_penalties_by_risk_level,
-    sort_penalties_by_confidence
+    sort_penalties_by_confidence,
+    aggregate_penalties_by_category
 )
 from profanity.schemas.penalty_request import CalculatePenaltyRequest
 from profanity.schemas.penalty_response import PenaltyDurationResponse
@@ -53,6 +54,10 @@ async def calculate_penalty_duration(request: CalculatePenaltyRequest):
             total_duration=result["total_duration_minutes"],
             penalties_count=len(valid_penalties)
         )
+        
+        if request.include_category_stats:
+            category_stats = aggregate_penalties_by_category(valid_penalties)
+            response_data["data"]["category_stats"] = category_stats
 
         return PenaltyDurationResponse(**response_data)
 
@@ -90,6 +95,7 @@ async def calculate_penalty_duration_bulk(payload: Dict):
         filter_by_risk_levels = payload.get("filter_by_risk_levels")
         sort_by_confidence = payload.get("sort_by_confidence", True)
         sort_descending = payload.get("sort_descending", True)
+        include_category_stats = payload.get("include_category_stats", False)
         
         penalty_service = PenaltyDurationService(
             base_durations=base_durations,
@@ -117,11 +123,17 @@ async def calculate_penalty_duration_bulk(payload: Dict):
                 
                 result = penalty_service.calculate(valid_penalties)
                 
-                results.append({
+                result_data = {
                     "index": idx,
                     "total_duration_minutes": result["total_duration_minutes"],
                     "penalties_count": len(valid_penalties)
-                })
+                }
+                
+                if include_category_stats:
+                    category_stats = aggregate_penalties_by_category(valid_penalties)
+                    result_data["category_stats"] = category_stats
+                
+                results.append(result_data)
                 
             except Exception as e:
                 results.append({
