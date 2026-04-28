@@ -155,3 +155,44 @@ async def calculate_penalty_duration_bulk(payload: Dict):
             error_type=ErrorType.INTERNAL_SERVER_ERROR,
             detail=str(e)
         )
+
+
+@router.get(
+    "/statistics",
+)
+async def get_penalty_statistics(
+    base_durations: Optional[Dict] = None,
+    category_multipliers: Optional[Dict] = None
+):
+    try:
+        base_durations = base_durations if base_durations is not None else {}
+        category_multipliers = category_multipliers if category_multipliers is not None else {}
+
+        
+        stats = {
+            "success": True,
+            "data": {
+                "configuration": {
+                    "base_durations": base_durations,
+                    "category_multipliers": category_multipliers
+                },
+                "statistics": {
+                    "total_base_duration_minutes": sum(base_durations.values()) if base_durations else 0,
+                    "total_categories": len(category_multipliers) if category_multipliers else 0,
+                    "average_multiplier": (
+                        sum(category_multipliers.values()) / len(category_multipliers)
+                        if category_multipliers else 1.0
+                    ),
+                    "available_risk_levels": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+                }
+            }
+        }
+        
+        return stats
+
+    except Exception as e:
+        raise ExpectionHandler(
+            message="Failed to retrieve penalty statistics.",
+            error_type=ErrorType.INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
