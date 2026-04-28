@@ -168,27 +168,12 @@ async def get_penalty_statistics(
         base_durations = base_durations if base_durations is not None else {}
         category_multipliers = category_multipliers if category_multipliers is not None else {}
 
-        
-        stats = {
-            "success": True,
-            "data": {
-                "configuration": {
-                    "base_durations": base_durations,
-                    "category_multipliers": category_multipliers
-                },
-                "statistics": {
-                    "total_base_duration_minutes": sum(base_durations.values()) if base_durations else 0,
-                    "total_categories": len(category_multipliers) if category_multipliers else 0,
-                    "average_multiplier": (
-                        sum(category_multipliers.values()) / len(category_multipliers)
-                        if category_multipliers else 1.0
-                    ),
-                    "available_risk_levels": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
-                }
-            }
-        }
-        
-        return stats
+        penalty_service = PenaltyDurationService(
+            base_durations=base_durations,
+            category_multipliers=category_multipliers
+        )
+
+        return penalty_service.get_statistics()
 
     except Exception as e:
         raise ExpectionHandler(
