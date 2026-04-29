@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Dict, Optional
 
+from auth.authcontroller import get_current_user
 from profanity.penalties.penalty_duration_service import PenaltyDurationService
 from profanity.penalties.penalty_api_utils import (
     validate_penalties_list,
@@ -23,7 +24,7 @@ router = APIRouter()
     "/calculate",
     response_model=PenaltyDurationResponse,
 )
-async def calculate_penalty_duration(request: CalculatePenaltyRequest):
+async def calculate_penalty_duration(request: CalculatePenaltyRequest, current_user=Depends(get_current_user)):
     try:
         penalties_data = [penalty.dict() for penalty in request.penalties]
         is_valid, error_message, valid_penalties = validate_penalties_list(penalties_data)
@@ -74,7 +75,7 @@ async def calculate_penalty_duration(request: CalculatePenaltyRequest):
 @router.post(
     "/calculate/bulk",
 )
-async def calculate_penalty_duration_bulk(payload: Dict):
+async def calculate_penalty_duration_bulk(payload: Dict, current_user=Depends(get_current_user)):
     try:
         penalty_lists = payload.get("penalty_lists", [])
         
@@ -162,7 +163,8 @@ async def calculate_penalty_duration_bulk(payload: Dict):
 )
 async def get_penalty_statistics(
     base_durations: Optional[Dict] = None,
-    category_multipliers: Optional[Dict] = None
+    category_multipliers: Optional[Dict] = None,
+    current_user=Depends(get_current_user)
 ):
     try:
         base_durations = base_durations if base_durations is not None else {}
