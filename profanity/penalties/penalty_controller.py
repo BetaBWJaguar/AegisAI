@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from typing import Dict, Optional
 
 from auth.authcontroller import get_current_user
@@ -25,161 +25,129 @@ router = APIRouter()
     response_model=PenaltyDurationResponse,
 )
 async def calculate_penalty_duration(request: CalculatePenaltyRequest, current_user=Depends(get_current_user)):
-    try:
-        penalties_data = [penalty.dict() for penalty in request.penalties]
-        is_valid, error_message, valid_penalties = validate_penalties_list(penalties_data)
-        
-        if not is_valid:
-            raise ExpectionHandler(
-                message=error_message,
-                error_type=ErrorType.VALIDATION_ERROR
-            )
-        
-        if request.filter_by_risk_levels:
-            valid_penalties = filter_penalties_by_risk_level(valid_penalties, request.filter_by_risk_levels)
-        
-        if request.sort_by_confidence:
-            valid_penalties = sort_penalties_by_confidence(valid_penalties, request.sort_descending)
+    penalties_data = [penalty.dict() for penalty in request.penalties]
+    is_valid, error_message, valid_penalties = validate_penalties_list(penalties_data)
 
-        base_durations = request.base_durations if request.base_durations is not None else {}
-        category_multipliers = request.category_multipliers if request.category_multipliers is not None else {}
-        
-        penalty_service = PenaltyDurationService(
-            base_durations=base_durations,
-            category_multipliers=category_multipliers
-        )
-
-        result = penalty_service.calculate(valid_penalties)
-        
-        response_data = format_penalty_response(
-            total_duration=result["total_duration_minutes"],
-            penalties_count=len(valid_penalties)
-        )
-        
-        if request.include_category_stats:
-            category_stats = aggregate_penalties_by_category(valid_penalties)
-            response_data["data"]["category_stats"] = category_stats
-
-        return PenaltyDurationResponse(**response_data)
-
-    except ExpectionHandler:
-        raise
-    except Exception as e:
+    if not is_valid:
         raise ExpectionHandler(
-            message="Unexpected error occurred during penalty calculation.",
-            error_type=ErrorType.INTERNAL_SERVER_ERROR,
-            detail=str(e)
+            message=error_message,
+            error_type=ErrorType.VALIDATION_ERROR
         )
+
+    filter_levels = request.filter_by_risk_levels
+    if filter_levels:
+        valid_penalties = filter_penalties_by_risk_level(valid_penalties, filter_levels)
+
+    if request.sort_by_confidence:
+        valid_penalties = sort_penalties_by_confidence(valid_penalties, request.sort_descending)
+
+    base_durations = request.base_durations
+    category_multipliers = request.category_multipliers
+
+    penalty_service = PenaltyDurationService(
+        base_durations=base_durations if base_durations is not None else {},
+        category_multipliers=category_multipliers if category_multipliers is not None else {}
+    )
+
+    result = penalty_service.calculate(valid_penalties)
+
+    response_data = format_penalty_response(
+        total_duration=result["total_duration_minutes"],
+        penalties_count=len(valid_penalties)
+    )
+
+    if request.include_category_stats:
+        response_data["data"]["category_stats"] = aggregate_penalties_by_category(valid_penalties)
+
+    return PenaltyDurationResponse(**response_data)
 
 
 @router.post(
     "/calculate/bulk",
 )
 async def calculate_penalty_duration_bulk(payload: Dict, current_user=Depends(get_current_user)):
-    try:
-        penalty_lists = payload.get("penalty_lists", [])
-        
-        if not isinstance(penalty_lists, list):
-            raise ExpectionHandler(
-                message="penalty_lists must be a list",
-                error_type=ErrorType.VALIDATION_ERROR
-            )
-        
-        if not penalty_lists:
-            raise ExpectionHandler(
-                message="penalty_lists cannot be empty",
-                error_type=ErrorType.VALIDATION_ERROR
-            )
+    penalty_lists = payload.get("penalty_lists")
 
-        base_durations = payload.get("base_durations", {})
-        category_multipliers = payload.get("category_multipliers", {})
-        filter_by_risk_levels = payload.get("filter_by_risk_levels")
-        sort_by_confidence = payload.get("sort_by_confidence", True)
-        sort_descending = payload.get("sort_descending", True)
-        include_category_stats = payload.get("include_category_stats", False)
-        
-        penalty_service = PenaltyDurationService(
-            base_durations=base_durations,
-            category_multipliers=category_multipliers
-        )
-
-        results = []
-        
-        for idx, penalties in enumerate(penalty_lists):
-            try:
-                is_valid, error_message, valid_penalties = validate_penalties_list(penalties)
-                
-                if not is_valid:
-                    results.append({
-                        "index": idx,
-                        "error": error_message
-                    })
-                    continue
-                
-                if filter_by_risk_levels:
-                    valid_penalties = filter_penalties_by_risk_level(valid_penalties, filter_by_risk_levels)
-                
-                if sort_by_confidence:
-                    valid_penalties = sort_penalties_by_confidence(valid_penalties, sort_descending)
-                
-                result = penalty_service.calculate(valid_penalties)
-                
-                result_data = {
-                    "index": idx,
-                    "total_duration_minutes": result["total_duration_minutes"],
-                    "penalties_count": len(valid_penalties)
-                }
-                
-                if include_category_stats:
-                    category_stats = aggregate_penalties_by_category(valid_penalties)
-                    result_data["category_stats"] = category_stats
-                
-                results.append(result_data)
-                
-            except Exception as e:
-                results.append({
-                    "index": idx,
-                    "error": str(e)
-                })
-
-        return {
-            "success": True,
-            "total_requests": len(penalty_lists),
-            "results": results
-        }
-
-    except ExpectionHandler:
-        raise
-    except Exception as e:
+    if not isinstance(penalty_lists, list):
         raise ExpectionHandler(
-            message="Failed to process bulk penalty calculation.",
-            error_type=ErrorType.INTERNAL_SERVER_ERROR,
-            detail=str(e)
+            message="penalty_lists must be a list",
+            error_type=ErrorType.VALIDATION_ERROR
         )
+
+    if not penalty_lists:
+        raise ExpectionHandler(
+            message="penalty_lists cannot be empty",
+            error_type=ErrorType.VALIDATION_ERROR
+        )
+
+    base_durations = payload.get("base_durations", {})
+    category_multipliers = payload.get("category_multipliers", {})
+    filter_by_risk_levels = payload.get("filter_by_risk_levels")
+    sort_by_confidence = payload.get("sort_by_confidence", True)
+    sort_descending = payload.get("sort_descending", True)
+    include_category_stats = payload.get("include_category_stats", False)
+
+    penalty_service = PenaltyDurationService(
+        base_durations=base_durations,
+        category_multipliers=category_multipliers
+    )
+
+    validate = validate_penalties_list
+    filter_fn = filter_penalties_by_risk_level
+    sort_fn = sort_penalties_by_confidence
+    aggregate_fn = aggregate_penalties_by_category
+    calculate = penalty_service.calculate
+    append = list.append
+    results = []
+
+    for idx, penalties in enumerate(penalty_lists):
+        try:
+            is_valid, error_message, valid_penalties = validate(penalties)
+
+            if not is_valid:
+                append(results, {"index": idx, "error": error_message})
+                continue
+
+            if filter_by_risk_levels:
+                valid_penalties = filter_fn(valid_penalties, filter_by_risk_levels)
+
+            if sort_by_confidence:
+                valid_penalties = sort_fn(valid_penalties, sort_descending)
+
+            result = calculate(valid_penalties)
+
+            result_data = {
+                "index": idx,
+                "total_duration_minutes": result["total_duration_minutes"],
+                "penalties_count": len(valid_penalties)
+            }
+
+            if include_category_stats:
+                result_data["category_stats"] = aggregate_fn(valid_penalties)
+
+            append(results, result_data)
+
+        except Exception as e:
+            append(results, {"index": idx, "error": str(e)})
+
+    return {
+        "success": True,
+        "total_requests": len(penalty_lists),
+        "results": results
+    }
 
 
 @router.get(
     "/statistics",
 )
 async def get_penalty_statistics(
-    base_durations: Optional[Dict] = None,
-    category_multipliers: Optional[Dict] = None,
-    current_user=Depends(get_current_user)
+        base_durations: Optional[Dict] = None,
+        category_multipliers: Optional[Dict] = None,
+        current_user=Depends(get_current_user)
 ):
-    try:
-        base_durations = base_durations if base_durations is not None else {}
-        category_multipliers = category_multipliers if category_multipliers is not None else {}
+    penalty_service = PenaltyDurationService(
+        base_durations=base_durations if base_durations is not None else {},
+        category_multipliers=category_multipliers if category_multipliers is not None else {}
+    )
 
-        penalty_service = PenaltyDurationService(
-            base_durations=base_durations,
-            category_multipliers=category_multipliers
-        )
-
-        return penalty_service.get_statistics()
-
-    except Exception as e:
-        raise ExpectionHandler(
-            message="Failed to retrieve penalty statistics.",
-            error_type=ErrorType.INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
+    return penalty_service.get_statistics()
