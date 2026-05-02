@@ -29,7 +29,7 @@ from trainer.reports.reports_controller import router as report_router
 from contentcontrols.content_control_controller import router as content_control_router
 
 app = FastAPI()
-app.add_middleware(RateLimitMiddleware, max_requests=5, window_seconds=10)
+app.add_middleware(RateLimitMiddleware, max_requests=100, window_seconds=60)
 app.add_middleware(ClientIPMiddleware)
 
 app.add_exception_handler(ExpectionHandler, expection_handler)

@@ -5,6 +5,28 @@ from datetime import datetime
 VALID_RISK_LEVELS = frozenset({"LOW", "MEDIUM", "HIGH", "CRITICAL"})
 
 
+def _get_readable_duration(total_minutes: int) -> str:
+    if total_minutes <= 0:
+        return "0 minutes"
+
+    parts = []
+
+    if total_minutes >= 1440:
+        days = total_minutes // 1440
+        parts.append(f"{days} day{'s' if days > 1 else ''}")
+        total_minutes %= 1440
+
+    if total_minutes >= 60:
+        hours = total_minutes // 60
+        parts.append(f"{hours} hour{'s' if hours > 1 else ''}")
+        total_minutes %= 60
+
+    if total_minutes > 0:
+        parts.append(f"{total_minutes} minute{'s' if total_minutes > 1 else ''}")
+
+    return " ".join(parts)
+
+
 def validate_penalty_data(penalty: Dict) -> Tuple[bool, Optional[str]]:
     risk_level = penalty.get("risk_level")
 
@@ -43,6 +65,7 @@ def format_penalty_response(total_duration: int, penalties_count: int, processed
         "success": True,
         "data": {
             "total_duration_minutes": total_duration,
+            "readable_duration": _get_readable_duration(total_duration),
             "penalties_count": penalties_count,
             "processed_at": processed_at or datetime.utcnow().isoformat()
         }

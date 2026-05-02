@@ -433,7 +433,19 @@ class WorkspaceServiceImpl(WorkspaceService):
         if not ws:
             return None
 
-        ws.doxxing_settings = DoxxingSettings.from_dict(settings)
+        current_settings = ws.doxxing_settings if ws.doxxing_settings else DoxxingSettings()
+        current_dict = current_settings.to_dict()
+
+        for key, value in settings.items():
+            if key in ["pii_config", "context_config"]:
+                if key in current_dict and isinstance(current_dict[key], dict):
+                    current_dict[key].update(value)
+                else:
+                    current_dict[key] = value
+            else:
+                current_dict[key] = value
+
+        ws.doxxing_settings = DoxxingSettings.from_dict(current_dict)
         ws.updated_at = datetime.utcnow()
 
         user = self.user_service.get_user(user_id)
