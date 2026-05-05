@@ -27,6 +27,7 @@ from security.bot_detection.botdetectioncontroller import router as bot_detectio
 from security.breach.infraction.infractioncontroller import router as infraction_router
 from trainer.reports.reports_controller import router as report_router
 from contentcontrols.content_control_controller import router as content_control_router
+from customrules.customrule_controller import router as customrule_router
 
 app = FastAPI()
 app.add_middleware(RateLimitMiddleware, max_requests=100, window_seconds=60)
@@ -56,6 +57,7 @@ app.include_router(bot_detection_router, prefix="/bot-detection", tags=["bot-det
 app.include_router(infraction_router, prefix="/infraction", tags=["infraction"])
 app.include_router(report_router, prefix="/reports", tags=["reports"])
 app.include_router(content_control_router, prefix="/content-control", tags=["content-control"])
+app.include_router(customrule_router, prefix="/custom-rules", tags=["custom-rules"])
 
 
 revoked_service = RevokedTokenService("config.json")

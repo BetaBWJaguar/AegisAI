@@ -97,6 +97,62 @@ class CustomRuleServiceImpl(CustomRuleService):
         result = self.collection.delete_one({"id": rule_id})
         return result.deleted_count > 0
 
+    def toggle_rule(self, rule_id: str) -> Optional[CustomRule]:
+        doc = self.collection.find_one({"id": rule_id})
+        if not doc:
+            return None
+
+        new_enabled = not doc.get("enabled", True)
+        self.collection.update_one(
+            {"id": rule_id},
+            {"$set": {"enabled": new_enabled, "updated_at": datetime.utcnow().isoformat()}},
+        )
+
+        updated_doc = self.collection.find_one({"id": rule_id})
+        return self._from_document(updated_doc) if updated_doc else None
+
+    def search_rules(
+        self,
+        query: str,
+        workspace_id: Optional[str] = None,
+    ) -> List[CustomRule]:
+        mongo_query: dict = {
+            "$or": [
+                {"name": {"$regex": query, "$options": "i"}},
+                {"pattern": {"$regex": query, "$options": "i"}},
+                {"description": {"$regex": query, "$options": "i"}},
+            ]
+        }
+
+        if workspace_id is not None:
+            mongo_query["workspace_id"] = workspace_id
+
+        cursor = self.collection.find(mongo_query)
+        return [self._from_document(doc) for doc in cursor]
+
+    def count_rules(
+        self,
+        workspace_id: Optional[str] = None,
+        rule_type: Optional[str] = None,
+        enabled_only: bool = False,
+    ) -> int:
+        query: dict = {}
+
+        if workspace_id is not None:
+            query["workspace_id"] = workspace_id
+
+        if rule_type is not None:
+            query["rule_type"] = rule_type
+
+        if enabled_only:
+            query["enabled"] = True
+
+        return self.collection.count_documents(query)
+
+    def delete_rules_by_workspace(self, workspace_id: str) -> int:
+        result = self.collection.delete_many({"workspace_id": workspace_id})
+        return result.deleted_count
+
     def _from_document(self, doc: dict) -> CustomRule:
         return CustomRule(
             id=uuid.UUID(doc["id"]),

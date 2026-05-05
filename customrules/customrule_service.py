@@ -32,3 +32,28 @@ class CustomRuleService(ABC):
     @abstractmethod
     def delete_rule(self, rule_id: str) -> bool:
         pass
+
+    @abstractmethod
+    def toggle_rule(self, rule_id: str) -> Optional[CustomRule]:
+        pass
+
+    @abstractmethod
+    def search_rules(
+        self,
+        query: str,
+        workspace_id: Optional[str] = None,
+    ) -> List[CustomRule]:
+        pass
+
+    @abstractmethod
+    def count_rules(
+        self,
+        workspace_id: Optional[str] = None,
+        rule_type: Optional[str] = None,
+        enabled_only: bool = False,
+    ) -> int:
+        pass
+
+    @abstractmethod
+    def delete_rules_by_workspace(self, workspace_id: str) -> int:
+        pass
