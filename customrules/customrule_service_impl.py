@@ -51,8 +51,8 @@ class CustomRuleServiceImpl(CustomRuleService):
         self.collection.insert_one(rule.to_dict())
         return rule
 
-    def get_rule(self, rule_id: str) -> Optional[CustomRule]:
-        doc = self.collection.find_one({"id": rule_id})
+    def get_rule(self, rule_id: str, workspace_id: str) -> Optional[CustomRule]:
+        doc = self.collection.find_one({"id": rule_id, "workspace_id": workspace_id})
         return self._from_document(doc) if doc else None
 
     def list_rules(
@@ -75,8 +75,8 @@ class CustomRuleServiceImpl(CustomRuleService):
         cursor = self.collection.find(query).sort("priority", -1)
         return [self._from_document(doc) for doc in cursor]
 
-    def update_rule(self, rule_id: str, data: RuleUpsert) -> Optional[CustomRule]:
-        existing = self.collection.find_one({"id": rule_id})
+    def update_rule(self, rule_id: str, workspace_id: str, data: RuleUpsert) -> Optional[CustomRule]:
+        existing = self.collection.find_one({"id": rule_id, "workspace_id": workspace_id})
         if not existing:
             return None
 
@@ -91,29 +91,29 @@ class CustomRuleServiceImpl(CustomRuleService):
         update_fields["updated_at"] = datetime.utcnow().isoformat()
 
         self.collection.update_one(
-            {"id": rule_id},
+            {"id": rule_id, "workspace_id": workspace_id},
             {"$set": update_fields},
         )
 
-        updated_doc = self.collection.find_one({"id": rule_id})
+        updated_doc = self.collection.find_one({"id": rule_id, "workspace_id": workspace_id})
         return self._from_document(updated_doc) if updated_doc else None
 
-    def delete_rule(self, rule_id: str) -> bool:
-        result = self.collection.delete_one({"id": rule_id})
+    def delete_rule(self, rule_id: str, workspace_id: str) -> bool:
+        result = self.collection.delete_one({"id": rule_id, "workspace_id": workspace_id})
         return result.deleted_count > 0
 
-    def toggle_rule(self, rule_id: str) -> Optional[CustomRule]:
-        doc = self.collection.find_one({"id": rule_id})
+    def toggle_rule(self, rule_id: str, workspace_id: str) -> Optional[CustomRule]:
+        doc = self.collection.find_one({"id": rule_id, "workspace_id": workspace_id})
         if not doc:
             return None
 
         new_enabled = not doc.get("enabled", True)
         self.collection.update_one(
-            {"id": rule_id},
+            {"id": rule_id, "workspace_id": workspace_id},
             {"$set": {"enabled": new_enabled, "updated_at": datetime.utcnow().isoformat()}},
         )
 
-        updated_doc = self.collection.find_one({"id": rule_id})
+        updated_doc = self.collection.find_one({"id": rule_id, "workspace_id": workspace_id})
         return self._from_document(updated_doc) if updated_doc else None
 
     def search_rules(
@@ -158,8 +158,8 @@ class CustomRuleServiceImpl(CustomRuleService):
         result = self.collection.delete_many({"workspace_id": workspace_id})
         return result.deleted_count
 
-    def duplicate_rule(self, rule_id: str, created_by: Optional[str] = None) -> Optional[CustomRule]:
-        doc = self.collection.find_one({"id": rule_id})
+    def duplicate_rule(self, rule_id: str, workspace_id: str, created_by: Optional[str] = None) -> Optional[CustomRule]:
+        doc = self.collection.find_one({"id": rule_id, "workspace_id": workspace_id})
         if not doc:
             return None
 
@@ -238,14 +238,19 @@ class CustomRuleServiceImpl(CustomRuleService):
             "matches": matches,
         }
 
-    def bulk_toggle(self, rule_ids: List[str], enabled: bool) -> List[CustomRule]:
+    def bulk_toggle(self, rule_ids: List[str], enabled: bool, workspace_id: Optional[str] = None) -> List[CustomRule]:
         now = datetime.utcnow().isoformat()
+
+        query: dict = {"id": {"$in": rule_ids}}
+        if workspace_id is not None:
+            query["workspace_id"] = workspace_id
+
         self.collection.update_many(
-            {"id": {"$in": rule_ids}},
+            query,
             {"$set": {"enabled": enabled, "updated_at": now}},
         )
 
-        cursor = self.collection.find({"id": {"$in": rule_ids}})
+        cursor = self.collection.find(query)
         return [self._from_document(doc) for doc in cursor]
 
     def get_rules_by_tag(self, tag: str, workspace_id: Optional[str] = None) -> List[CustomRule]:

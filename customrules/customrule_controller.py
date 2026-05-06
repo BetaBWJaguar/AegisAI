@@ -167,14 +167,17 @@ def test_pattern(data: TestPatternRequest):
     "/{rule_id}",
     response_model=RuleResponse,
 )
-def get_rule(rule_id: str):
+def get_rule(
+    rule_id: str,
+    workspace_id: str = Query(...),
+):
     try:
-        rule = service.get_rule(rule_id)
+        rule = service.get_rule(rule_id, workspace_id)
         if not rule:
             raise ExpectionHandler(
                 message="Rule not found.",
                 error_type=ErrorType.NOT_FOUND,
-                detail=f"Custom rule with ID {rule_id} not found.",
+                detail=f"Custom rule with ID {rule_id} not found in workspace {workspace_id}.",
             )
         return RuleResponse(**rule.to_dict())
     except ExpectionHandler:
@@ -192,14 +195,18 @@ def get_rule(rule_id: str):
     response_model=RuleResponse,
     dependencies=[Depends(require_perm([Role.DEVELOPER, Role.ADMIN]))],
 )
-def update_rule(rule_id: str, data: RuleUpsert):
+def update_rule(
+    rule_id: str,
+    data: RuleUpsert,
+    workspace_id: str = Query(...),
+):
     try:
-        rule = service.update_rule(rule_id, data)
+        rule = service.update_rule(rule_id, workspace_id, data)
         if not rule:
             raise ExpectionHandler(
                 message="Rule not found.",
                 error_type=ErrorType.NOT_FOUND,
-                detail=f"Custom rule with ID {rule_id} not found for update.",
+                detail=f"Custom rule with ID {rule_id} not found in workspace {workspace_id} for update.",
             )
         return RuleResponse(**rule.to_dict())
     except ExpectionHandler:
@@ -217,14 +224,17 @@ def update_rule(rule_id: str, data: RuleUpsert):
     response_model=RuleResponse,
     dependencies=[Depends(require_perm([Role.DEVELOPER, Role.ADMIN]))],
 )
-def toggle_rule(rule_id: str):
+def toggle_rule(
+    rule_id: str,
+    workspace_id: str = Query(...),
+):
     try:
-        rule = service.toggle_rule(rule_id)
+        rule = service.toggle_rule(rule_id, workspace_id)
         if not rule:
             raise ExpectionHandler(
                 message="Rule not found.",
                 error_type=ErrorType.NOT_FOUND,
-                detail=f"Custom rule with ID {rule_id} not found for toggle.",
+                detail=f"Custom rule with ID {rule_id} not found in workspace {workspace_id} for toggle.",
             )
         return RuleResponse(**rule.to_dict())
     except ExpectionHandler:
@@ -242,14 +252,17 @@ def toggle_rule(rule_id: str):
     response_model=RuleResponse,
     dependencies=[Depends(require_perm([Role.DEVELOPER, Role.ADMIN]))],
 )
-def duplicate_rule(rule_id: str):
+def duplicate_rule(
+    rule_id: str,
+    workspace_id: str = Query(...),
+):
     try:
-        rule = service.duplicate_rule(rule_id)
+        rule = service.duplicate_rule(rule_id, workspace_id)
         if not rule:
             raise ExpectionHandler(
                 message="Rule not found.",
                 error_type=ErrorType.NOT_FOUND,
-                detail=f"Custom rule with ID {rule_id} not found for duplication.",
+                detail=f"Custom rule with ID {rule_id} not found in workspace {workspace_id} for duplication.",
             )
         return RuleResponse(**rule.to_dict())
     except ExpectionHandler:
@@ -266,14 +279,17 @@ def duplicate_rule(rule_id: str):
     "/{rule_id}",
     dependencies=[Depends(require_perm([Role.DEVELOPER, Role.ADMIN]))],
 )
-def delete_rule(rule_id: str):
+def delete_rule(
+    rule_id: str,
+    workspace_id: str = Query(...),
+):
     try:
-        deleted = service.delete_rule(rule_id)
+        deleted = service.delete_rule(rule_id, workspace_id)
         if not deleted:
             raise ExpectionHandler(
                 message="Rule not found.",
                 error_type=ErrorType.NOT_FOUND,
-                detail=f"Custom rule with ID {rule_id} not found for deletion.",
+                detail=f"Custom rule with ID {rule_id} not found in workspace {workspace_id} for deletion.",
             )
         return {"success": True, "message": f"Rule {rule_id} deleted successfully."}
     except ExpectionHandler:
@@ -291,9 +307,12 @@ def delete_rule(rule_id: str):
     response_model=List[RuleResponse],
     dependencies=[Depends(require_perm([Role.DEVELOPER, Role.ADMIN]))],
 )
-def bulk_toggle(data: BulkToggleRequest):
+def bulk_toggle(
+    data: BulkToggleRequest,
+    workspace_id: Optional[str] = Query(default=None),
+):
     try:
-        rules = service.bulk_toggle(rule_ids=data.rule_ids, enabled=data.enabled)
+        rules = service.bulk_toggle(rule_ids=data.rule_ids, enabled=data.enabled, workspace_id=workspace_id)
         return [RuleResponse(**rule.to_dict()) for rule in rules]
     except ExpectionHandler:
         raise

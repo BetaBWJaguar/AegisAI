@@ -13,7 +13,7 @@ class CustomRuleService(ABC):
         pass
 
     @abstractmethod
-    def get_rule(self, rule_id: str) -> Optional[CustomRule]:
+    def get_rule(self, rule_id: str, workspace_id: str) -> Optional[CustomRule]:
         pass
 
     @abstractmethod
@@ -26,15 +26,15 @@ class CustomRuleService(ABC):
         pass
 
     @abstractmethod
-    def update_rule(self, rule_id: str, data: RuleUpsert) -> Optional[CustomRule]:
+    def update_rule(self, rule_id: str, workspace_id: str, data: RuleUpsert) -> Optional[CustomRule]:
         pass
 
     @abstractmethod
-    def delete_rule(self, rule_id: str) -> bool:
+    def delete_rule(self, rule_id: str, workspace_id: str) -> bool:
         pass
 
     @abstractmethod
-    def toggle_rule(self, rule_id: str) -> Optional[CustomRule]:
+    def toggle_rule(self, rule_id: str, workspace_id: str) -> Optional[CustomRule]:
         pass
 
     @abstractmethod
@@ -59,7 +59,7 @@ class CustomRuleService(ABC):
         pass
 
     @abstractmethod
-    def duplicate_rule(self, rule_id: str, created_by: Optional[str] = None) -> Optional[CustomRule]:
+    def duplicate_rule(self, rule_id: str, workspace_id: str, created_by: Optional[str] = None) -> Optional[CustomRule]:
         pass
 
     @abstractmethod
@@ -67,7 +67,7 @@ class CustomRuleService(ABC):
         pass
 
     @abstractmethod
-    def bulk_toggle(self, rule_ids: List[str], enabled: bool) -> List[CustomRule]:
+    def bulk_toggle(self, rule_ids: List[str], enabled: bool, workspace_id: Optional[str] = None) -> List[CustomRule]:
         pass
 
     @abstractmethod
