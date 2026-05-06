@@ -1,3 +1,5 @@
+import fnmatch
+import re
 from datetime import datetime
 from typing import List, Optional
 import uuid
@@ -25,6 +27,7 @@ class CustomRuleServiceImpl(CustomRuleService):
         self.collection.create_index("id", unique=True)
         self.collection.create_index("workspace_id")
         self.collection.create_index("rule_type")
+        self.collection.create_index("tags")
 
     def create_rule(self, data: RuleCreate, created_by: Optional[str] = None) -> CustomRule:
         rule = CustomRule.create(
@@ -41,8 +44,10 @@ class CustomRuleServiceImpl(CustomRuleService):
             metadata=data.metadata,
             workspace_id=data.workspace_id,
             created_by=created_by,
+            replace_text=data.replace_text,
         )
 
+        rule.validate_pattern()
         self.collection.insert_one(rule.to_dict())
         return rule
 
@@ -67,7 +72,7 @@ class CustomRuleServiceImpl(CustomRuleService):
         if enabled_only:
             query["enabled"] = True
 
-        cursor = self.collection.find(query)
+        cursor = self.collection.find(query).sort("priority", -1)
         return [self._from_document(doc) for doc in cursor]
 
     def update_rule(self, rule_id: str, data: RuleUpsert) -> Optional[CustomRule]:
@@ -153,6 +158,105 @@ class CustomRuleServiceImpl(CustomRuleService):
         result = self.collection.delete_many({"workspace_id": workspace_id})
         return result.deleted_count
 
+    def duplicate_rule(self, rule_id: str, created_by: Optional[str] = None) -> Optional[CustomRule]:
+        doc = self.collection.find_one({"id": rule_id})
+        if not doc:
+            return None
+
+        now = datetime.utcnow()
+        new_id = str(uuid.uuid4())
+
+        new_doc = dict(doc)
+        new_doc.pop("_id", None)
+        new_doc["id"] = new_id
+        new_doc["name"] = f"{doc['name']} (Copy)"
+        new_doc["hit_count"] = 0
+        new_doc["last_triggered_at"] = None
+        new_doc["created_by"] = created_by
+        new_doc["created_at"] = now.isoformat()
+        new_doc["updated_at"] = now.isoformat()
+
+        self.collection.insert_one(new_doc)
+
+        return self._from_document(new_doc)
+
+    def test_pattern(self, pattern: str, rule_type: str, test_text: str, case_sensitive: bool = False) -> dict:
+        matches: List[dict] = []
+
+        try:
+            rt = CustomRuleType(rule_type)
+        except ValueError:
+            return {"error": f"Invalid rule_type: {rule_type}", "matches": []}
+
+        flags = 0 if case_sensitive else re.IGNORECASE
+
+        if rt == CustomRuleType.REGEX:
+            try:
+                compiled = re.compile(pattern, flags)
+                for m in compiled.finditer(test_text):
+                    matches.append({
+                        "match": m.group(),
+                        "start": m.start(),
+                        "end": m.end(),
+                    })
+            except re.error as e:
+                return {"error": f"Invalid regex: {e}", "matches": []}
+
+        elif rt == CustomRuleType.KEYWORD:
+            search_text = test_text if case_sensitive else test_text.lower()
+            search_pattern = pattern if case_sensitive else pattern.lower()
+            start = 0
+            while True:
+                idx = search_text.find(search_pattern, start)
+                if idx == -1:
+                    break
+                matches.append({
+                    "match": test_text[idx:idx + len(pattern)],
+                    "start": idx,
+                    "end": idx + len(pattern),
+                })
+                start = idx + 1
+
+        elif rt == CustomRuleType.WILDCARD:
+            matched = fnmatch.fnmatch(test_text, pattern)
+            if matched:
+                matches.append({
+                    "match": test_text,
+                    "start": 0,
+                    "end": len(test_text),
+                })
+
+        else:
+            return {"error": f"Test not supported for rule_type: {rule_type}", "matches": []}
+
+        return {
+            "pattern": pattern,
+            "rule_type": rule_type,
+            "test_text": test_text,
+            "case_sensitive": case_sensitive,
+            "match_count": len(matches),
+            "matches": matches,
+        }
+
+    def bulk_toggle(self, rule_ids: List[str], enabled: bool) -> List[CustomRule]:
+        now = datetime.utcnow().isoformat()
+        self.collection.update_many(
+            {"id": {"$in": rule_ids}},
+            {"$set": {"enabled": enabled, "updated_at": now}},
+        )
+
+        cursor = self.collection.find({"id": {"$in": rule_ids}})
+        return [self._from_document(doc) for doc in cursor]
+
+    def get_rules_by_tag(self, tag: str, workspace_id: Optional[str] = None) -> List[CustomRule]:
+        query: dict = {"tags": tag}
+
+        if workspace_id is not None:
+            query["workspace_id"] = workspace_id
+
+        cursor = self.collection.find(query)
+        return [self._from_document(doc) for doc in cursor]
+
     def _from_document(self, doc: dict) -> CustomRule:
         return CustomRule(
             id=uuid.UUID(doc["id"]),
@@ -172,4 +276,11 @@ class CustomRuleServiceImpl(CustomRuleService):
             created_at=datetime.fromisoformat(doc["created_at"]) if isinstance(doc.get("created_at"), str) else doc.get("created_at", datetime.utcnow()),
             updated_at=datetime.fromisoformat(doc["updated_at"]) if isinstance(doc.get("updated_at"), str) else doc.get("updated_at", datetime.utcnow()),
             _id=str(doc.get("_id", "")),
+            hit_count=doc.get("hit_count", 0),
+            last_triggered_at=(
+                datetime.fromisoformat(doc["last_triggered_at"])
+                if doc.get("last_triggered_at") and isinstance(doc["last_triggered_at"], str)
+                else doc.get("last_triggered_at")
+            ),
+            replace_text=doc.get("replace_text"),
         )

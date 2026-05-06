@@ -57,3 +57,19 @@ class CustomRuleService(ABC):
     @abstractmethod
     def delete_rules_by_workspace(self, workspace_id: str) -> int:
         pass
+
+    @abstractmethod
+    def duplicate_rule(self, rule_id: str, created_by: Optional[str] = None) -> Optional[CustomRule]:
+        pass
+
+    @abstractmethod
+    def test_pattern(self, pattern: str, rule_type: str, test_text: str, case_sensitive: bool = False) -> dict:
+        pass
+
+    @abstractmethod
+    def bulk_toggle(self, rule_ids: List[str], enabled: bool) -> List[CustomRule]:
+        pass
+
+    @abstractmethod
+    def get_rules_by_tag(self, tag: str, workspace_id: Optional[str] = None) -> List[CustomRule]:
+        pass

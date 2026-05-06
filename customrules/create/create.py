@@ -18,3 +18,4 @@ class RuleCreate(BaseModel):
     tags: List[str] = Field(default_factory=list)
     metadata: Dict[str, Any] = Field(default_factory=dict)
     workspace_id: Optional[str] = None
+    replace_text: Optional[str] = None

@@ -5,3 +5,5 @@ class CustomRuleType(str, Enum):
     KEYWORD = "KEYWORD"
     REGEX = "REGEX"
     DYNAMIC = "DYNAMIC"
+    WILDCARD = "WILDCARD"
+    SEMANTIC = "SEMANTIC"

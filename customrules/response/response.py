@@ -23,3 +23,6 @@ class RuleResponse(BaseModel):
     created_by: Optional[str]
     created_at: datetime
     updated_at: datetime
+    hit_count: int = 0
+    last_triggered_at: Optional[datetime] = None
+    replace_text: Optional[str] = None

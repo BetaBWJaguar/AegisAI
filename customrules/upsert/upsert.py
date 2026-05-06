@@ -17,3 +17,4 @@ class RuleUpsert(BaseModel):
     case_sensitive: Optional[bool] = None
     tags: Optional[List[str]] = None
     metadata: Optional[Dict[str, Any]] = None
+    replace_text: Optional[str] = None

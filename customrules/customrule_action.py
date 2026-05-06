@@ -6,3 +6,6 @@ class CustomRuleAction(str, Enum):
     MASK = "MASK"
     WARN = "WARN"
     FLAG = "FLAG"
+    REPLACE = "REPLACE"
+    REDACT = "REDACT"
+    LOG = "LOG"
