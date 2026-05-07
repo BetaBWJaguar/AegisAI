@@ -56,47 +56,28 @@ class CustomRuleServiceImpl(CustomRuleService):
         return self._from_document(doc) if doc else None
 
     def list_rules(
-        self,
-        workspace_id: Optional[str] = None,
-        rule_type: Optional[str] = None,
-        enabled_only: bool = False,
+            self,
+            workspace_id: Optional[str] = None,
+            rule_type: Optional[str] = None,
+            enabled_only: bool = False,
     ) -> List[CustomRule]:
-        query: dict = {}
-
-        if workspace_id is not None:
-            query["workspace_id"] = workspace_id
-
-        if rule_type is not None:
-            query["rule_type"] = rule_type
-
+        query = {k: v for k, v in {"workspace_id": workspace_id, "rule_type": rule_type}.items() if v is not None}
         if enabled_only:
             query["enabled"] = True
 
-        cursor = self.collection.find(query).sort("priority", -1)
-        return [self._from_document(doc) for doc in cursor]
+        return [self._from_document(doc) for doc in self.collection.find(query).sort("priority", -1)]
 
     def update_rule(self, rule_id: str, workspace_id: str, data: RuleUpsert) -> Optional[CustomRule]:
-        existing = self.collection.find_one({"id": rule_id, "workspace_id": workspace_id})
-        if not existing:
-            return None
+        filter_q = {"id": rule_id, "workspace_id": workspace_id}
 
-        update_fields = {}
-        for field_name, value in data.model_dump(exclude_unset=True).items():
-            if value is not None:
-                update_fields[field_name] = value
-
+        update_fields = {k: v for k, v in data.model_dump(exclude_unset=True).items() if v is not None}
         if not update_fields:
-            return self._from_document(existing)
+            return self._from_document(self.collection.find_one(filter_q))
 
         update_fields["updated_at"] = datetime.utcnow().isoformat()
+        self.collection.update_one(filter_q, {"$set": update_fields})
 
-        self.collection.update_one(
-            {"id": rule_id, "workspace_id": workspace_id},
-            {"$set": update_fields},
-        )
-
-        updated_doc = self.collection.find_one({"id": rule_id, "workspace_id": workspace_id})
-        return self._from_document(updated_doc) if updated_doc else None
+        return self._from_document(self.collection.find_one(filter_q))
 
     def delete_rule(self, rule_id: str, workspace_id: str) -> bool:
         result = self.collection.delete_one({"id": rule_id, "workspace_id": workspace_id})
@@ -163,21 +144,21 @@ class CustomRuleServiceImpl(CustomRuleService):
         if not doc:
             return None
 
-        now = datetime.utcnow()
-        new_id = str(uuid.uuid4())
+        now = datetime.utcnow().isoformat()
+        doc.pop("_id", None)
 
-        new_doc = dict(doc)
-        new_doc.pop("_id", None)
-        new_doc["id"] = new_id
-        new_doc["name"] = f"{doc['name']} (Copy)"
-        new_doc["hit_count"] = 0
-        new_doc["last_triggered_at"] = None
-        new_doc["created_by"] = created_by
-        new_doc["created_at"] = now.isoformat()
-        new_doc["updated_at"] = now.isoformat()
+        new_doc = {
+            **doc,
+            "id": str(uuid.uuid4()),
+            "name": f"{doc['name']} (Copy)",
+            "hit_count": 0,
+            "last_triggered_at": None,
+            "created_by": created_by,
+            "created_at": now,
+            "updated_at": now
+        }
 
         self.collection.insert_one(new_doc)
-
         return self._from_document(new_doc)
 
     def test_pattern(self, pattern: str, rule_type: str, test_text: str, case_sensitive: bool = False) -> dict:
