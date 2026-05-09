@@ -73,3 +73,7 @@ class CustomRuleService(ABC):
     @abstractmethod
     def get_rules_by_tag(self, tag: str, workspace_id: Optional[str] = None) -> List[CustomRule]:
         pass
+
+    @abstractmethod
+    def bulk_delete(self, rule_ids: List[str], workspace_id: Optional[str] = None) -> int:
+        pass

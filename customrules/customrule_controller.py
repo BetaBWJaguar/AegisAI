@@ -28,6 +28,10 @@ class BulkToggleRequest(BaseModel):
     enabled: bool
 
 
+class BulkDeleteRequest(BaseModel):
+    rule_ids: List[str]
+
+
 
 @router.post(
     "/",
@@ -319,6 +323,31 @@ def bulk_toggle(
     except Exception as e:
         raise ExpectionHandler(
             message="Failed to bulk toggle custom rules.",
+            error_type=ErrorType.DATABASE_ERROR,
+            detail=str(e),
+        )
+
+
+@router.delete(
+    "/bulk/delete",
+    dependencies=[Depends(require_perm([Role.DEVELOPER, Role.ADMIN]))],
+)
+def bulk_delete(
+    data: BulkDeleteRequest,
+    workspace_id: Optional[str] = Query(default=None),
+):
+    try:
+        deleted_count = service.bulk_delete(rule_ids=data.rule_ids, workspace_id=workspace_id)
+        return {
+            "success": True,
+            "message": f"{deleted_count} rules deleted successfully.",
+            "deleted_count": deleted_count,
+        }
+    except ExpectionHandler:
+        raise
+    except Exception as e:
+        raise ExpectionHandler(
+            message="Failed to bulk delete custom rules.",
             error_type=ErrorType.DATABASE_ERROR,
             detail=str(e),
         )

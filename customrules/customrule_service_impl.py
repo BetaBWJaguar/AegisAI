@@ -243,6 +243,15 @@ class CustomRuleServiceImpl(CustomRuleService):
         cursor = self.collection.find(query)
         return [self._from_document(doc) for doc in cursor]
 
+    def bulk_delete(self, rule_ids: List[str], workspace_id: Optional[str] = None) -> int:
+        query: dict = {"id": {"$in": rule_ids}}
+
+        if workspace_id is not None:
+            query["workspace_id"] = workspace_id
+
+        result = self.collection.delete_many(query)
+        return result.deleted_count
+
     def _from_document(self, doc: dict) -> CustomRule:
         return CustomRule(
             id=uuid.UUID(doc["id"]),
