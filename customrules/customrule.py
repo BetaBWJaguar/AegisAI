@@ -60,6 +60,16 @@ class CustomRule:
                     "Wildcard pattern must contain at least one '*' or '?' character."
                 )
 
+        elif self.rule_type == CustomRuleType.PATTERN:
+            try:
+                re.compile(self.pattern)
+            except re.error as e:
+                raise ValueError(f"Invalid pattern syntax: {e}")
+
+        elif self.rule_type == CustomRuleType.EXACT:
+            if len(self.pattern.strip()) < 1:
+                raise ValueError("Exact pattern must be at least 1 character long.")
+
         if self.action == CustomRuleAction.REPLACE and not self.replace_text:
             raise ValueError(
                 "replace_text is required when action is REPLACE."

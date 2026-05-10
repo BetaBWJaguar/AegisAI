@@ -7,3 +7,5 @@ class CustomRuleType(str, Enum):
     DYNAMIC = "DYNAMIC"
     WILDCARD = "WILDCARD"
     SEMANTIC = "SEMANTIC"
+    PATTERN = "PATTERN"
+    EXACT = "EXACT"

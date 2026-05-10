@@ -207,6 +207,28 @@ class CustomRuleServiceImpl(CustomRuleService):
                     "end": len(test_text),
                 })
 
+        elif rt == CustomRuleType.PATTERN:
+            try:
+                compiled = re.compile(pattern, flags)
+                for m in compiled.finditer(test_text):
+                    matches.append({
+                        "match": m.group(),
+                        "start": m.start(),
+                        "end": m.end(),
+                    })
+            except re.error as e:
+                return {"error": f"Invalid pattern: {e}", "matches": []}
+
+        elif rt == CustomRuleType.EXACT:
+            cmp_text = test_text if case_sensitive else test_text.lower()
+            cmp_pattern = pattern if case_sensitive else pattern.lower()
+            if cmp_text == cmp_pattern:
+                matches.append({
+                    "match": test_text,
+                    "start": 0,
+                    "end": len(test_text),
+                })
+
         else:
             return {"error": f"Test not supported for rule_type: {rule_type}", "matches": []}
 
