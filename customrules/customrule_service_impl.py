@@ -1,5 +1,3 @@
-import difflib
-import fnmatch
 import re
 from datetime import datetime
 from typing import List, Optional
@@ -12,6 +10,7 @@ from customrules.create.create import RuleCreate
 from customrules.customrule import CustomRule
 from customrules.customrule_action import CustomRuleAction
 from customrules.customrule_service import CustomRuleService
+from customrules.customrule_service_impl_utils import test_pattern_dispatch
 from customrules.customrule_type import CustomRuleType
 from customrules.upsert.upsert import RuleUpsert
 
@@ -163,114 +162,16 @@ class CustomRuleServiceImpl(CustomRuleService):
         return self._from_document(new_doc)
 
     def test_pattern(self, pattern: str, rule_type: str, test_text: str, case_sensitive: bool = False) -> dict:
-        matches: List[dict] = []
-
         try:
             rt = CustomRuleType(rule_type)
         except ValueError:
             return {"error": f"Invalid rule_type: {rule_type}", "matches": []}
 
         flags = 0 if case_sensitive else re.IGNORECASE
+        matches, error = test_pattern_dispatch(pattern, test_text, case_sensitive, flags, rt)
 
-        if rt == CustomRuleType.REGEX:
-            try:
-                compiled = re.compile(pattern, flags)
-                for m in compiled.finditer(test_text):
-                    matches.append({
-                        "match": m.group(),
-                        "start": m.start(),
-                        "end": m.end(),
-                    })
-            except re.error as e:
-                return {"error": f"Invalid regex: {e}", "matches": []}
-
-        elif rt == CustomRuleType.KEYWORD:
-            search_text = test_text if case_sensitive else test_text.lower()
-            search_pattern = pattern if case_sensitive else pattern.lower()
-            start = 0
-            while True:
-                idx = search_text.find(search_pattern, start)
-                if idx == -1:
-                    break
-                matches.append({
-                    "match": test_text[idx:idx + len(pattern)],
-                    "start": idx,
-                    "end": idx + len(pattern),
-                })
-                start = idx + 1
-
-        elif rt == CustomRuleType.WILDCARD:
-            matched = fnmatch.fnmatch(test_text, pattern)
-            if matched:
-                matches.append({
-                    "match": test_text,
-                    "start": 0,
-                    "end": len(test_text),
-                })
-
-        elif rt == CustomRuleType.PATTERN:
-            try:
-                compiled = re.compile(pattern, flags)
-                for m in compiled.finditer(test_text):
-                    matches.append({
-                        "match": m.group(),
-                        "start": m.start(),
-                        "end": m.end(),
-                    })
-            except re.error as e:
-                return {"error": f"Invalid pattern: {e}", "matches": []}
-
-        elif rt == CustomRuleType.EXACT:
-            cmp_text = test_text if case_sensitive else test_text.lower()
-            cmp_pattern = pattern if case_sensitive else pattern.lower()
-            if cmp_text == cmp_pattern:
-                matches.append({
-                    "match": test_text,
-                    "start": 0,
-                    "end": len(test_text),
-                })
-
-        elif rt == CustomRuleType.DYNAMIC:
-            try:
-                wrapped = r"\b(?:%s)\b" % pattern
-                compiled = re.compile(wrapped, flags)
-                for m in compiled.finditer(test_text):
-                    matches.append({
-                        "match": m.group(),
-                        "start": m.start(),
-                        "end": m.end(),
-                    })
-            except re.error as e:
-                return {"error": f"Invalid dynamic pattern: {e}", "matches": []}
-
-        elif rt == CustomRuleType.SEMANTIC:
-            pattern_words = pattern.split()
-            test_words = test_text.split()
-            if not case_sensitive:
-                pattern_words = [w.lower() for w in pattern_words]
-                test_words = [w.lower() for w in test_words]
-
-            pattern_lower = [w.lower() for w in pattern.split()]
-            for i in range(len(test_words)):
-                for j in range(i + 1, min(i + len(pattern_words) + 1, len(test_words) + 1)):
-                    segment = test_words[i:j]
-                    similarity = difflib.SequenceMatcher(
-                        None, pattern_lower, [w.lower() for w in segment]
-                    ).ratio()
-                    if similarity >= 0.7:
-                        original_segment = test_text.split()[i:j]
-                        matched_text = " ".join(original_segment)
-                        start = len(" ".join(test_text.split()[:i])) + (1 if i > 0 else 0)
-                        end = start + len(matched_text)
-                        matches.append({
-                            "match": matched_text,
-                            "start": start,
-                            "end": end,
-                            "similarity": round(similarity, 3),
-                        })
-
-        else:
-            return {"error": f"Test not supported for rule_type: {rule_type}", "matches": []}
+        if error:
+            return {"error": error, "matches": []}
 
         return {
             "pattern": pattern,
