@@ -1,3 +1,4 @@
+import difflib
 import fnmatch
 import re
 from datetime import datetime
@@ -228,6 +229,45 @@ class CustomRuleServiceImpl(CustomRuleService):
                     "start": 0,
                     "end": len(test_text),
                 })
+
+        elif rt == CustomRuleType.DYNAMIC:
+            try:
+                wrapped = r"\b(?:%s)\b" % pattern
+                compiled = re.compile(wrapped, flags)
+                for m in compiled.finditer(test_text):
+                    matches.append({
+                        "match": m.group(),
+                        "start": m.start(),
+                        "end": m.end(),
+                    })
+            except re.error as e:
+                return {"error": f"Invalid dynamic pattern: {e}", "matches": []}
+
+        elif rt == CustomRuleType.SEMANTIC:
+            pattern_words = pattern.split()
+            test_words = test_text.split()
+            if not case_sensitive:
+                pattern_words = [w.lower() for w in pattern_words]
+                test_words = [w.lower() for w in test_words]
+
+            pattern_lower = [w.lower() for w in pattern.split()]
+            for i in range(len(test_words)):
+                for j in range(i + 1, min(i + len(pattern_words) + 1, len(test_words) + 1)):
+                    segment = test_words[i:j]
+                    similarity = difflib.SequenceMatcher(
+                        None, pattern_lower, [w.lower() for w in segment]
+                    ).ratio()
+                    if similarity >= 0.7:
+                        original_segment = test_text.split()[i:j]
+                        matched_text = " ".join(original_segment)
+                        start = len(" ".join(test_text.split()[:i])) + (1 if i > 0 else 0)
+                        end = start + len(matched_text)
+                        matches.append({
+                            "match": matched_text,
+                            "start": start,
+                            "end": end,
+                            "similarity": round(similarity, 3),
+                        })
 
         else:
             return {"error": f"Test not supported for rule_type: {rule_type}", "matches": []}

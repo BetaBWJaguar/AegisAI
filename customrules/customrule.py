@@ -70,6 +70,18 @@ class CustomRule:
             if len(self.pattern.strip()) < 1:
                 raise ValueError("Exact pattern must be at least 1 character long.")
 
+        elif self.rule_type == CustomRuleType.DYNAMIC:
+            if len(self.pattern.strip()) < 2:
+                raise ValueError("Dynamic pattern must be at least 2 characters long.")
+            try:
+                re.compile(self.pattern)
+            except re.error as e:
+                raise ValueError(f"Invalid dynamic pattern syntax: {e}")
+
+        elif self.rule_type == CustomRuleType.SEMANTIC:
+            if len(self.pattern.strip()) < 2:
+                raise ValueError("Semantic pattern must be at least 2 characters long.")
+
         if self.action == CustomRuleAction.REPLACE and not self.replace_text:
             raise ValueError(
                 "replace_text is required when action is REPLACE."
