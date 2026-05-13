@@ -10,7 +10,11 @@ from customrules.create.create import RuleCreate
 from customrules.customrule import CustomRule
 from customrules.customrule_action import CustomRuleAction
 from customrules.customrule_service import CustomRuleService
-from customrules.customrule_service_impl_utils import test_pattern_dispatch
+from customrules.customrule_service_impl_utils import (
+    apply_replacement,
+    highlight_matches,
+    test_pattern_dispatch,
+)
 from customrules.customrule_type import CustomRuleType
 from customrules.upsert.upsert import RuleUpsert
 
@@ -173,6 +177,8 @@ class CustomRuleServiceImpl(CustomRuleService):
         if error:
             return {"error": error, "matches": []}
 
+        highlighted = highlight_matches(test_text, matches)
+
         return {
             "pattern": pattern,
             "rule_type": rule_type,
@@ -180,6 +186,77 @@ class CustomRuleServiceImpl(CustomRuleService):
             "case_sensitive": case_sensitive,
             "match_count": len(matches),
             "matches": matches,
+            "highlighted_text": highlighted,
+        }
+
+    def evaluate_text(self, text: str, workspace_id: str) -> dict:
+        rules = self.list_rules(workspace_id=workspace_id, enabled_only=True)
+
+        if not rules:
+            return {
+                "text": text,
+                "matched": False,
+                "triggered_rules": [],
+                "processed_text": text,
+            }
+
+        triggered_rules: List[dict] = []
+        all_matches: List[dict] = []
+        current_text = text
+
+        for rule in sorted(rules, key=lambda r: r.priority, reverse=True):
+            flags = 0 if rule.case_sensitive else re.IGNORECASE
+            matches, error = test_pattern_dispatch(
+                rule.pattern, current_text, rule.case_sensitive, flags, rule.rule_type
+            )
+
+            if error or not matches:
+                continue
+
+            rule_result = {
+                "rule_id": str(rule.id),
+                "rule_name": rule.name,
+                "rule_type": rule.rule_type.value,
+                "action": rule.action.value,
+                "priority": rule.priority,
+                "match_count": len(matches),
+                "matches": matches,
+            }
+
+            if rule.action == CustomRuleAction.REPLACE:
+                replace_text = rule.replace_text or "***"
+                current_text = apply_replacement(current_text, matches, replace_text)
+                rule_result["replace_text"] = replace_text
+            elif rule.action == CustomRuleAction.MASK:
+                current_text = apply_replacement(current_text, matches, "***")
+            elif rule.action == CustomRuleAction.REDACT:
+                current_text = apply_replacement(current_text, matches, "[REDACTED]")
+            elif rule.action in (CustomRuleAction.FLAG, CustomRuleAction.WARN):
+                rule_result["highlighted_text"] = highlight_matches(current_text, matches)
+
+            rule.record_hit()
+            self.collection.update_one(
+                {"id": str(rule.id), "workspace_id": workspace_id},
+                {
+                    "$set": {
+                        "hit_count": rule.hit_count,
+                        "last_triggered_at": datetime.utcnow().isoformat(),
+                    }
+                },
+            )
+
+            triggered_rules.append(rule_result)
+            all_matches.extend(matches)
+
+        highlighted_original = highlight_matches(text, all_matches)
+
+        return {
+            "text": text,
+            "matched": len(triggered_rules) > 0,
+            "triggered_rule_count": len(triggered_rules),
+            "triggered_rules": triggered_rules,
+            "processed_text": current_text,
+            "highlighted_original": highlighted_original,
         }
 
     def bulk_toggle(self, rule_ids: List[str], enabled: bool, workspace_id: Optional[str] = None) -> List[CustomRule]:

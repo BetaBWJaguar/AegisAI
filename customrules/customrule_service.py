@@ -77,3 +77,7 @@ class CustomRuleService(ABC):
     @abstractmethod
     def bulk_delete(self, rule_ids: List[str], workspace_id: Optional[str] = None) -> int:
         pass
+
+    @abstractmethod
+    def evaluate_text(self, text: str, workspace_id: str) -> dict:
+        pass

@@ -23,6 +23,11 @@ class TestPatternRequest(BaseModel):
     case_sensitive: bool = False
 
 
+class EvaluateTextRequest(BaseModel):
+    text: str
+    workspace_id: str
+
+
 class BulkToggleRequest(BaseModel):
     rule_ids: List[str]
     enabled: bool
@@ -162,6 +167,26 @@ def test_pattern(data: TestPatternRequest):
     except Exception as e:
         raise ExpectionHandler(
             message="Failed to test pattern.",
+            error_type=ErrorType.DATABASE_ERROR,
+            detail=str(e),
+        )
+
+
+@router.post(
+    "/evaluate",
+)
+def evaluate_text(data: EvaluateTextRequest):
+    try:
+        result = service.evaluate_text(
+            text=data.text,
+            workspace_id=data.workspace_id,
+        )
+        return result
+    except ExpectionHandler:
+        raise
+    except Exception as e:
+        raise ExpectionHandler(
+            message="Failed to evaluate text against custom rules.",
             error_type=ErrorType.DATABASE_ERROR,
             detail=str(e),
         )
