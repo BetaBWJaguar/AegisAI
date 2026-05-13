@@ -143,3 +143,39 @@ def test_semantic_match(
                     }
                 )
     return matches, None
+
+def highlight_matches(
+    text: str,
+    matches: List[dict],
+    pre_marker: str = "<<",
+    post_marker: str = ">>",
+) -> str:
+    if not matches:
+        return text
+
+    sorted_matches = sorted(matches, key=lambda m: m["start"], reverse=True)
+    result = text
+    for m in sorted_matches:
+        start, end = m["start"], m["end"]
+        result = result[:start] + pre_marker + result[start:end] + post_marker + result[end:]
+    return result
+
+
+def apply_replacement(
+    text: str,
+    matches: List[dict],
+    replace_text: str,
+) -> str:
+    if not matches:
+        return text
+
+    sorted_matches = sorted(
+        matches,
+        key=lambda m: (m["start"], -(m["end"] - m["start"])),
+        reverse=True,
+    )
+    result = text
+    for m in sorted_matches:
+        start, end = m["start"], m["end"]
+        result = result[:start] + replace_text + result[end:]
+    return result

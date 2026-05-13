@@ -14,6 +14,9 @@ class DoxxingPIIConfig:
     enabled: bool = True
     weight: Optional[float] = None
 
+    def to_dict(self) -> dict:
+        return asdict(self)
+
 
 @dataclass
 class DoxxingContextConfig:
