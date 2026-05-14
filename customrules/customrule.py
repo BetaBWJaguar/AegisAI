@@ -1,12 +1,13 @@
 import re
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 import uuid
 from bson import ObjectId
 
 from customrules.customrule_action import CustomRuleAction
 from customrules.customrule_type import CustomRuleType
+from customrules.customrule_service_impl_utils import test_pattern_dispatch
 
 
 @dataclass
@@ -38,6 +39,64 @@ class CustomRule:
             f"rule_type={self.rule_type.value}, action={self.action.value}, "
             f"enabled={self.enabled}, priority={self.priority}, "
             f"hit_count={self.hit_count})"
+        )
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, CustomRule):
+            return NotImplemented
+        return self.id == other.id
+
+    def __hash__(self) -> int:
+        return hash(self.id)
+
+    def validate(self) -> bool:
+        if not self.name or not self.name.strip():
+            raise ValueError("Rule name cannot be empty.")
+        if len(self.name) > 255:
+            raise ValueError("Rule name cannot exceed 255 characters.")
+        if not (0 <= self.priority <= 1000):
+            raise ValueError("Priority must be between 0 and 1000.")
+        self.validate_pattern()
+        return True
+
+    def matches(self, text: str) -> Tuple[List[dict], Optional[str]]:
+        flags = 0 if self.case_sensitive else re.IGNORECASE
+        return test_pattern_dispatch(
+            self.pattern, text, self.case_sensitive, flags, self.rule_type
+        )
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "CustomRule":
+        def _parse_datetime(value: Any) -> Optional[datetime]:
+            if value is None:
+                return None
+            if isinstance(value, datetime):
+                return value
+            if isinstance(value, str):
+                return datetime.fromisoformat(value)
+            return None
+
+        return cls(
+            id=uuid.UUID(data["id"]) if isinstance(data["id"], str) else data["id"],
+            name=data["name"],
+            rule_type=CustomRuleType(data["rule_type"]) if isinstance(data["rule_type"], str) else data["rule_type"],
+            pattern=data["pattern"],
+            action=CustomRuleAction(data["action"]) if isinstance(data["action"], str) else data["action"],
+            description=data.get("description"),
+            scope=data.get("scope"),
+            priority=data.get("priority", 0),
+            enabled=data.get("enabled", True),
+            case_sensitive=data.get("case_sensitive", False),
+            tags=data.get("tags", []),
+            metadata=data.get("metadata", {}),
+            workspace_id=data.get("workspace_id"),
+            created_by=data.get("created_by"),
+            created_at=_parse_datetime(data.get("created_at")) or datetime.utcnow(),
+            updated_at=_parse_datetime(data.get("updated_at")) or datetime.utcnow(),
+            _id=str(data.get("_id", "")),
+            hit_count=data.get("hit_count", 0),
+            last_triggered_at=_parse_datetime(data.get("last_triggered_at")),
+            replace_text=data.get("replace_text"),
         )
 
     def validate_pattern(self) -> bool:

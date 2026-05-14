@@ -51,7 +51,7 @@ class CustomRuleServiceImpl(CustomRuleService):
             replace_text=data.replace_text,
         )
 
-        rule.validate_pattern()
+        rule.validate()
         self.collection.insert_one(rule.to_dict())
         return rule
 
@@ -293,29 +293,4 @@ class CustomRuleServiceImpl(CustomRuleService):
         return result.deleted_count
 
     def _from_document(self, doc: dict) -> CustomRule:
-        return CustomRule(
-            id=uuid.UUID(doc["id"]),
-            name=doc["name"],
-            rule_type=CustomRuleType(doc["rule_type"]),
-            pattern=doc["pattern"],
-            action=CustomRuleAction(doc["action"]),
-            description=doc.get("description"),
-            scope=doc.get("scope"),
-            priority=doc.get("priority", 0),
-            enabled=doc.get("enabled", True),
-            case_sensitive=doc.get("case_sensitive", False),
-            tags=doc.get("tags", []),
-            metadata=doc.get("metadata", {}),
-            workspace_id=doc.get("workspace_id"),
-            created_by=doc.get("created_by"),
-            created_at=datetime.fromisoformat(doc["created_at"]) if isinstance(doc.get("created_at"), str) else doc.get("created_at", datetime.utcnow()),
-            updated_at=datetime.fromisoformat(doc["updated_at"]) if isinstance(doc.get("updated_at"), str) else doc.get("updated_at", datetime.utcnow()),
-            _id=str(doc.get("_id", "")),
-            hit_count=doc.get("hit_count", 0),
-            last_triggered_at=(
-                datetime.fromisoformat(doc["last_triggered_at"])
-                if doc.get("last_triggered_at") and isinstance(doc["last_triggered_at"], str)
-                else doc.get("last_triggered_at")
-            ),
-            replace_text=doc.get("replace_text"),
-        )
+        return CustomRule.from_dict(doc)
