@@ -26,10 +26,11 @@ service = MultiLangServiceImpl()
 )
 async def prepare_text(data: PrepareRequest):
     try:
-        text = data.text
+        original_text = data.text
         lang = data.lang
         pipeline = data.pipeline
 
+        text = original_text
         if data.apply_obfuscation_resolver:
             try:
                 text = ObfuscationResolver.resolve_all(text, lang or "tr")
@@ -40,6 +41,8 @@ async def prepare_text(data: PrepareRequest):
             pipeline = [Step(p) for p in pipeline]
 
         result = service.prepare(text=text, lang=lang, pipeline=pipeline)
+        result["raw_text"] = original_text
+
         return PrepareResponse(**result)
 
     except ValueError as e:
@@ -99,10 +102,12 @@ async def prepare_bulk(payload: BulkRequest):
                     pipeline=default_pipeline
                 )
 
+                processed["raw_text"] = original_text
                 results.append(processed)
 
             except Exception as e:
                 results.append({
+                    "raw_text": original_text,
                     "text": original_text,
                     "error": str(e)
                 })

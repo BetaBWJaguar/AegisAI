@@ -13,3 +13,5 @@ class PrepareResponse(BaseModel):
     linguistic_features: Optional[Dict[str, Any]] = Field(None, description="Linguistic features such as lemmas, tokens, and named entities.")
     language_detection: Optional[Dict[str, Any]] = Field(None, description="Detailed language detection information including confidence and source.")
     keywords: Optional[Dict[str, Any]] = Field(None, description="Extracted keywords from the text with their scores.")
+    errors: Optional[Dict[str, str]] = Field(None, description="Step errors if any.")
+    steps_executed: Optional[List[str]] = Field(None, description="Executed pipeline steps.")

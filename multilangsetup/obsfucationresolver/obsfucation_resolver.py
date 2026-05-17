@@ -12,6 +12,10 @@ from multilangsetup.constants.german import DE_STOPWORDS, DE_CONTRACTIONS
 
 class ObfuscationResolver:
 
+    RE_URL = re.compile(r'https?://\S+|www\.\S+')
+    RE_EMAIL = re.compile(r'\b[\w\.-]+@[\w\.-]+\.\w+\b')
+    RE_MENTION = re.compile(r'@\w+')
+
     @staticmethod
     def resolve_all(text: str, lang: str = None) -> str:
         if not isinstance(text, str) or not text.strip():
@@ -39,6 +43,14 @@ class ObfuscationResolver:
 
         if merged_cfg.get("normalize_unicode", True):
             text = ObfuscationHelper.normalize_unicode(text)
+
+
+        if merged_cfg.get("remove_urls", True):
+            text = ObfuscationResolver.RE_URL.sub("", text)
+        if merged_cfg.get("remove_emails", True):
+            text = ObfuscationResolver.RE_EMAIL.sub("", text)
+        if merged_cfg.get("remove_mentions", True):
+            text = ObfuscationResolver.RE_MENTION.sub("", text)
 
         text = ObfuscationUtil.replace_common_patterns(text)
         text = ObfuscationResolver._apply_language_specific_rules(text, lang, special_rules)

@@ -294,3 +294,65 @@ class CustomRuleServiceImpl(CustomRuleService):
 
     def _from_document(self, doc: dict) -> CustomRule:
         return CustomRule.from_dict(doc)
+
+    def get_active_rules_by_priority(
+            self,
+            workspace_id: str,
+            rule_type: Optional[str] = None,
+    ) -> List[CustomRule]:
+        query: dict = {
+            "workspace_id": workspace_id,
+            "enabled": True,
+        }
+
+        if rule_type is not None:
+            query["rule_type"] = rule_type
+
+        cursor = self.collection.find(query).sort("priority", -1)
+        return [self._from_document(doc) for doc in cursor]
+
+    def export_rules_to_json(
+            self,
+            workspace_id: Optional[str] = None,
+            rule_type: Optional[str] = None,
+            enabled_only: bool = False,
+            include_metadata: bool = True,
+            include_hit_stats: bool = False,
+    ) -> dict:
+        rules = self.list_rules(
+            workspace_id=workspace_id,
+            rule_type=rule_type,
+            enabled_only=enabled_only,
+        )
+
+        exported_rules: List[dict] = []
+        for rule in rules:
+            rule_dict = rule.to_dict()
+
+            if not include_metadata:
+                rule_dict.pop("metadata", None)
+
+            if not include_hit_stats:
+                rule_dict.pop("hit_count", None)
+                rule_dict.pop("last_triggered_at", None)
+
+            rule_dict.pop("_id", None)
+
+            exported_rules.append(rule_dict)
+
+        filter_info: dict = {}
+        if workspace_id is not None:
+            filter_info["workspace_id"] = workspace_id
+        if rule_type is not None:
+            filter_info["rule_type"] = rule_type
+        if enabled_only:
+            filter_info["enabled_only"] = True
+
+        return {
+            "exported_at": datetime.utcnow().isoformat(),
+            "filter": filter_info,
+            "include_metadata": include_metadata,
+            "include_hit_stats": include_hit_stats,
+            "total_rules": len(exported_rules),
+            "rules": exported_rules,
+        }

@@ -397,3 +397,56 @@ def delete_rules_by_workspace(workspace_id: str):
             error_type=ErrorType.DATABASE_ERROR,
             detail=str(e),
         )
+
+
+@router.get(
+    "/active-by-priority",
+    response_model=List[RuleResponse],
+)
+def get_active_rules_by_priority(
+        workspace_id: str = Query(...),
+        rule_type: Optional[str] = Query(default=None),
+):
+    try:
+        rules = service.get_active_rules_by_priority(
+            workspace_id=workspace_id,
+            rule_type=rule_type,
+        )
+        return [RuleResponse(**rule.to_dict()) for rule in rules]
+    except ExpectionHandler:
+        raise
+    except Exception as e:
+        raise ExpectionHandler(
+            message="Failed to retrieve active rules by priority.",
+            error_type=ErrorType.DATABASE_ERROR,
+            detail=str(e),
+        )
+
+
+@router.get(
+    "/export",
+)
+def export_rules(
+        workspace_id: Optional[str] = Query(default=None),
+        rule_type: Optional[str] = Query(default=None),
+        enabled_only: bool = Query(default=False),
+        include_metadata: bool = Query(default=True),
+        include_hit_stats: bool = Query(default=False),
+):
+    try:
+        result = service.export_rules_to_json(
+            workspace_id=workspace_id,
+            rule_type=rule_type,
+            enabled_only=enabled_only,
+            include_metadata=include_metadata,
+            include_hit_stats=include_hit_stats,
+        )
+        return result
+    except ExpectionHandler:
+        raise
+    except Exception as e:
+        raise ExpectionHandler(
+            message="Failed to export custom rules.",
+            error_type=ErrorType.DATABASE_ERROR,
+            detail=str(e),
+        )

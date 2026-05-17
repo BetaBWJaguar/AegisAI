@@ -81,3 +81,22 @@ class CustomRuleService(ABC):
     @abstractmethod
     def evaluate_text(self, text: str, workspace_id: str) -> dict:
         pass
+
+    @abstractmethod
+    def get_active_rules_by_priority(
+            self,
+            workspace_id: str,
+            rule_type: Optional[str] = None,
+    ) -> List[CustomRule]:
+        pass
+
+    @abstractmethod
+    def export_rules_to_json(
+            self,
+            workspace_id: Optional[str] = None,
+            rule_type: Optional[str] = None,
+            enabled_only: bool = False,
+            include_metadata: bool = True,
+            include_hit_stats: bool = False,
+    ) -> dict:
+        pass
