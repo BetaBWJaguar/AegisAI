@@ -65,6 +65,13 @@ class EngineConfig:
     highlight_post: str = ">>"
 
 
+_TRANSFORM_ACTIONS = frozenset({
+    CustomRuleAction.REPLACE.value,
+    CustomRuleAction.MASK.value,
+    CustomRuleAction.REDACT.value,
+})
+
+
 class CustomRuleEngine:
 
     def __init__(
@@ -81,7 +88,7 @@ class CustomRuleEngine:
             return self._empty_result(text)
 
         active_rules = sorted(
-            [r for r in rules if r.enabled],
+            (r for r in rules if r.enabled),
             key=lambda r: r.priority,
             reverse=True,
         )
@@ -98,67 +105,35 @@ class CustomRuleEngine:
             if blocked and self._config.stop_on_block:
                 break
 
-            flags = 0 if rule.case_sensitive else re.IGNORECASE
-            matches, error = test_pattern_dispatch(
-                rule.pattern, current_text, rule.case_sensitive, flags, rule.rule_type,
-            )
-
-            if error:
-                logger.warning(
-                    "Rule %s (%s) produced an error: %s",
-                    rule.id, rule.name, error,
-                )
+            matches = self._test_rule(rule, current_text)
+            if matches is None:
                 continue
 
-            if not matches:
-                continue
-
-            match_result = RuleMatchResult(
-                rule_id=str(rule.id),
-                rule_name=rule.name,
-                rule_type=rule.rule_type.value,
-                action=rule.action.value,
-                priority=rule.priority,
-                match_count=len(matches),
-                matches=matches,
-            )
-
+            result = self._build_match_result(rule, matches)
             current_text, blocked = self._apply_action(
-                rule, match_result, current_text, matches,
+                rule, result, current_text, matches,
             )
-
             rule.record_hit()
+            self._fire_callback(rule, result)
 
-            if self._on_rule_triggered is not None:
-                try:
-                    self._on_rule_triggered(rule, match_result)
-                except Exception:
-                    logger.exception(
-                        "on_rule_triggered callback failed for rule %s", rule.id,
-                    )
-
-            triggered_rules.append(match_result)
+            triggered_rules.append(result)
             all_matches.extend(matches)
 
             if self._config.stop_on_first_match:
                 break
 
-        verdict = self._resolve_verdict(triggered_rules, blocked)
-
-        highlighted_original = highlight_matches(
-            text, all_matches,
-            self._config.highlight_pre,
-            self._config.highlight_post,
-        )
-
         return EngineResult(
             original_text=text,
             processed_text=current_text,
-            verdict=verdict,
-            matched=len(triggered_rules) > 0,
+            verdict=self._resolve_verdict(triggered_rules, blocked),
+            matched=bool(triggered_rules),
             triggered_rule_count=len(triggered_rules),
             triggered_rules=triggered_rules,
-            highlighted_original=highlighted_original,
+            highlighted_original=highlight_matches(
+                text, all_matches,
+                self._config.highlight_pre,
+                self._config.highlight_post,
+            ),
         )
 
     def evaluate_single(
@@ -167,34 +142,13 @@ class CustomRuleEngine:
         if not rule.enabled:
             return None
 
-        flags = 0 if rule.case_sensitive else re.IGNORECASE
-        matches, error = test_pattern_dispatch(
-            rule.pattern, text, rule.case_sensitive, flags, rule.rule_type,
-        )
-
-        if error or not matches:
+        matches = self._test_rule(rule, text)
+        if matches is None:
             return None
 
-        result = RuleMatchResult(
-            rule_id=str(rule.id),
-            rule_name=rule.name,
-            rule_type=rule.rule_type.value,
-            action=rule.action.value,
-            priority=rule.priority,
-            match_count=len(matches),
-            matches=matches,
-        )
-
+        result = self._build_match_result(rule, matches)
         rule.record_hit()
-
-        if self._on_rule_triggered is not None:
-            try:
-                self._on_rule_triggered(rule, result)
-            except Exception:
-                logger.exception(
-                    "on_rule_triggered callback failed for rule %s", rule.id,
-                )
-
+        self._fire_callback(rule, result)
         return result
 
     def test_pattern(
@@ -212,8 +166,6 @@ class CustomRuleEngine:
         if error:
             return {"error": error, "matches": []}
 
-        highlighted = highlight_matches(test_text, matches)
-
         return {
             "pattern": pattern,
             "rule_type": rule_type.value,
@@ -221,8 +173,49 @@ class CustomRuleEngine:
             "case_sensitive": case_sensitive,
             "match_count": len(matches),
             "matches": matches,
-            "highlighted_text": highlighted,
+            "highlighted_text": highlight_matches(test_text, matches),
         }
+
+
+    def _test_rule(
+        self, rule: CustomRule, text: str,
+    ) -> Optional[List[dict]]:
+        flags = 0 if rule.case_sensitive else re.IGNORECASE
+        matches, error = test_pattern_dispatch(
+            rule.pattern, text, rule.case_sensitive, flags, rule.rule_type,
+        )
+        if error:
+            logger.warning(
+                "Rule %s (%s) produced an error: %s",
+                rule.id, rule.name, error,
+            )
+            return None
+        return matches or None
+
+    @staticmethod
+    def _build_match_result(
+        rule: CustomRule, matches: List[dict],
+    ) -> RuleMatchResult:
+        return RuleMatchResult(
+            rule_id=str(rule.id),
+            rule_name=rule.name,
+            rule_type=rule.rule_type.value,
+            action=rule.action.value,
+            priority=rule.priority,
+            match_count=len(matches),
+            matches=matches,
+        )
+
+    def _fire_callback(
+        self, rule: CustomRule, result: RuleMatchResult,
+    ) -> None:
+        if self._on_rule_triggered is not None:
+            try:
+                self._on_rule_triggered(rule, result)
+            except Exception:
+                logger.exception(
+                    "on_rule_triggered callback failed for rule %s", rule.id,
+                )
 
     def _apply_action(
         self,
@@ -231,26 +224,24 @@ class CustomRuleEngine:
         text: str,
         matches: List[dict],
     ) -> Tuple[str, bool]:
-        blocked = False
+        action = rule.action
+        blocked = action == CustomRuleAction.BLOCK
 
-        if rule.action == CustomRuleAction.BLOCK:
-            blocked = True
-
-        elif rule.action == CustomRuleAction.REPLACE:
+        if action == CustomRuleAction.REPLACE:
             replace_text = rule.replace_text or self._config.default_mask
             text = apply_replacement(text, matches, replace_text)
             result.replace_text = replace_text
 
-        elif rule.action == CustomRuleAction.MASK:
+        elif action == CustomRuleAction.MASK:
             text = apply_replacement(text, matches, self._config.default_mask)
 
-        elif rule.action == CustomRuleAction.REDACT:
+        elif action == CustomRuleAction.REDACT:
             text = apply_replacement(text, matches, self._config.redact_placeholder)
 
-        elif rule.action in (CustomRuleAction.FLAG, CustomRuleAction.WARN):
+        elif action in (CustomRuleAction.FLAG, CustomRuleAction.WARN):
             result.highlighted_text = highlight_matches(text, matches)
 
-        elif rule.action == CustomRuleAction.LOG:
+        elif action == CustomRuleAction.LOG:
             logger.info(
                 "Rule %s (%s) matched %d time(s) in text.",
                 rule.id, rule.name, len(matches),
@@ -264,28 +255,21 @@ class CustomRuleEngine:
     ) -> EngineVerdict:
         if blocked:
             return EngineVerdict.BLOCKED
-
         if not triggered:
             return EngineVerdict.CLEAN
-
-        transform_actions = {
-            CustomRuleAction.REPLACE.value,
-            CustomRuleAction.MASK.value,
-            CustomRuleAction.REDACT.value,
-        }
-        if any(t.action in transform_actions for t in triggered):
+        if any(t.action in _TRANSFORM_ACTIONS for t in triggered):
             return EngineVerdict.TRANSFORMED
-
         return EngineVerdict.FLAGGED
 
     @staticmethod
     def _empty_result(text: str) -> EngineResult:
+        safe = text or ""
         return EngineResult(
-            original_text=text or "",
-            processed_text=text or "",
+            original_text=safe,
+            processed_text=safe,
             verdict=EngineVerdict.CLEAN,
             matched=False,
             triggered_rule_count=0,
             triggered_rules=[],
-            highlighted_original=text or "",
+            highlighted_original=safe,
         )
