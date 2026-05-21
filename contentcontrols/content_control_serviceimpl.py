@@ -1,9 +1,10 @@
 import time
-from typing import Optional, Dict
+from typing import Callable, Dict, List, Optional
 
 from contentcontrols.content_control_service import ContentControlService
 from contentcontrols.content_control import ContentDecision, ContentControlEngine
 from contentcontrols.content_metrics import ContentMetrics
+from customrules.customrule import CustomRule
 from user.workspace import Workspace
 
 
@@ -11,9 +12,14 @@ class ContentControlServiceImpl(ContentControlService):
 
     ENGINE_TTL_SECONDS = 600
 
-    def __init__(self, metrics: Optional[ContentMetrics] = None):
+    def __init__(
+        self,
+        metrics: Optional[ContentMetrics] = None,
+        rules_provider: Optional[Callable[[str], List[CustomRule]]] = None,
+    ):
         self._engines: Dict[str, dict] = {}
         self._metrics = metrics or ContentMetrics()
+        self._rules_provider = rules_provider
 
     def _cleanup_cache(self):
         now = time.time()
@@ -21,7 +27,14 @@ class ContentControlServiceImpl(ContentControlService):
                         if now - data.get("created_at", 0) <= self.ENGINE_TTL_SECONDS}
 
     def _create_engine_entry(self, workspace: Workspace) -> dict:
-        return {"engine": ContentControlEngine(workspace, metrics=self._metrics), "created_at": time.time()}
+        return {
+            "engine": ContentControlEngine(
+                workspace,
+                metrics=self._metrics,
+                rules_provider=self._rules_provider,
+            ),
+            "created_at": time.time(),
+        }
 
     def evaluate_content(self, workspace: Workspace, message: str, user_identifier: str,
                         user_role: Optional[str] = None, metadata: Optional[dict] = None,

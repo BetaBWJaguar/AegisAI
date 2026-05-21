@@ -8,6 +8,7 @@ from contentcontrols.schemas.content_control_response import (
     BatchContentDecisionResponse,
     ContentControlSettingsResponse, ScoreThresholdsResponse, SpamSettingsResponse
 )
+from customrules.customrule_service_impl import CustomRuleServiceImpl
 from error.expectionhandler import ExpectionHandler
 from error.errortypes import ErrorType
 from permcontrol.permissionscontrol import require_perm
@@ -17,7 +18,11 @@ from workspace.workspaceserviceimpl import WorkspaceServiceImpl
 
 router = APIRouter()
 
-content_control_service = ContentControlServiceImpl()
+_custom_rule_service = CustomRuleServiceImpl(config_file="config.json")
+
+content_control_service = ContentControlServiceImpl(
+    rules_provider=_custom_rule_service.list_rules,
+)
 user_service = UserServiceImpl()
 auditlog = AuditLogServiceImpl(config_file="config.json")
 workspace_service = WorkspaceServiceImpl(user_service, auditlog)

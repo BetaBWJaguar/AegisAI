@@ -1,7 +1,10 @@
-from typing import Dict, Optional
+import logging
+from typing import Callable, Dict, List, Optional
 import torch
 from transformers import BertTokenizerFast, BertForSequenceClassification
 
+from customrules.customrule import CustomRule
+from customrules.customruleengine import CustomRuleEngine, EngineConfig, EngineVerdict
 from logs.predictionlogmanager import PredictionLogger
 from profanity.maskingrules.maskingruleautomation import MaskingRuleAutomation
 from profanity.messagelevelmetadata import MessageLevelMetadata
@@ -13,6 +16,8 @@ from multilangsetup.obsfucationresolver.obsfucation_resolver import ObfuscationR
 from trainer.modelregistry import ModelRegistry
 from config_loader import ConfigLoader
 
+logger = logging.getLogger(__name__)
+
 
 class ProfanityServiceImpl(ProfanityService):
 
@@ -22,7 +27,8 @@ class ProfanityServiceImpl(ProfanityService):
         model_root: str = "models",
         label_validator: Optional[ProfanityLabelValidator] = None,
         use_enhanced_risk: bool = True,
-        config_loader: Optional[ConfigLoader] = None
+        config_loader: Optional[ConfigLoader] = None,
+        rules_provider: Optional[Callable[[str], List[CustomRule]]] = None,
     ):
         self.workspace_service = workspace_service
         self.model_root = model_root
@@ -35,6 +41,8 @@ class ProfanityServiceImpl(ProfanityService):
         profanity_config = self.config_loader.get_profanity_config()
         self.use_enhanced_risk = profanity_config.get("use_enhanced_risk", use_enhanced_risk)
         self.risk_calculator_config = profanity_config.get("risk_calculator", {})
+        self._rules_provider = rules_provider
+        self._rule_engine = CustomRuleEngine(config=EngineConfig())
 
         self.default_pipeline = [
             Step.NORMALIZE,
@@ -141,6 +149,41 @@ class ProfanityServiceImpl(ProfanityService):
 
         advisory = mask_meta.get("advisory", {})
 
+        custom_rules_meta: Dict = {}
+        if self._rules_provider is not None:
+            try:
+                rules = self._rules_provider(workspace_id)
+                if rules:
+                    text_to_evaluate = mask_meta.get("masked_text") or text
+                    engine_result = self._rule_engine.evaluate(text_to_evaluate, rules)
+
+                    if engine_result.matched:
+                        custom_rules_meta = {
+                            "verdict": engine_result.verdict.value,
+                            "triggered_count": engine_result.triggered_rule_count,
+                            "triggered_rules": [
+                                {
+                                    "rule_id": tr.rule_id,
+                                    "rule_name": tr.rule_name,
+                                    "action": tr.action,
+                                    "match_count": tr.match_count,
+                                }
+                                for tr in engine_result.triggered_rules
+                            ],
+                            "processed_text": engine_result.processed_text,
+                        }
+
+                        if engine_result.verdict == EngineVerdict.BLOCKED:
+                            mask_meta["blocked"] = True
+                        elif engine_result.verdict == EngineVerdict.TRANSFORMED:
+                            mask_meta["masked_text"] = engine_result.processed_text
+                            mask_meta["masked"] = True
+            except Exception:
+                logger.exception(
+                    "Custom rule evaluation failed in profanity detect for workspace %s",
+                    workspace_id,
+                )
+
         metadata = MessageLevelMetadata(
             raw_text=text,
             processed_text=processed,
@@ -163,7 +206,8 @@ class ProfanityServiceImpl(ProfanityService):
             workspace_id=workspace_id,
             user_id=user_id,
             model_name=model_name,
-            model_version=workspace.model_version
+            model_version=workspace.model_version,
+            custom_rules=custom_rules_meta,
         )
 
         return metadata.to_dict()

@@ -25,6 +25,7 @@ class MessageLevelMetadata:
     user_id: str = ""
     model_name: str = ""
     model_version: str = ""
+    custom_rules: Dict = field(default_factory=dict)
 
     processed_at: datetime = field(default_factory=datetime.utcnow)
 
@@ -57,6 +58,8 @@ class MessageLevelMetadata:
             "user_id": self.user_id,
             "model_name": self.model_name,
             "model_version": self.model_version,
+
+            "custom_rules": self.custom_rules,
 
             "processed_at": self.processed_at.isoformat()
         }
