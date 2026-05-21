@@ -21,7 +21,9 @@ router = APIRouter()
 _custom_rule_service = CustomRuleServiceImpl(config_file="config.json")
 
 content_control_service = ContentControlServiceImpl(
-    rules_provider=_custom_rule_service.list_rules,
+    rules_provider=lambda ws_id: _custom_rule_service.list_rules(
+        workspace_id=ws_id, enabled_only=True,
+    ),
 )
 user_service = UserServiceImpl()
 auditlog = AuditLogServiceImpl(config_file="config.json")

@@ -5,6 +5,7 @@ from typing import List, Dict, Optional
 
 from auditmanager.auditlogserviceimpl import AuditLogServiceImpl
 from auth.authcontroller import get_current_user
+from customrules.customrule_service_impl import CustomRuleServiceImpl
 from profanity.profanityserviceimpl import ProfanityServiceImpl
 from profanity.schemas.profanityrequest import DetectRequest
 from profanity.schemas.profanityresponse import DetectResponse
@@ -17,8 +18,14 @@ from workspace.workspaceserviceimpl import WorkspaceServiceImpl
 router = APIRouter()
 audit_log_service = AuditLogServiceImpl("config.json")
 user_service = UserServiceImpl()
-workspace_service = WorkspaceServiceImpl(user_service,audit_log_service)
-profanity_service = ProfanityServiceImpl(workspace_service=workspace_service)
+workspace_service = WorkspaceServiceImpl(user_service, audit_log_service)
+_custom_rule_service = CustomRuleServiceImpl(config_file="config.json")
+profanity_service = ProfanityServiceImpl(
+    workspace_service=workspace_service,
+    rules_provider=lambda ws_id: _custom_rule_service.list_rules(
+        workspace_id=ws_id, enabled_only=True,
+    ),
+)
 
 
 @router.post(
