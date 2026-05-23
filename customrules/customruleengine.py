@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Callable, Dict, List, Optional, Tuple
 
@@ -17,6 +17,15 @@ from customrules.customrule_service_impl_utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+__all__ = [
+    "EngineVerdict",
+    "RuleMatchResult",
+    "EngineResult",
+    "OnRuleTriggeredCallback",
+    "EngineConfig",
+    "CustomRuleEngine",
+]
 
 
 class EngineVerdict(str, Enum):
@@ -48,7 +57,7 @@ class EngineResult:
     triggered_rule_count: int
     triggered_rules: List[RuleMatchResult]
     highlighted_original: str
-    evaluated_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    evaluated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     metadata: Dict = field(default_factory=dict)
 
 
@@ -81,7 +90,6 @@ class CustomRuleEngine:
     ) -> None:
         self._config = config or EngineConfig()
         self._on_rule_triggered = on_rule_triggered
-        self._regex_cache: Dict[Tuple[str, int], re.Pattern] = {}
 
     def evaluate(self, text: str, rules: List[CustomRule]) -> EngineResult:
         if not text:
