@@ -42,6 +42,8 @@ class CustomRuleService(ABC):
         self,
         query: str,
         workspace_id: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 50,
     ) -> List[CustomRule]:
         pass
 

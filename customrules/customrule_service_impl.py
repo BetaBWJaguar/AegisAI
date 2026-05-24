@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime
 from typing import List, Optional
 import uuid
@@ -29,6 +30,10 @@ class CustomRuleServiceImpl(CustomRuleService):
         self.collection.create_index("workspace_id")
         self.collection.create_index("rule_type")
         self.collection.create_index("tags")
+        self.collection.create_index(
+            [("name", "text"), ("pattern", "text"), ("description", "text")],
+            name="rule_text_search",
+        )
 
         self._engine = CustomRuleEngine(config=EngineConfig())
 
@@ -104,19 +109,28 @@ class CustomRuleServiceImpl(CustomRuleService):
         self,
         query: str,
         workspace_id: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 50,
     ) -> List[CustomRule]:
+        safe_query = re.escape(query)
         mongo_query: dict = {
             "$or": [
-                {"name": {"$regex": query, "$options": "i"}},
-                {"pattern": {"$regex": query, "$options": "i"}},
-                {"description": {"$regex": query, "$options": "i"}},
+                {"name": {"$regex": safe_query, "$options": "i"}},
+                {"pattern": {"$regex": safe_query, "$options": "i"}},
+                {"description": {"$regex": safe_query, "$options": "i"}},
             ]
         }
 
         if workspace_id is not None:
             mongo_query["workspace_id"] = workspace_id
 
-        cursor = self.collection.find(mongo_query)
+        cursor = (
+            self.collection
+            .find(mongo_query)
+            .sort("priority", -1)
+            .skip(max(skip, 0))
+            .limit(max(limit, 1))
+        )
         return [self._from_document(doc) for doc in cursor]
 
     def count_rules(

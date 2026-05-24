@@ -90,9 +90,16 @@ def list_rules(
 def search_rules(
     query: str = Query(..., min_length=1),
     workspace_id: Optional[str] = Query(default=None),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
 ):
     try:
-        rules = service.search_rules(query=query, workspace_id=workspace_id)
+        rules = service.search_rules(
+            query=query,
+            workspace_id=workspace_id,
+            skip=skip,
+            limit=limit,
+        )
         return [RuleResponse(**rule.to_dict()) for rule in rules]
     except ExpectionHandler:
         raise
