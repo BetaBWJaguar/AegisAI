@@ -26,3 +26,4 @@ class RuleResponse(BaseModel):
     hit_count: int = 0
     last_triggered_at: Optional[datetime] = None
     replace_text: Optional[str] = None
+    expires_at: Optional[datetime] = None

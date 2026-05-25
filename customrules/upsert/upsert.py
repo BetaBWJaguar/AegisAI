@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 
@@ -18,3 +20,4 @@ class RuleUpsert(BaseModel):
     tags: Optional[List[str]] = None
     metadata: Optional[Dict[str, Any]] = None
     replace_text: Optional[str] = None
+    expires_at: Optional[datetime] = None

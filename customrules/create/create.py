@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 
@@ -19,3 +21,4 @@ class RuleCreate(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict)
     workspace_id: Optional[str] = None
     replace_text: Optional[str] = None
+    expires_at: Optional[datetime] = None

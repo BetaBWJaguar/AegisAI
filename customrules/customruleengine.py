@@ -96,7 +96,7 @@ class CustomRuleEngine:
             return self._empty_result(text)
 
         active_rules = sorted(
-            (r for r in rules if r.enabled),
+            (r for r in rules if r.enabled and not r.is_expired()),
             key=lambda r: r.priority,
             reverse=True,
         )

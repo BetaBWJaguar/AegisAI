@@ -1,6 +1,6 @@
 import re
 from dataclasses import dataclass, asdict, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any, Tuple
 import uuid
 from bson import ObjectId
@@ -32,6 +32,7 @@ class CustomRule:
     hit_count: int = 0
     last_triggered_at: Optional[datetime] = None
     replace_text: Optional[str] = None
+    expires_at: Optional[datetime] = None
 
     def __repr__(self) -> str:
         return (
@@ -56,8 +57,15 @@ class CustomRule:
             raise ValueError("Rule name cannot exceed 255 characters.")
         if not (0 <= self.priority <= 1000):
             raise ValueError("Priority must be between 0 and 1000.")
+        if self.expires_at is not None and self.expires_at <= datetime.now(timezone.utc):
+            raise ValueError("expires_at must be a future datetime.")
         self.validate_pattern()
         return True
+
+    def is_expired(self) -> bool:
+        if self.expires_at is None:
+            return False
+        return datetime.now(timezone.utc) >= self.expires_at
 
     def matches(self, text: str) -> Tuple[List[dict], Optional[str]]:
         flags = 0 if self.case_sensitive else re.IGNORECASE
@@ -97,6 +105,7 @@ class CustomRule:
             hit_count=data.get("hit_count", 0),
             last_triggered_at=_parse_datetime(data.get("last_triggered_at")),
             replace_text=data.get("replace_text"),
+            expires_at=_parse_datetime(data.get("expires_at")),
         )
 
     def validate_pattern(self) -> bool:
@@ -168,6 +177,7 @@ class CustomRule:
         workspace_id: Optional[str] = None,
         created_by: Optional[str] = None,
         replace_text: Optional[str] = None,
+        expires_at: Optional[datetime] = None,
     ) -> "CustomRule":
         now = datetime.utcnow()
         return CustomRule(
@@ -188,6 +198,7 @@ class CustomRule:
             created_at=now,
             updated_at=now,
             replace_text=replace_text,
+            expires_at=expires_at,
         )
 
     def to_dict(self) -> dict:
@@ -202,5 +213,8 @@ class CustomRule:
             self.last_triggered_at.isoformat() if self.last_triggered_at else None
         )
         data["replace_text"] = self.replace_text
+        data["expires_at"] = (
+            self.expires_at.isoformat() if self.expires_at else None
+        )
         data.pop("_id", None)
         return data

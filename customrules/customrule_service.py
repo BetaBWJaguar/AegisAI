@@ -102,3 +102,13 @@ class CustomRuleService(ABC):
             include_hit_stats: bool = False,
     ) -> dict:
         pass
+
+    @abstractmethod
+    def import_rules_from_json(
+            self,
+            data: dict,
+            workspace_id: Optional[str] = None,
+            overwrite: bool = False,
+            created_by: Optional[str] = None,
+    ) -> dict:
+        pass

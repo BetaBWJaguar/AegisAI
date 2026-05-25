@@ -53,6 +53,7 @@ class CustomRuleServiceImpl(CustomRuleService):
             workspace_id=data.workspace_id,
             created_by=created_by,
             replace_text=data.replace_text,
+            expires_at=data.expires_at,
         )
 
         rule.validate()
@@ -342,4 +343,82 @@ class CustomRuleServiceImpl(CustomRuleService):
             "include_hit_stats": include_hit_stats,
             "total_rules": len(exported_rules),
             "rules": exported_rules,
+        }
+
+    def import_rules_from_json(
+            self,
+            data: dict,
+            workspace_id: Optional[str] = None,
+            overwrite: bool = False,
+            created_by: Optional[str] = None,
+    ) -> dict:
+        raw_rules = data.get("rules", [])
+        if not isinstance(raw_rules, list):
+            raise ValueError("Invalid import data: 'rules' must be a list.")
+
+        imported: List[CustomRule] = []
+        skipped: int = 0
+        errors: List[dict] = []
+
+        for idx, raw in enumerate(raw_rules):
+            if not isinstance(raw, dict):
+                errors.append({"index": idx, "error": "Each rule must be a JSON object."})
+                continue
+
+            try:
+                if workspace_id is not None:
+                    raw["workspace_id"] = workspace_id
+
+                existing = self.collection.find_one({
+                    "name": raw.get("name"),
+                    "workspace_id": raw.get("workspace_id"),
+                })
+
+                if existing and not overwrite:
+                    skipped += 1
+                    continue
+
+                if existing and overwrite:
+                    raw.pop("_id", None)
+                    raw["id"] = existing["id"]
+                    raw["updated_at"] = datetime.utcnow().isoformat()
+                    raw["hit_count"] = existing.get("hit_count", 0)
+                    raw["last_triggered_at"] = existing.get("last_triggered_at")
+
+                    rule = CustomRule.from_dict(raw)
+                    rule.validate()
+                    self.collection.replace_one(
+                        {"id": existing["id"]},
+                        rule.to_dict(),
+                    )
+                    imported.append(rule)
+                else:
+                    raw["id"] = str(uuid.uuid4())
+                    raw.pop("_id", None)
+                    raw["hit_count"] = 0
+                    raw["last_triggered_at"] = None
+                    raw["created_by"] = created_by
+                    raw["created_at"] = datetime.utcnow().isoformat()
+                    raw["updated_at"] = datetime.utcnow().isoformat()
+
+                    rule = CustomRule.from_dict(raw)
+                    rule.validate()
+                    self.collection.insert_one(rule.to_dict())
+                    imported.append(rule)
+
+            except Exception as e:
+                errors.append({
+                    "index": idx,
+                    "name": raw.get("name", "<unknown>"),
+                    "error": str(e),
+                })
+
+        return {
+            "imported_count": len(imported),
+            "skipped_count": skipped,
+            "error_count": len(errors),
+            "errors": errors,
+            "imported_rules": [
+                {"id": str(r.id), "name": r.name} for r in imported
+            ],
         }
