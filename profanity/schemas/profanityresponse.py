@@ -2,6 +2,13 @@ from pydantic import BaseModel
 from typing import Dict, Optional
 
 
+class EscalationInfo(BaseModel):
+    tier: int = 0
+    label: str = "CLEAN"
+    multiplier: float = 1.0
+    total_infractions: int = 0
+
+
 class DetectResponse(BaseModel):
     raw_text: str
     processed_text: str
@@ -23,3 +30,4 @@ class DetectResponse(BaseModel):
     model_name: str
     model_version: str
     processed_at: str
+    escalation: Optional[EscalationInfo] = None

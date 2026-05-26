@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
+import logging
 from fastapi import APIRouter, Depends
 from typing import Dict, Optional
 
 from auth.authcontroller import get_current_user
+from profanity.escalation.escalation_service import EscalationService
 from profanity.penalties.penalty_duration_service import PenaltyDurationService
 from profanity.penalties.penalty_api_utils import (
     validate_penalties_list,
@@ -17,7 +19,26 @@ from profanity.schemas.penalty_response import PenaltyDurationResponse
 from error.errortypes import ErrorType
 from error.expectionhandler import ExpectionHandler
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
+_escalation_service = EscalationService(config_file="config.json")
+
+
+def _resolve_escalation_multiplier(request: CalculatePenaltyRequest) -> float:
+    if request.escalation_multiplier is not None:
+        return request.escalation_multiplier
+
+    if request.ip:
+        try:
+            return _escalation_service.get_escalation_multiplier(
+                ip=request.ip,
+                user_agent=request.user_agent or "",
+            )
+        except Exception:
+            logger.exception("Escalation lookup failed for ip=%s", request.ip)
+
+    return 1.0
 
 
 @router.post(
@@ -49,12 +70,16 @@ async def calculate_penalty_duration(request: CalculatePenaltyRequest, current_u
         category_multipliers=category_multipliers if category_multipliers is not None else {}
     )
 
-    result = penalty_service.calculate(valid_penalties)
+    escalation_multiplier = _resolve_escalation_multiplier(request)
+    result = penalty_service.calculate(valid_penalties, escalation_multiplier=escalation_multiplier)
 
     response_data = format_penalty_response(
         total_duration=result["total_duration_minutes"],
         penalties_count=len(valid_penalties)
     )
+
+    if escalation_multiplier != 1.0:
+        response_data["data"]["escalation_multiplier"] = escalation_multiplier
 
     if request.include_category_stats:
         response_data["data"]["category_stats"] = aggregate_penalties_by_category(valid_penalties)

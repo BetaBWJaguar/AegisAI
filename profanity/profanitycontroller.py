@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import logging
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from typing import List, Dict, Optional
@@ -6,6 +7,7 @@ from typing import List, Dict, Optional
 from auditmanager.auditlogserviceimpl import AuditLogServiceImpl
 from auth.authcontroller import get_current_user
 from customrules.customrule_service_impl import CustomRuleServiceImpl
+from profanity.escalation.escalation_service import EscalationService
 from profanity.profanityserviceimpl import ProfanityServiceImpl
 from profanity.schemas.profanityrequest import DetectRequest
 from profanity.schemas.profanityresponse import DetectResponse
@@ -14,6 +16,8 @@ from error.errortypes import ErrorType
 from error.expectionhandler import ExpectionHandler
 from user.userserviceimpl import UserServiceImpl
 from workspace.workspaceserviceimpl import WorkspaceServiceImpl
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 audit_log_service = AuditLogServiceImpl("config.json")
@@ -26,6 +30,41 @@ profanity_service = ProfanityServiceImpl(
         workspace_id=ws_id, enabled_only=True,
     ),
 )
+_escalation_service = EscalationService(config_file="config.json")
+
+
+def _record_and_attach_escalation(
+    result: dict,
+    ip: Optional[str],
+    user_agent: Optional[str],
+) -> dict:
+    if not ip:
+        result["escalation"] = None
+        return result
+
+    risk = result.get("risk", "LOW")
+    category = result.get("predicted_label")
+    confidence = result.get("confidence", 0.0)
+
+    try:
+        escalation_state = _escalation_service.record_infraction(
+            ip=ip,
+            risk_level=risk,
+            category=category,
+            confidence=confidence,
+            user_agent=user_agent or "",
+        )
+        result["escalation"] = {
+            "tier": escalation_state["tier"],
+            "label": escalation_state["label"],
+            "multiplier": escalation_state["multiplier"],
+            "total_infractions": escalation_state["total_infractions"],
+        }
+    except Exception:
+        logger.exception("Failed to record escalation for ip=%s", ip)
+        result["escalation"] = None
+
+    return result
 
 
 @router.post(
@@ -46,6 +85,8 @@ async def detect_text(data: DetectRequest,current_user=Depends(get_current_user)
             workspace_id=data.workspace_id,
             pipeline=data.pipeline
         )
+
+        result = _record_and_attach_escalation(result, data.ip, data.user_agent)
 
         return DetectResponse(**result)
 
@@ -68,7 +109,7 @@ async def detect_text(data: DetectRequest,current_user=Depends(get_current_user)
 @router.post(
     "/bulk",
 )
-async def detect_bulk(payload: Dict,current_user=Depends(get_current_user)):
+async def detect_bulk(payload: Dict, current_user=Depends(get_current_user)):
     try:
         if profanity_service is None:
             raise ExpectionHandler(
@@ -79,6 +120,8 @@ async def detect_bulk(payload: Dict,current_user=Depends(get_current_user)):
         texts = payload.get("texts", [])
         workspace_id = payload.get("workspace_id")
         pipeline = payload.get("pipeline", None)
+        ip = payload.get("ip")
+        user_agent = payload.get("user_agent")
 
         if not texts or not isinstance(texts, list):
             raise ExpectionHandler(
@@ -98,6 +141,7 @@ async def detect_bulk(payload: Dict,current_user=Depends(get_current_user)):
                     workspace_id=workspace_id,
                     pipeline=pipeline
                 )
+                processed = _record_and_attach_escalation(processed, ip, user_agent)
                 results.append(processed)
 
             except Exception as e:

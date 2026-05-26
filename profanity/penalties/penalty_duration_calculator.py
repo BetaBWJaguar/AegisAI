@@ -12,7 +12,7 @@ class PenaltyDurationCalculator:
         self.base_durations = base_durations if base_durations is not None else {}
         self.category_multipliers = category_multipliers if category_multipliers is not None else {}
 
-    def calculate_duration(self, penalties: List[Dict]) -> Dict:
+    def calculate_duration(self, penalties: List[Dict], escalation_multiplier: float = 1.0) -> Dict:
         if not penalties:
             return {"total_duration_minutes": 0}
 
@@ -25,7 +25,7 @@ class PenaltyDurationCalculator:
             base = self.base_durations.get(risk_level, 0)
             multiplier = self.category_multipliers.get(category, 1.0)
             
-            total += int(base * multiplier * confidence)
+            total += int(base * multiplier * confidence * escalation_multiplier)
 
         return {"total_duration_minutes": total}
 

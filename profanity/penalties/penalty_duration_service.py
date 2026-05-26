@@ -14,8 +14,8 @@ class PenaltyDurationService:
             category_multipliers=category_multipliers
         )
 
-    def calculate(self, penalties: list) -> dict:
-        return self.calculator.calculate_duration(penalties)
+    def calculate(self, penalties: list, escalation_multiplier: float = 1.0) -> dict:
+        return self.calculator.calculate_duration(penalties, escalation_multiplier=escalation_multiplier)
 
     def get_statistics(self) -> dict:
         statistics = self.calculator.calculate_statistics()
