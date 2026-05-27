@@ -33,6 +33,9 @@ profanity_service = ProfanityServiceImpl(
 _escalation_service = EscalationService(config_file="config.json")
 
 
+_ESALATION_WORTHY_RISKS = {"MEDIUM", "HIGH", "CRITICAL"}
+
+
 def _record_and_attach_escalation(
     result: dict,
     ip: Optional[str],
@@ -47,13 +50,20 @@ def _record_and_attach_escalation(
     confidence = result.get("confidence", 0.0)
 
     try:
-        escalation_state = _escalation_service.record_infraction(
-            ip=ip,
-            risk_level=risk,
-            category=category,
-            confidence=confidence,
-            user_agent=user_agent or "",
-        )
+        if risk in _ESALATION_WORTHY_RISKS:
+            escalation_state = _escalation_service.record_infraction(
+                ip=ip,
+                risk_level=risk,
+                category=category,
+                confidence=confidence,
+                user_agent=user_agent or "",
+            )
+        else:
+            escalation_state = _escalation_service.get_escalation_state(
+                ip=ip,
+                user_agent=user_agent or "",
+            )
+
         result["escalation"] = {
             "tier": escalation_state["tier"],
             "label": escalation_state["label"],
@@ -138,6 +148,7 @@ async def detect_bulk(payload: Dict, current_user=Depends(get_current_user)):
             try:
                 processed = profanity_service.detect(
                     text=original_text,
+                    user_id=str(current_user.id),
                     workspace_id=workspace_id,
                     pipeline=pipeline
                 )
