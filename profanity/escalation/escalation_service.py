@@ -66,32 +66,23 @@ class EscalationService:
             "confidence": round(confidence, 4),
         }
 
-        existing = self._col.find_one({"fingerprint": fp})
-
-        if existing:
-            infractions = existing.get("infractions", [])
-            infractions.append(infraction_entry)
-            self._col.update_one(
-                {"fingerprint": fp},
-                {"$set": {
-                    "infractions": infractions,
-                    "total_count": len(infractions),
+        self._col.update_one(
+            {"fingerprint": fp},
+            {
+                "$push": {"infractions": infraction_entry},
+                "$inc": {"total_count": 1},
+                "$set": {
                     "last_infraction_at": now.isoformat(),
                     "expires_at": expires,
                     "ip": ip,
-                }},
-            )
-        else:
-            self._col.insert_one({
-                "fingerprint": fp,
-                "ip": ip,
-                "user_agent": user_agent,
-                "infractions": [infraction_entry],
-                "total_count": 1,
-                "first_infraction_at": now.isoformat(),
-                "last_infraction_at": now.isoformat(),
-                "expires_at": expires,
-            })
+                },
+                "$setOnInsert": {
+                    "user_agent": user_agent,
+                    "first_infraction_at": now.isoformat(),
+                },
+            },
+            upsert=True,
+        )
 
         return self.get_escalation_state(ip, user_agent, accept_language, fingerprint=fp)
 

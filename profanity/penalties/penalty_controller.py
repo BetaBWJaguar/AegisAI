@@ -112,6 +112,22 @@ async def calculate_penalty_duration_bulk(payload: Dict, current_user=Depends(ge
     sort_descending = payload.get("sort_descending", True)
     include_category_stats = payload.get("include_category_stats", False)
 
+    escalation_multiplier = 1.0
+    ip = payload.get("ip")
+    user_agent = payload.get("user_agent")
+    explicit_multiplier = payload.get("escalation_multiplier")
+
+    if explicit_multiplier is not None:
+        escalation_multiplier = explicit_multiplier
+    elif ip:
+        try:
+            escalation_multiplier = _escalation_service.get_escalation_multiplier(
+                ip=ip,
+                user_agent=user_agent or "",
+            )
+        except Exception:
+            logger.exception("Escalation lookup failed for ip=%s in bulk request", ip)
+
     penalty_service = PenaltyDurationService(
         base_durations=base_durations,
         category_multipliers=category_multipliers
@@ -139,13 +155,16 @@ async def calculate_penalty_duration_bulk(payload: Dict, current_user=Depends(ge
             if sort_by_confidence:
                 valid_penalties = sort_fn(valid_penalties, sort_descending)
 
-            result = calculate(valid_penalties)
+            result = calculate(valid_penalties, escalation_multiplier=escalation_multiplier)
 
             result_data = {
                 "index": idx,
                 "total_duration_minutes": result["total_duration_minutes"],
                 "penalties_count": len(valid_penalties)
             }
+
+            if escalation_multiplier != 1.0:
+                result_data["escalation_multiplier"] = escalation_multiplier
 
             if include_category_stats:
                 result_data["category_stats"] = aggregate_fn(valid_penalties)
