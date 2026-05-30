@@ -37,9 +37,10 @@ _ESALATION_WORTHY_RISKS = {"MEDIUM", "HIGH", "CRITICAL"}
 
 
 def _record_and_attach_escalation(
-    result: dict,
-    ip: Optional[str],
-    user_agent: Optional[str],
+        result: dict,
+        ip: Optional[str],
+        user_agent: Optional[str],
+        ignore_cooldown: bool = False
 ) -> dict:
     if not ip:
         result["escalation"] = None
@@ -57,6 +58,7 @@ def _record_and_attach_escalation(
                 category=category,
                 confidence=confidence,
                 user_agent=user_agent or "",
+                ignore_cooldown=ignore_cooldown
             )
         else:
             escalation_state = _escalation_service.get_escalation_state(
@@ -81,7 +83,7 @@ def _record_and_attach_escalation(
     "/detect",
     response_model=DetectResponse,
 )
-async def detect_text(data: DetectRequest,current_user=Depends(get_current_user)):
+def detect_text(data: DetectRequest, current_user=Depends(get_current_user)):
     try:
         if profanity_service is None:
             raise ExpectionHandler(
@@ -119,7 +121,7 @@ async def detect_text(data: DetectRequest,current_user=Depends(get_current_user)
 @router.post(
     "/bulk",
 )
-async def detect_bulk(payload: Dict, current_user=Depends(get_current_user)):
+def detect_bulk(payload: Dict, current_user=Depends(get_current_user)):
     try:
         if profanity_service is None:
             raise ExpectionHandler(
@@ -152,7 +154,7 @@ async def detect_bulk(payload: Dict, current_user=Depends(get_current_user)):
                     workspace_id=workspace_id,
                     pipeline=pipeline
                 )
-                processed = _record_and_attach_escalation(processed, ip, user_agent)
+                processed = _record_and_attach_escalation(processed, ip, user_agent, ignore_cooldown=True)
                 results.append(processed)
 
             except Exception as e:

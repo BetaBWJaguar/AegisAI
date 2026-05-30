@@ -56,14 +56,19 @@ class EscalationService:
             user_agent: str = "",
             accept_language: str = "",
             fingerprint: Optional[str] = None,
+            ignore_cooldown: bool = False,
     ) -> Dict:
         fp = fingerprint or self.generate_fingerprint(ip, user_agent, accept_language)
         now = datetime.now(timezone.utc)
 
         current_time = time.time()
+
+        if len(self._cooldown_map) > 1000:
+            self._cooldown_map = {k: v for k, v in self._cooldown_map.items() if (current_time - v) < 60.0}
+
         last_infraction_time = self._cooldown_map.get(fp, 0.0)
 
-        if (current_time - last_infraction_time) < self._cooldown_seconds:
+        if not ignore_cooldown and (current_time - last_infraction_time) < self._cooldown_seconds:
             logger.info(f"Cooldown active for fingerprint={fp}. Absorbing spam.")
             return self.get_escalation_state(ip, user_agent, accept_language, fingerprint=fp)
 
@@ -77,7 +82,6 @@ class EscalationService:
             "category": category,
             "confidence": round(confidence, 4),
         }
-
 
         old_doc = self._col.find_one_and_update(
             {"fingerprint": fp},
@@ -200,7 +204,6 @@ class EscalationService:
             "last_infraction_at": infractions[-1]["timestamp"] if infractions else None,
         }
 
-
     @staticmethod
     def _generate_event_payload(fp, ip, old_tier, new_tier, new_label, total_infractions, category) -> Dict:
         return {
@@ -254,11 +257,14 @@ class EscalationService:
                         )
                         logger.info(f"DB Updated FP: {fp} -> {update_fields}")
 
+                elif action_type == "WEBHOOK":
+                    self._send_webhook(action, event_payload)
+
                 else:
-                    logger.warning(f"Uknown Action Types {action_type}")
+                    logger.warning(f"Unknown Action Type {action_type}")
 
             except Exception as e:
-                logger.error(f"Action not workin '{action.get('name')}': {str(e)}")
+                logger.error(f"Action failed '{action.get('name')}': {str(e)}")
 
     def _send_webhook(self, action_config: Dict, event_payload: Dict):
         url = action_config.get("url")
