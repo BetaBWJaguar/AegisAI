@@ -3,6 +3,7 @@ import hashlib
 import logging
 import threading
 import time
+from collections import OrderedDict
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional
 
@@ -24,6 +25,30 @@ ESCALATION_TIERS: List[Dict] = [
 DEFAULT_TTL_DAYS = 30
 
 
+class _CooldownMap:
+
+    def __init__(self, max_size: int = 1000):
+        self._map: OrderedDict[str, float] = OrderedDict()
+        self._max_size = max_size
+        self._lock = threading.Lock()
+
+    def check_and_set(self, key: str, cooldown_seconds: float, now: float) -> bool:
+        with self._lock:
+            last = self._map.get(key, 0.0)
+            if (now - last) < cooldown_seconds:
+                return True
+            if key in self._map:
+                self._map.move_to_end(key)
+            self._map[key] = now
+            while len(self._map) > self._max_size:
+                self._map.popitem(last=False)
+            return False
+
+    def remove(self, key: str) -> None:
+        with self._lock:
+            self._map.pop(key, None)
+
+
 class EscalationService:
     def __init__(self, config_file: str = "config.json", ttl_days: int = DEFAULT_TTL_DAYS):
         cfg = ConfigLoader(config_file).get_database_config()
@@ -33,7 +58,7 @@ class EscalationService:
         self._col = self._db["escalations"]
         self._rules_col = self._db["escalation_rules"]
         self._ttl_days = ttl_days
-        self._cooldown_map: Dict[str, float] = {}
+        self._cooldown_map = _CooldownMap(max_size=1000)
         self._cooldown_seconds = 5.0
         self._ensure_indexes()
 
@@ -63,16 +88,9 @@ class EscalationService:
 
         current_time = time.time()
 
-        if len(self._cooldown_map) > 1000:
-            self._cooldown_map = {k: v for k, v in self._cooldown_map.items() if (current_time - v) < 60.0}
-
-        last_infraction_time = self._cooldown_map.get(fp, 0.0)
-
-        if not ignore_cooldown and (current_time - last_infraction_time) < self._cooldown_seconds:
+        if not ignore_cooldown and self._cooldown_map.check_and_set(fp, self._cooldown_seconds, current_time):
             logger.info(f"Cooldown active for fingerprint={fp}. Absorbing spam.")
             return self.get_escalation_state(ip, user_agent, accept_language, fingerprint=fp)
-
-        self._cooldown_map[fp] = current_time
 
         expires = now + timedelta(days=self._ttl_days)
 
@@ -117,7 +135,13 @@ class EscalationService:
             )
             self._dispatch_actions_async(new_tier_info["tier"], event_payload)
 
-        return self.get_escalation_state(ip, user_agent, accept_language, fingerprint=fp)
+        infractions: List[Dict] = []
+        if old_doc:
+            infractions = old_doc.get("infractions", [])
+        infractions.append(infraction_entry)
+        infractions = infractions[-50:]
+
+        return self._build_state(fp, new_count, infractions, ip)
 
     def get_escalation_state(
             self,
@@ -169,8 +193,7 @@ class EscalationService:
 
     def reset(self, fingerprint: str) -> bool:
         result = self._col.delete_one({"fingerprint": fingerprint})
-        if fingerprint in self._cooldown_map:
-            del self._cooldown_map[fingerprint]
+        self._cooldown_map.remove(fingerprint)
         return result.deleted_count > 0
 
     @staticmethod
