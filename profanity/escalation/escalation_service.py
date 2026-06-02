@@ -196,6 +196,16 @@ class EscalationService:
         self._cooldown_map.remove(fingerprint)
         return result.deleted_count > 0
 
+    def update_action_rule(self, tier: int, actions: List[Dict]) -> None:
+        self._rules_col.update_one(
+            {"tier": tier},
+            {"$set": {"actions": actions}},
+            upsert=True,
+        )
+
+    def get_action_rule(self, tier: int) -> Optional[Dict]:
+        return self._rules_col.find_one({"tier": tier}, {"_id": 0})
+
     @staticmethod
     def _resolve_tier(count: int) -> Dict:
         matched = ESCALATION_TIERS[0]
