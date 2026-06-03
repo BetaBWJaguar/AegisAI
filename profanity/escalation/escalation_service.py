@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import hashlib
 import logging
+import re
 import threading
 import time
 from collections import OrderedDict
@@ -40,9 +41,16 @@ class _CooldownMap:
             if key in self._map:
                 self._map.move_to_end(key)
             self._map[key] = now
+            self._evict_expired(cooldown_seconds, now)
             while len(self._map) > self._max_size:
                 self._map.popitem(last=False)
             return False
+
+    def _evict_expired(self, cooldown_seconds: float, now: float) -> None:
+        threshold = now - (cooldown_seconds * 2)
+        expired = [k for k, v in self._map.items() if v < threshold]
+        for k in expired:
+            del self._map[k]
 
     def remove(self, key: str) -> None:
         with self._lock:
@@ -88,9 +96,12 @@ class EscalationService:
 
         current_time = time.time()
 
-        if not ignore_cooldown and self._cooldown_map.check_and_set(fp, self._cooldown_seconds, current_time):
-            logger.info(f"Cooldown active for fingerprint={fp}. Absorbing spam.")
-            return self.get_escalation_state(ip, user_agent, accept_language, fingerprint=fp)
+        if not ignore_cooldown:
+            in_memory_cooldown = self._cooldown_map.check_and_set(fp, self._cooldown_seconds, current_time)
+            db_cooldown = self._check_db_cooldown(fp, now)
+            if in_memory_cooldown or db_cooldown:
+                logger.info(f"Cooldown active for fingerprint={fp}. Absorbing spam.")
+                return self.get_escalation_state(ip, user_agent, accept_language, fingerprint=fp)
 
         expires = now + timedelta(days=self._ttl_days)
 
@@ -322,23 +333,46 @@ class EscalationService:
         except Exception as e:
             logger.error(f"Webhook request failed for action '{action_config.get('name')}': {str(e)}")
 
-    @staticmethod
-    def _render_template(template: Dict, data: Dict) -> Dict:
-        if not isinstance(template, dict):
-            return template
+    def _check_db_cooldown(self, fingerprint: str, now: datetime) -> bool:
+        try:
+            doc = self._col.find_one(
+                {"fingerprint": fingerprint},
+                {"last_infraction_at": 1},
+            )
+            if not doc:
+                return False
+            last_str = doc.get("last_infraction_at")
+            if not last_str:
+                return False
+            last_dt = datetime.fromisoformat(last_str)
+            if last_dt.tzinfo is None:
+                last_dt = last_dt.replace(tzinfo=timezone.utc)
+            elapsed = (now - last_dt).total_seconds()
+            return elapsed < self._cooldown_seconds
+        except Exception:
+            logger.debug("DB cooldown check failed, skipping fallback.", exc_info=True)
+            return False
 
-        rendered = {}
-        for key, value in template.items():
-            if isinstance(value, str):
-                for data_key, data_val in data.items():
-                    placeholder = f"{{{{{data_key}}}}}"
-                    if placeholder in value:
-                        value = value.replace(placeholder, str(data_val))
-                rendered[key] = value
-            elif isinstance(value, dict):
+    @staticmethod
+    def _render_template(template, data: Dict):
+        if isinstance(template, dict):
+            rendered = {}
+            for key, value in template.items():
                 rendered[key] = EscalationService._render_template(value, data)
-            elif isinstance(value, list):
-                rendered[key] = [EscalationService._render_template(item, data) if isinstance(item, dict) else item for item in value]
-            else:
-                rendered[key] = value
-        return rendered
+            return rendered
+
+        if isinstance(template, list):
+            return [EscalationService._render_template(item, data) for item in template]
+
+        if isinstance(template, str):
+            placeholder_pattern = re.compile(r"\{\{(\w+)\}\}")
+
+            def _replacer(match: re.Match) -> str:
+                key = match.group(1)
+                if key in data:
+                    return str(data[key])
+                return match.group(0)
+
+            return placeholder_pattern.sub(_replacer, template)
+
+        return template
