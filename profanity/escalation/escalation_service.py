@@ -217,6 +217,48 @@ class EscalationService:
     def get_action_rule(self, tier: int) -> Optional[Dict]:
         return self._rules_col.find_one({"tier": tier}, {"_id": 0})
 
+    def get_statistics(self) -> Dict:
+        pipeline = [
+            {
+                "$group": {
+                    "_id": None,
+                    "total_records": {"$sum": 1},
+                    "total_infractions": {"$sum": "$total_count"},
+                    "avg_infractions": {"$avg": "$total_count"},
+                    "max_infractions": {"$max": "$total_count"},
+                }
+            }
+        ]
+
+        agg_result = list(self._col.aggregate(pipeline))
+        summary = agg_result[0] if agg_result else {
+            "total_records": 0,
+            "total_infractions": 0,
+            "avg_infractions": 0.0,
+            "max_infractions": 0,
+        }
+
+        tier_distribution: Dict[str, int] = {t["label"]: 0 for t in ESCALATION_TIERS}
+        cursor = self._col.find({}, {"total_count": 1})
+        for doc in cursor:
+            count = doc.get("total_count", 0)
+            tier_info = self._resolve_tier(count)
+            tier_distribution[tier_info["label"]] = tier_distribution.get(tier_info["label"], 0) + 1
+
+        unique_ips = len(self._col.distinct("ip"))
+
+        return {
+            "total_records": summary.get("total_records", 0),
+            "total_infractions": summary.get("total_infractions", 0),
+            "avg_infractions_per_record": round(summary.get("avg_infractions", 0.0), 2),
+            "max_infractions": summary.get("max_infractions", 0),
+            "unique_ips": unique_ips,
+            "tier_distribution": tier_distribution,
+            "configured_tiers": ESCALATION_TIERS,
+            "ttl_days": self._ttl_days,
+            "cooldown_seconds": self._cooldown_seconds,
+        }
+
     @staticmethod
     def _resolve_tier(count: int) -> Dict:
         matched = ESCALATION_TIERS[0]

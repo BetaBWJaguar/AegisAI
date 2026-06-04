@@ -20,3 +20,4 @@ class CalculatePenaltyRequest(BaseModel):
     escalation_multiplier: Optional[float] = Field(None, ge=1.0)
     ip: Optional[str] = Field(None)
     user_agent: Optional[str] = Field(None)
+    accept_language: Optional[str] = Field(None)

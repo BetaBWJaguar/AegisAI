@@ -8,7 +8,10 @@ from pydantic import BaseModel, field_validator
 from auth.authcontroller import get_current_user
 from error.errortypes import ErrorType
 from error.expectionhandler import ExpectionHandler
-from profanity.escalation.escalation_service import EscalationService
+from profanity.escalation.escalation_service import EscalationService, ESCALATION_TIERS
+from profanity.escalation.schemas.escalation_response import (
+    EscalationStatisticsResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +27,6 @@ def _get_escalation_service() -> EscalationService:
     if _escalation_service is None:
         _escalation_service = EscalationService(config_file="config.json")
     return _escalation_service
-
 
 
 class ActionItem(BaseModel):
@@ -58,7 +60,6 @@ class ActionRulePayload(BaseModel):
         if v < 0:
             raise ValueError("Tier must be a non-negative integer.")
         return v
-
 
 
 @router.get("/state/{fingerprint}")
@@ -97,8 +98,8 @@ async def reset_escalation(fingerprint: str, current_user=Depends(get_current_us
 
 @router.get("/tiers")
 async def get_escalation_tiers(current_user=Depends(get_current_user)):
-    from profanity.escalation.escalation_service import ESCALATION_TIERS
     return {"success": True, "tiers": ESCALATION_TIERS}
+
 
 @router.post("/rules")
 async def update_action_rule(payload: ActionRulePayload, current_user=Depends(get_current_user)):
@@ -118,3 +119,13 @@ async def get_action_rule(tier: int, current_user=Depends(get_current_user)):
             error_type=ErrorType.NOT_FOUND,
         )
     return {"success": True, "data": rule}
+
+
+@router.get(
+    "/statistics",
+    response_model=EscalationStatisticsResponse,
+)
+async def get_escalation_statistics(current_user=Depends(get_current_user)):
+    svc = _get_escalation_service()
+    stats = svc.get_statistics()
+    return EscalationStatisticsResponse(success=True, data=stats)

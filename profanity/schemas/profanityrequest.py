@@ -8,3 +8,4 @@ class DetectRequest(BaseModel):
     pipeline: Optional[List[str]] = None
     ip: Optional[str] = Field(None)
     user_agent: Optional[str] = Field(None)
+    accept_language: Optional[str] = Field(None)

@@ -33,14 +33,15 @@ profanity_service = ProfanityServiceImpl(
 _escalation_service = EscalationService(config_file="config.json")
 
 
-_ESALATION_WORTHY_RISKS = {"MEDIUM", "HIGH", "CRITICAL"}
+_ESCALATION_WORTHY_RISKS = {"MEDIUM", "HIGH", "CRITICAL"}
 
 
 def _record_and_attach_escalation(
         result: dict,
         ip: Optional[str],
         user_agent: Optional[str],
-        ignore_cooldown: bool = False
+        accept_language: Optional[str] = None,
+        ignore_cooldown: bool = False,
 ) -> dict:
     if not ip:
         result["escalation"] = None
@@ -51,19 +52,21 @@ def _record_and_attach_escalation(
     confidence = result.get("confidence", 0.0)
 
     try:
-        if risk in _ESALATION_WORTHY_RISKS:
+        if risk in _ESCALATION_WORTHY_RISKS:
             escalation_state = _escalation_service.record_infraction(
                 ip=ip,
                 risk_level=risk,
                 category=category,
                 confidence=confidence,
                 user_agent=user_agent or "",
+                accept_language=accept_language or "",
                 ignore_cooldown=ignore_cooldown
             )
         else:
             escalation_state = _escalation_service.get_escalation_state(
                 ip=ip,
                 user_agent=user_agent or "",
+                accept_language=accept_language or "",
             )
 
         result["escalation"] = {
@@ -98,7 +101,9 @@ def detect_text(data: DetectRequest, current_user=Depends(get_current_user)):
             pipeline=data.pipeline
         )
 
-        result = _record_and_attach_escalation(result, data.ip, data.user_agent)
+        result = _record_and_attach_escalation(
+            result, data.ip, data.user_agent, data.accept_language,
+        )
 
         return DetectResponse(**result)
 
@@ -134,6 +139,7 @@ def detect_bulk(payload: Dict, current_user=Depends(get_current_user)):
         pipeline = payload.get("pipeline", None)
         ip = payload.get("ip")
         user_agent = payload.get("user_agent")
+        accept_language = payload.get("accept_language")
 
         if not texts or not isinstance(texts, list):
             raise ExpectionHandler(
@@ -154,7 +160,10 @@ def detect_bulk(payload: Dict, current_user=Depends(get_current_user)):
                     workspace_id=workspace_id,
                     pipeline=pipeline
                 )
-                processed = _record_and_attach_escalation(processed, ip, user_agent, ignore_cooldown=True)
+                processed = _record_and_attach_escalation(
+                    processed, ip, user_agent, accept_language,
+                    ignore_cooldown=True,
+                )
                 results.append(processed)
 
             except Exception as e:

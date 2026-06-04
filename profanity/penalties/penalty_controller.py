@@ -34,6 +34,7 @@ def _resolve_escalation_multiplier(request: CalculatePenaltyRequest) -> float:
             return _escalation_service.get_escalation_multiplier(
                 ip=request.ip,
                 user_agent=request.user_agent or "",
+                accept_language=request.accept_language or "",
             )
         except Exception:
             logger.exception("Escalation lookup failed for ip=%s", request.ip)
@@ -115,6 +116,7 @@ async def calculate_penalty_duration_bulk(payload: Dict, current_user=Depends(ge
     escalation_multiplier = 1.0
     ip = payload.get("ip")
     user_agent = payload.get("user_agent")
+    accept_language = payload.get("accept_language")
     explicit_multiplier = payload.get("escalation_multiplier")
 
     if explicit_multiplier is not None:
@@ -124,6 +126,7 @@ async def calculate_penalty_duration_bulk(payload: Dict, current_user=Depends(ge
             escalation_multiplier = _escalation_service.get_escalation_multiplier(
                 ip=ip,
                 user_agent=user_agent or "",
+                accept_language=accept_language or "",
             )
         except Exception:
             logger.exception("Escalation lookup failed for ip=%s in bulk request", ip)
