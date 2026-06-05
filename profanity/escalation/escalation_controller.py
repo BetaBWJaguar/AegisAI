@@ -9,7 +9,15 @@ from auth.authcontroller import get_current_user
 from error.errortypes import ErrorType
 from error.expectionhandler import ExpectionHandler
 from profanity.escalation.escalation_service import EscalationService, ESCALATION_TIERS
+from profanity.escalation.schemas.escalation_request import (
+    EscalationStateRequest,
+    EscalationResetRequest,
+    EscalationListRequest,
+)
 from profanity.escalation.schemas.escalation_response import (
+    EscalationStateResponse,
+    EscalationListResponse,
+    EscalationTierResponse,
     EscalationStatisticsResponse,
 )
 
@@ -62,7 +70,22 @@ class ActionRulePayload(BaseModel):
         return v
 
 
-@router.get("/state/{fingerprint}")
+@router.post("/state", response_model=EscalationStateResponse)
+async def get_escalation_state_by_body(
+    payload: EscalationStateRequest,
+    current_user=Depends(get_current_user),
+):
+    svc = _get_escalation_service()
+    state = svc.get_escalation_state(
+        ip=payload.ip,
+        user_agent=payload.user_agent or "",
+        accept_language=payload.accept_language or "",
+        fingerprint=payload.fingerprint,
+    )
+    return EscalationStateResponse(**state)
+
+
+@router.get("/state/{fingerprint}", response_model=EscalationStateResponse)
 async def get_escalation_state(fingerprint: str, current_user=Depends(get_current_user)):
     svc = _get_escalation_service()
     state = svc.get_by_fingerprint(fingerprint)
@@ -71,21 +94,25 @@ async def get_escalation_state(fingerprint: str, current_user=Depends(get_curren
             message=f"No escalation record found for fingerprint: {fingerprint}",
             error_type=ErrorType.NOT_FOUND,
         )
-    return {"success": True, "data": state}
+    return EscalationStateResponse(**state)
 
 
-@router.get("/list")
+@router.get("/list", response_model=EscalationListResponse)
 async def list_escalations(
-    limit: int = 100,
+    params: EscalationListRequest = Depends(),
     current_user=Depends(get_current_user),
 ):
     svc = _get_escalation_service()
-    results = svc.list_all(limit=limit)
-    return {"success": True, "count": len(results), "data": results}
+    results = svc.list_all(limit=params.limit)
+    data = [EscalationStateResponse(**r) for r in results]
+    return EscalationListResponse(success=True, count=len(data), data=data)
 
 
 @router.delete("/reset/{fingerprint}")
-async def reset_escalation(fingerprint: str, current_user=Depends(get_current_user)):
+async def reset_escalation(
+    fingerprint: str,
+    current_user=Depends(get_current_user),
+):
     svc = _get_escalation_service()
     reset_ok = svc.reset(fingerprint)
     if not reset_ok:
@@ -96,9 +123,24 @@ async def reset_escalation(fingerprint: str, current_user=Depends(get_current_us
     return {"success": True, "message": f"Escalation reset for {fingerprint}"}
 
 
-@router.get("/tiers")
+@router.post("/reset")
+async def reset_escalation_by_body(
+    payload: EscalationResetRequest,
+    current_user=Depends(get_current_user),
+):
+    svc = _get_escalation_service()
+    reset_ok = svc.reset(payload.fingerprint)
+    if not reset_ok:
+        raise ExpectionHandler(
+            message=f"No escalation record found for fingerprint: {payload.fingerprint}",
+            error_type=ErrorType.NOT_FOUND,
+        )
+    return {"success": True, "message": f"Escalation reset for {payload.fingerprint}"}
+
+
+@router.get("/tiers", response_model=EscalationTierResponse)
 async def get_escalation_tiers(current_user=Depends(get_current_user)):
-    return {"success": True, "tiers": ESCALATION_TIERS}
+    return EscalationTierResponse(success=True, tiers=ESCALATION_TIERS)
 
 
 @router.post("/rules")
