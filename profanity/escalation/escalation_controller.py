@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 import logging
-from typing import List, Optional
+from typing import List, Optional, Any, Dict
+from functools import lru_cache
+from error.expectionhandler import ExpectionHandler
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, field_validator
 
 from auth.authcontroller import get_current_user
 from error.errortypes import ErrorType
-from error.expectionhandler import ExpectionHandler
 from profanity.escalation.escalation_service import EscalationService, ESCALATION_TIERS
 from profanity.escalation.schemas.escalation_request import (
     EscalationStateRequest,
@@ -23,29 +24,30 @@ from profanity.escalation.schemas.escalation_response import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
-
-_escalation_service: Optional[EscalationService] = None
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 _VALID_ACTION_TYPES = {"LOG", "DB_UPDATE", "WEBHOOK"}
 
 
-def _get_escalation_service() -> EscalationService:
-    global _escalation_service
-    if _escalation_service is None:
-        _escalation_service = EscalationService(config_file="config.json")
-    return _escalation_service
+@lru_cache()
+def get_escalation_service() -> EscalationService:
+    return EscalationService(config_file="config.json")
+
+
+class SuccessResponse(BaseModel):
+    success: bool
+    message: str
 
 
 class ActionItem(BaseModel):
     type: str
     name: Optional[str] = None
     level: Optional[str] = None
-    update_fields: Optional[dict] = None
+    update_fields: Optional[Dict[str, Any]] = None
     url: Optional[str] = None
     method: Optional[str] = None
-    headers: Optional[dict] = None
-    payload_template: Optional[dict] = None
+    headers: Optional[Dict[str, Any]] = None
+    payload_template: Optional[Dict[str, Any]] = None
 
     @field_validator("type")
     @classmethod
@@ -72,10 +74,9 @@ class ActionRulePayload(BaseModel):
 
 @router.post("/state", response_model=EscalationStateResponse)
 async def get_escalation_state_by_body(
-    payload: EscalationStateRequest,
-    current_user=Depends(get_current_user),
+        payload: EscalationStateRequest,
+        svc: EscalationService = Depends(get_escalation_service),
 ):
-    svc = _get_escalation_service()
     state = svc.get_escalation_state(
         ip=payload.ip,
         user_agent=payload.user_agent or "",
@@ -86,8 +87,10 @@ async def get_escalation_state_by_body(
 
 
 @router.get("/state/{fingerprint}", response_model=EscalationStateResponse)
-async def get_escalation_state(fingerprint: str, current_user=Depends(get_current_user)):
-    svc = _get_escalation_service()
+async def get_escalation_state(
+        fingerprint: str,
+        svc: EscalationService = Depends(get_escalation_service)
+):
     state = svc.get_by_fingerprint(fingerprint)
     if not state:
         raise ExpectionHandler(
@@ -99,61 +102,62 @@ async def get_escalation_state(fingerprint: str, current_user=Depends(get_curren
 
 @router.get("/list", response_model=EscalationListResponse)
 async def list_escalations(
-    params: EscalationListRequest = Depends(),
-    current_user=Depends(get_current_user),
+        params: EscalationListRequest = Depends(),
+        svc: EscalationService = Depends(get_escalation_service),
 ):
-    svc = _get_escalation_service()
     results = svc.list_all(limit=params.limit)
     data = [EscalationStateResponse(**r) for r in results]
     return EscalationListResponse(success=True, count=len(data), data=data)
 
 
-@router.delete("/reset/{fingerprint}")
+@router.delete("/reset/{fingerprint}", response_model=SuccessResponse)
 async def reset_escalation(
-    fingerprint: str,
-    current_user=Depends(get_current_user),
+        fingerprint: str,
+        svc: EscalationService = Depends(get_escalation_service),
 ):
-    svc = _get_escalation_service()
     reset_ok = svc.reset(fingerprint)
     if not reset_ok:
         raise ExpectionHandler(
             message=f"No escalation record found for fingerprint: {fingerprint}",
             error_type=ErrorType.NOT_FOUND,
         )
-    return {"success": True, "message": f"Escalation reset for {fingerprint}"}
+    return SuccessResponse(success=True, message=f"Escalation reset for {fingerprint}")
 
 
-@router.post("/reset")
+@router.post("/reset", response_model=SuccessResponse)
 async def reset_escalation_by_body(
-    payload: EscalationResetRequest,
-    current_user=Depends(get_current_user),
+        payload: EscalationResetRequest,
+        svc: EscalationService = Depends(get_escalation_service),
 ):
-    svc = _get_escalation_service()
     reset_ok = svc.reset(payload.fingerprint)
     if not reset_ok:
         raise ExpectionHandler(
             message=f"No escalation record found for fingerprint: {payload.fingerprint}",
             error_type=ErrorType.NOT_FOUND,
         )
-    return {"success": True, "message": f"Escalation reset for {payload.fingerprint}"}
+    return SuccessResponse(success=True, message=f"Escalation reset for {payload.fingerprint}")
 
 
 @router.get("/tiers", response_model=EscalationTierResponse)
-async def get_escalation_tiers(current_user=Depends(get_current_user)):
+async def get_escalation_tiers():
     return EscalationTierResponse(success=True, tiers=ESCALATION_TIERS)
 
 
-@router.post("/rules")
-async def update_action_rule(payload: ActionRulePayload, current_user=Depends(get_current_user)):
-    svc = _get_escalation_service()
+@router.post("/rules", response_model=SuccessResponse)
+async def update_action_rule(
+        payload: ActionRulePayload,
+        svc: EscalationService = Depends(get_escalation_service)
+):
     actions_raw = [action.model_dump(exclude_none=True) for action in payload.actions]
     svc.update_action_rule(payload.tier, actions_raw)
-    return {"success": True, "message": f"Tier {payload.tier} rules have been updated."}
+    return SuccessResponse(success=True, message=f"Tier {payload.tier} rules have been updated.")
 
 
 @router.get("/rules/{tier}")
-async def get_action_rule(tier: int, current_user=Depends(get_current_user)):
-    svc = _get_escalation_service()
+async def get_action_rule(
+        tier: int,
+        svc: EscalationService = Depends(get_escalation_service)
+):
     rule = svc.get_action_rule(tier)
     if not rule:
         raise ExpectionHandler(
@@ -163,11 +167,9 @@ async def get_action_rule(tier: int, current_user=Depends(get_current_user)):
     return {"success": True, "data": rule}
 
 
-@router.get(
-    "/statistics",
-    response_model=EscalationStatisticsResponse,
-)
-async def get_escalation_statistics(current_user=Depends(get_current_user)):
-    svc = _get_escalation_service()
+@router.get("/statistics", response_model=EscalationStatisticsResponse)
+async def get_escalation_statistics(
+        svc: EscalationService = Depends(get_escalation_service)
+):
     stats = svc.get_statistics()
     return EscalationStatisticsResponse(success=True, data=stats)
