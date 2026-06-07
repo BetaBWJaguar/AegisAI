@@ -19,7 +19,7 @@ from profanity.escalation.schemas.escalation_response import (
     EscalationStateResponse,
     EscalationListResponse,
     EscalationTierResponse,
-    EscalationStatisticsResponse,
+    EscalationStatisticsResponse, EscalationTierInfo,
 )
 
 logger = logging.getLogger(__name__)
@@ -140,7 +140,10 @@ async def reset_escalation_by_body(
 
 @router.get("/tiers", response_model=EscalationTierResponse)
 async def get_escalation_tiers():
-    return EscalationTierResponse(success=True, tiers=ESCALATION_TIERS)
+    return EscalationTierResponse(
+        success=True,
+        tiers=[EscalationTierInfo(**tier) for tier in ESCALATION_TIERS]
+    )
 
 
 @router.post("/rules", response_model=SuccessResponse)
