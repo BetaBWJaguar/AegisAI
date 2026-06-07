@@ -83,6 +83,11 @@ async def get_escalation_state_by_body(
         accept_language=payload.accept_language or "",
         fingerprint=payload.fingerprint,
     )
+    if not state:
+        raise ExpectionHandler(
+            message=f"No escalation record found for fingerprint: {payload.fingerprint}",
+            error_type=ErrorType.NOT_FOUND,
+        )
     return EscalationStateResponse(**state)
 
 
@@ -156,18 +161,23 @@ async def update_action_rule(
     return SuccessResponse(success=True, message=f"Tier {payload.tier} rules have been updated.")
 
 
-@router.get("/rules/{tier}")
+@router.get("/rules/{tier}", response_model=SuccessResponse)
 async def get_action_rule(
         tier: int,
         svc: EscalationService = Depends(get_escalation_service)
 ):
+    if tier < 0:
+        raise ExpectionHandler(
+            message="Tier must be a non-negative integer.",
+            error_type=ErrorType.INTERNAL_SERVER_ERROR,
+        )
     rule = svc.get_action_rule(tier)
     if not rule:
         raise ExpectionHandler(
             message=f"No action rule found for tier: {tier}",
             error_type=ErrorType.NOT_FOUND,
         )
-    return {"success": True, "data": rule}
+    return SuccessResponse(success=True, message=str(rule))
 
 
 @router.get("/statistics", response_model=EscalationStatisticsResponse)
