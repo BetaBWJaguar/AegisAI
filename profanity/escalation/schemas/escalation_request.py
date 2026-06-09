@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Any, Dict, Optional
 
 
 class EscalationStateRequest(BaseModel):
@@ -16,3 +16,10 @@ class EscalationResetRequest(BaseModel):
 
 class EscalationListRequest(BaseModel):
     limit: int = Field(100, ge=1, le=1000)
+
+
+class EscalationCreateRequest(BaseModel):
+    user_id: str
+    reason: str
+    level: int = Field(..., ge=1)
+    metadata: Optional[Dict[str, Any]] = Field(None)
