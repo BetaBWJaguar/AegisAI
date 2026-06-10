@@ -14,6 +14,7 @@ from profanity.escalation.schemas.escalation_request import (
     EscalationStateRequest,
     EscalationResetRequest,
     EscalationListRequest,
+    EscalationCreateRequest,
 )
 from profanity.escalation.schemas.escalation_response import (
     EscalationStateResponse,
@@ -178,6 +179,20 @@ async def get_action_rule(
             error_type=ErrorType.NOT_FOUND,
         )
     return SuccessResponse(success=True, message=str(rule))
+
+
+@router.post("/create", response_model=EscalationStateResponse)
+async def create_escalation(
+        payload: EscalationCreateRequest,
+        svc: EscalationService = Depends(get_escalation_service),
+):
+    state = svc.create_escalation(
+        user_id=payload.user_id,
+        reason=payload.reason,
+        level=payload.level,
+        metadata=payload.metadata,
+    )
+    return EscalationStateResponse(**state)
 
 
 @router.get("/statistics", response_model=EscalationStatisticsResponse)

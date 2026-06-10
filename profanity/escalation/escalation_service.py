@@ -202,6 +202,47 @@ class EscalationService:
             ))
         return results
 
+    def create_escalation(
+            self,
+            user_id: str,
+            reason: str,
+            level: int,
+            metadata: Optional[Dict] = None,
+    ) -> Dict:
+        now = datetime.now(timezone.utc)
+        expires = now + timedelta(days=self._ttl_days)
+        fp = self.generate_fingerprint(user_id, reason, str(level))
+
+        doc = {
+            "fingerprint": fp,
+            "ip": user_id,
+            "user_agent": "",
+            "total_count": level,
+            "first_infraction_at": now.isoformat(),
+            "last_infraction_at": now.isoformat(),
+            "expires_at": expires,
+            "infractions": [
+                {
+                    "timestamp": now.isoformat(),
+                    "risk_level": "MANUAL",
+                    "category": reason,
+                    "confidence": 1.0,
+                    "metadata": metadata or {},
+                }
+            ],
+        }
+
+        self._col.update_one(
+            {"fingerprint": fp},
+            {
+                "$set": doc,
+                "$setOnInsert": {"first_infraction_at": now.isoformat()},
+            },
+            upsert=True,
+        )
+
+        return self._build_state(fp, level, doc["infractions"], user_id)
+
     def reset(self, fingerprint: str) -> bool:
         result = self._col.delete_one({"fingerprint": fingerprint})
         self._cooldown_map.remove(fingerprint)
