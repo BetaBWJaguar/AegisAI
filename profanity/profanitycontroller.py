@@ -8,6 +8,8 @@ from auditmanager.auditlogserviceimpl import AuditLogServiceImpl
 from auth.authcontroller import get_current_user
 from customrules.customrule_service_impl import CustomRuleServiceImpl
 from profanity.escalation.escalation_service import EscalationService
+from profanity.penalties.penalty_duration_service import PenaltyDurationService
+from profanity.penalties.penalty_api_utils import _get_readable_duration
 from profanity.profanityserviceimpl import ProfanityServiceImpl
 from profanity.schemas.profanityrequest import DetectRequest
 from profanity.schemas.profanityresponse import DetectResponse
@@ -34,6 +36,15 @@ _escalation_service = EscalationService(config_file="config.json")
 
 
 _ESCALATION_WORTHY_RISKS = {"MEDIUM", "HIGH", "CRITICAL"}
+
+_DEFAULT_BASE_DURATIONS: Dict[str, int] = {
+    "LOW": 0,
+    "MEDIUM": 30,
+    "HIGH": 1440,
+    "CRITICAL": 10080,
+}
+
+_DEFAULT_CATEGORY_MULTIPLIERS: Dict[str, float] = {}
 
 
 def _record_and_attach_escalation(
@@ -82,6 +93,70 @@ def _record_and_attach_escalation(
     return result
 
 
+def _calculate_and_attach_penalty_duration(
+        result: dict,
+        base_durations: Optional[Dict[str, int]] = None,
+        category_multipliers: Optional[Dict[str, float]] = None,
+) -> dict:
+    risk = result.get("risk", "LOW")
+
+    if risk not in _ESCALATION_WORTHY_RISKS:
+        result["penalty_duration"] = None
+        return result
+
+    category = result.get("predicted_label")
+    confidence = result.get("confidence", 1.0)
+
+    escalation_info = result.get("escalation")
+    escalation_multiplier = 1.0
+    if escalation_info and isinstance(escalation_info, dict):
+        escalation_multiplier = escalation_info.get("multiplier", 1.0)
+
+    penalties = [
+        {
+            "risk_level": risk,
+            "category": category,
+            "confidence": confidence,
+        }
+    ]
+
+    try:
+        effective_base = base_durations if base_durations is not None else _DEFAULT_BASE_DURATIONS
+        effective_multipliers = (
+            category_multipliers
+            if category_multipliers is not None
+            else _DEFAULT_CATEGORY_MULTIPLIERS
+        )
+
+        penalty_service = PenaltyDurationService(
+            base_durations=effective_base,
+            category_multipliers=effective_multipliers,
+        )
+
+        calc_result = penalty_service.calculate(
+            penalties=penalties,
+            escalation_multiplier=escalation_multiplier,
+        )
+
+        total_minutes = calc_result["total_duration_minutes"]
+
+        result["penalty_duration"] = {
+            "total_duration_minutes": total_minutes,
+            "readable_duration": _get_readable_duration(total_minutes),
+            "penalties_count": len(penalties),
+            "escalation_multiplier": escalation_multiplier,
+            "category_breakdown": {category or "UNCATEGORIZED": 1},
+        }
+    except Exception:
+        logger.exception(
+            "Failed to calculate penalty duration for risk=%s category=%s",
+            risk, category,
+        )
+        result["penalty_duration"] = None
+
+    return result
+
+
 @router.post(
     "/detect",
     response_model=DetectResponse,
@@ -103,6 +178,12 @@ def detect_text(data: DetectRequest, current_user=Depends(get_current_user)):
 
         result = _record_and_attach_escalation(
             result, data.ip, data.user_agent, data.accept_language,
+        )
+
+        result = _calculate_and_attach_penalty_duration(
+            result,
+            base_durations=data.base_durations,
+            category_multipliers=data.category_multipliers,
         )
 
         return DetectResponse(**result)
@@ -140,6 +221,8 @@ def detect_bulk(payload: Dict, current_user=Depends(get_current_user)):
         ip = payload.get("ip")
         user_agent = payload.get("user_agent")
         accept_language = payload.get("accept_language")
+        base_durations = payload.get("base_durations")
+        category_multipliers = payload.get("category_multipliers")
 
         if not texts or not isinstance(texts, list):
             raise ExpectionHandler(
@@ -163,6 +246,11 @@ def detect_bulk(payload: Dict, current_user=Depends(get_current_user)):
                 processed = _record_and_attach_escalation(
                     processed, ip, user_agent, accept_language,
                     ignore_cooldown=True,
+                )
+                processed = _calculate_and_attach_penalty_duration(
+                    processed,
+                    base_durations=base_durations,
+                    category_multipliers=category_multipliers,
                 )
                 results.append(processed)
 

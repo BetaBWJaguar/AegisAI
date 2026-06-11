@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Dict, Optional, List
 
 
 class DetectRequest(BaseModel):
@@ -9,3 +9,5 @@ class DetectRequest(BaseModel):
     ip: Optional[str] = Field(None)
     user_agent: Optional[str] = Field(None)
     accept_language: Optional[str] = Field(None)
+    base_durations: Optional[Dict[str, int]] = Field(None)
+    category_multipliers: Optional[Dict[str, float]] = Field(None)

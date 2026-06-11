@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 
 class EscalationInfo(BaseModel):
@@ -7,6 +7,14 @@ class EscalationInfo(BaseModel):
     label: str = "CLEAN"
     multiplier: float = 1.0
     total_infractions: int = 0
+
+
+class PenaltyDurationInfo(BaseModel):
+    total_duration_minutes: int = 0
+    readable_duration: str = "0 minutes"
+    penalties_count: int = 1
+    escalation_multiplier: float = 1.0
+    category_breakdown: Optional[Dict[str, int]] = None
 
 
 class DetectResponse(BaseModel):
@@ -31,3 +39,4 @@ class DetectResponse(BaseModel):
     model_version: str
     processed_at: str
     escalation: Optional[EscalationInfo] = None
+    penalty_duration: Optional[PenaltyDurationInfo] = None
