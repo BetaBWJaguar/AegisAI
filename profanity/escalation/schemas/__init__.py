@@ -4,6 +4,7 @@ from profanity.escalation.schemas.escalation_request import (
     EscalationResetRequest,
     EscalationListRequest,
     EscalationCreateRequest,
+    EscalationFilterRequest,
 )
 from profanity.escalation.schemas.escalation_response import (
     EscalationStateResponse,
@@ -17,6 +18,7 @@ __all__ = [
     "EscalationResetRequest",
     "EscalationListRequest",
     "EscalationCreateRequest",
+    "EscalationFilterRequest",
     "EscalationStateResponse",
     "EscalationListResponse",
     "EscalationTierResponse",

@@ -23,3 +23,9 @@ class EscalationCreateRequest(BaseModel):
     reason: str
     level: int = Field(..., ge=1)
     metadata: Optional[Dict[str, Any]] = Field(None)
+
+
+class EscalationFilterRequest(BaseModel):
+    category: Optional[str] = Field(None)
+    risk_level: Optional[str] = Field(None)
+    limit: int = Field(100, ge=1, le=1000)

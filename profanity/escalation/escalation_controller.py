@@ -15,6 +15,7 @@ from profanity.escalation.schemas.escalation_request import (
     EscalationResetRequest,
     EscalationListRequest,
     EscalationCreateRequest,
+    EscalationFilterRequest,
 )
 from profanity.escalation.schemas.escalation_response import (
     EscalationStateResponse,
@@ -112,6 +113,25 @@ async def list_escalations(
         svc: EscalationService = Depends(get_escalation_service),
 ):
     results = svc.list_all(limit=params.limit)
+    data = [EscalationStateResponse(**r) for r in results]
+    return EscalationListResponse(success=True, count=len(data), data=data)
+
+
+@router.post("/filter", response_model=EscalationListResponse)
+async def filter_infractions(
+        payload: EscalationFilterRequest,
+        svc: EscalationService = Depends(get_escalation_service),
+):
+    if payload.category is None and payload.risk_level is None:
+        raise ExpectionHandler(
+            message="At least one of 'category' or 'risk_level' must be provided.",
+            error_type=ErrorType.VALIDATION_ERROR,
+        )
+    results = svc.filter_infractions(
+        category=payload.category,
+        risk_level=payload.risk_level,
+        limit=payload.limit,
+    )
     data = [EscalationStateResponse(**r) for r in results]
     return EscalationListResponse(success=True, count=len(data), data=data)
 

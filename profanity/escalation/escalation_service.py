@@ -202,6 +202,44 @@ class EscalationService:
             ))
         return results
 
+    def filter_infractions(
+            self,
+            category: Optional[str] = None,
+            risk_level: Optional[str] = None,
+            limit: int = 100,
+    ) -> List[Dict]:
+        elem_match = {}
+        if category:
+            elem_match["category"] = category
+        if risk_level:
+            elem_match["risk_level"] = risk_level
+
+        if not elem_match:
+            return self.list_all(limit=limit)
+
+        query = {"infractions": {"$elemMatch": elem_match}}
+        cursor = self._col.find(query, {"_id": 0}).sort("total_count", -1).limit(limit)
+
+        results: List[Dict] = []
+        for doc in cursor:
+            filtered_infractions = [
+                inf for inf in doc.get("infractions", [])
+                if (category is None or inf.get("category") == category)
+                and (risk_level is None or inf.get("risk_level") == risk_level)
+            ]
+            if not filtered_infractions:
+                continue
+
+            state = self._build_state(
+                doc["fingerprint"],
+                doc.get("total_count", 0),
+                filtered_infractions,
+                doc.get("ip", ""),
+            )
+            results.append(state)
+
+        return results
+
     def create_escalation(
             self,
             user_id: str,
