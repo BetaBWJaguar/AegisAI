@@ -81,7 +81,19 @@ class CustomRuleService(ABC):
         pass
 
     @abstractmethod
-    def evaluate_text(self, text: str, workspace_id: str) -> dict:
+    def evaluate_text(
+        self,
+        text: str,
+        workspace_id: str,
+        scope: Optional[str] = None,
+    ) -> dict:
+        pass
+
+    @abstractmethod
+    def get_rule_statistics(
+        self,
+        workspace_id: Optional[str] = None,
+    ) -> dict:
         pass
 
     @abstractmethod

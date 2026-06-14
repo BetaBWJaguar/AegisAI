@@ -1,5 +1,6 @@
 from customrules.customrule import CustomRule
 from customrules.customrule_action import CustomRuleAction
+from customrules.customrule_severity import RuleSeverity
 from customrules.customrule_type import CustomRuleType
 from customrules.customrule_service import CustomRuleService
 from customrules.customruleengine import CustomRuleEngine, EngineConfig, EngineResult, EngineVerdict, RuleMatchResult
@@ -7,6 +8,7 @@ from customrules.customruleengine import CustomRuleEngine, EngineConfig, EngineR
 __all__ = [
     "CustomRule",
     "CustomRuleAction",
+    "RuleSeverity",
     "CustomRuleType",
     "CustomRuleService",
     "CustomRuleEngine",

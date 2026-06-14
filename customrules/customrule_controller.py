@@ -26,6 +26,7 @@ class TestPatternRequest(BaseModel):
 class EvaluateTextRequest(BaseModel):
     text: str
     workspace_id: str
+    scope: Optional[str] = None
 
 
 class BulkToggleRequest(BaseModel):
@@ -191,6 +192,7 @@ def evaluate_text(data: EvaluateTextRequest):
         result = service.evaluate_text(
             text=data.text,
             workspace_id=data.workspace_id,
+            scope=data.scope,
         )
         return result
     except ExpectionHandler:
@@ -276,6 +278,26 @@ def export_rules(
             error_type=ErrorType.DATABASE_ERROR,
             detail=str(e),
         )
+
+@router.get(
+    "/statistics",
+    dependencies=[Depends(require_perm([Role.DEVELOPER, Role.ADMIN]))],
+)
+def get_rule_statistics(
+        workspace_id: Optional[str] = Query(default=None),
+):
+    try:
+        result = service.get_rule_statistics(workspace_id=workspace_id)
+        return result
+    except ExpectionHandler:
+        raise
+    except Exception as e:
+        raise ExpectionHandler(
+            message="Failed to retrieve custom rule statistics.",
+            error_type=ErrorType.DATABASE_ERROR,
+            detail=str(e),
+        )
+
 
 @router.get(
     "/{rule_id}",

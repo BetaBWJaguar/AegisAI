@@ -5,6 +5,7 @@ from typing import Optional, List, Dict, Any
 
 from customrules.customrule_type import CustomRuleType
 from customrules.customrule_action import CustomRuleAction
+from customrules.customrule_severity import RuleSeverity
 
 
 class RuleCreate(BaseModel):
@@ -22,3 +23,6 @@ class RuleCreate(BaseModel):
     workspace_id: Optional[str] = None
     replace_text: Optional[str] = None
     expires_at: Optional[datetime] = None
+    severity: RuleSeverity = RuleSeverity.MEDIUM
+    cooldown_seconds: int = Field(default=0, ge=0)
+    exceptions: List[str] = Field(default_factory=list)

@@ -9,6 +9,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 from customrules.customrule import CustomRule
 from customrules.customrule_action import CustomRuleAction
+from customrules.customrule_severity import RuleSeverity
 from customrules.customrule_type import CustomRuleType
 from customrules.customrule_service_impl_utils import (
     apply_replacement,
@@ -46,6 +47,8 @@ class RuleMatchResult:
     matches: List[dict]
     replace_text: Optional[str] = None
     highlighted_text: Optional[str] = None
+    severity: str = "MEDIUM"
+    scope: Optional[str] = None
 
 
 @dataclass
@@ -59,6 +62,8 @@ class EngineResult:
     highlighted_original: str
     evaluated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     metadata: Dict = field(default_factory=dict)
+    max_severity: Optional[str] = None
+    scope: Optional[str] = None
 
 
 OnRuleTriggeredCallback = Callable[[CustomRule, RuleMatchResult], None]
@@ -91,12 +96,23 @@ class CustomRuleEngine:
         self._config = config or EngineConfig()
         self._on_rule_triggered = on_rule_triggered
 
-    def evaluate(self, text: str, rules: List[CustomRule]) -> EngineResult:
+    def evaluate(
+        self,
+        text: str,
+        rules: List[CustomRule],
+        scope: Optional[str] = None,
+    ) -> EngineResult:
         if not text:
             return self._empty_result(text)
 
         active_rules = sorted(
-            (r for r in rules if r.enabled and not r.is_expired()),
+            (
+                r for r in rules
+                if r.enabled
+                and not r.is_expired()
+                and not r.is_in_cooldown()
+                and r.applies_to_scope(scope)
+            ),
             key=lambda r: r.priority,
             reverse=True,
         )
@@ -115,6 +131,10 @@ class CustomRuleEngine:
 
             matches = self._test_rule(rule, current_text)
             if matches is None:
+                continue
+
+            matches = self._filter_exceptions(rule, current_text, matches)
+            if not matches:
                 continue
 
             result = self._build_match_result(rule, matches)
@@ -142,6 +162,8 @@ class CustomRuleEngine:
                 self._config.highlight_pre,
                 self._config.highlight_post,
             ),
+            max_severity=self._resolve_max_severity(triggered_rules),
+            scope=scope,
         )
 
     def evaluate_single(
@@ -212,7 +234,39 @@ class CustomRuleEngine:
             priority=rule.priority,
             match_count=len(matches),
             matches=matches,
+            severity=rule.severity.value,
+            scope=rule.scope,
         )
+
+    @staticmethod
+    def _filter_exceptions(
+        rule: CustomRule, text: str, matches: List[dict],
+    ) -> List[dict]:
+        if not rule.exceptions:
+            return matches
+
+        exception_spans: List[Tuple[int, int]] = []
+        for exc_pattern in rule.exceptions:
+            try:
+                flags = 0 if rule.case_sensitive else re.IGNORECASE
+                for m in re.finditer(exc_pattern, text, flags):
+                    exception_spans.append((m.start(), m.end()))
+            except re.error:
+                logger.warning(
+                    "Invalid exception pattern %r on rule %s", exc_pattern, rule.id,
+                )
+
+        if not exception_spans:
+            return matches
+
+        def _overlaps(match: dict) -> bool:
+            ms, me = match["start"], match["end"]
+            for es, ee in exception_spans:
+                if ms < ee and es < me:
+                    return True
+            return False
+
+        return [m for m in matches if not _overlaps(m)]
 
     def _fire_callback(
         self, rule: CustomRule, result: RuleMatchResult,
@@ -268,6 +322,22 @@ class CustomRuleEngine:
         if any(t.action in _TRANSFORM_ACTIONS for t in triggered):
             return EngineVerdict.TRANSFORMED
         return EngineVerdict.FLAGGED
+
+    @staticmethod
+    def _resolve_max_severity(
+        triggered: List[RuleMatchResult],
+    ) -> Optional[str]:
+        if not triggered:
+            return None
+        best: Optional[RuleSeverity] = None
+        for t in triggered:
+            try:
+                sev = RuleSeverity(t.severity)
+            except ValueError:
+                continue
+            if best is None or RuleSeverity.weight(sev) > RuleSeverity.weight(best):
+                best = sev
+        return best.value if best else None
 
     @staticmethod
     def _empty_result(text: str) -> EngineResult:

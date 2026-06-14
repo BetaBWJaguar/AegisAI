@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any
 
 from customrules.customrule_action import CustomRuleAction
+from customrules.customrule_severity import RuleSeverity
 from customrules.customrule_type import CustomRuleType
 
 
@@ -27,3 +28,7 @@ class RuleResponse(BaseModel):
     last_triggered_at: Optional[datetime] = None
     replace_text: Optional[str] = None
     expires_at: Optional[datetime] = None
+    severity: RuleSeverity = RuleSeverity.MEDIUM
+    cooldown_seconds: int = 0
+    exceptions: List[str] = []
+    last_fired_at: Optional[datetime] = None

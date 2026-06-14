@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 
 from customrules.customrule_action import CustomRuleAction
+from customrules.customrule_severity import RuleSeverity
 from customrules.customrule_type import CustomRuleType
 
 
@@ -21,3 +22,6 @@ class RuleUpsert(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
     replace_text: Optional[str] = None
     expires_at: Optional[datetime] = None
+    severity: Optional[RuleSeverity] = None
+    cooldown_seconds: Optional[int] = Field(default=None, ge=0)
+    exceptions: Optional[List[str]] = None

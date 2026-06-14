@@ -54,6 +54,9 @@ class CustomRuleServiceImpl(CustomRuleService):
             created_by=created_by,
             replace_text=data.replace_text,
             expires_at=data.expires_at,
+            severity=data.severity,
+            cooldown_seconds=data.cooldown_seconds,
+            exceptions=data.exceptions,
         )
 
         rule.validate()
@@ -192,7 +195,12 @@ class CustomRuleServiceImpl(CustomRuleService):
             case_sensitive=case_sensitive,
         )
 
-    def evaluate_text(self, text: str, workspace_id: str) -> dict:
+    def evaluate_text(
+        self,
+        text: str,
+        workspace_id: str,
+        scope: Optional[str] = None,
+    ) -> dict:
         rules = self.list_rules(workspace_id=workspace_id, enabled_only=True)
 
         if not rules:
@@ -201,16 +209,19 @@ class CustomRuleServiceImpl(CustomRuleService):
                 "matched": False,
                 "triggered_rules": [],
                 "processed_text": text,
+                "scope": scope,
             }
 
         def _on_rule_triggered(rule: CustomRule, result) -> None:
             rule.record_hit()
+            now_iso = datetime.utcnow().isoformat()
             self.collection.update_one(
                 {"id": str(rule.id), "workspace_id": workspace_id},
                 {
                     "$set": {
                         "hit_count": rule.hit_count,
-                        "last_triggered_at": datetime.utcnow().isoformat(),
+                        "last_triggered_at": now_iso,
+                        "last_fired_at": now_iso,
                     }
                 },
             )
@@ -220,7 +231,7 @@ class CustomRuleServiceImpl(CustomRuleService):
             on_rule_triggered=_on_rule_triggered,
         )
 
-        engine_result = engine.evaluate(text, rules)
+        engine_result = engine.evaluate(text, rules, scope=scope)
 
         triggered_rules = [
             {
@@ -229,6 +240,8 @@ class CustomRuleServiceImpl(CustomRuleService):
                 "rule_type": tr.rule_type,
                 "action": tr.action,
                 "priority": tr.priority,
+                "severity": tr.severity,
+                "scope": tr.scope,
                 "match_count": tr.match_count,
                 "matches": tr.matches,
                 **({"replace_text": tr.replace_text} if tr.replace_text is not None else {}),
@@ -245,6 +258,67 @@ class CustomRuleServiceImpl(CustomRuleService):
             "processed_text": engine_result.processed_text,
             "highlighted_original": engine_result.highlighted_original,
             "verdict": engine_result.verdict.value,
+            "max_severity": engine_result.max_severity,
+            "scope": engine_result.scope,
+        }
+
+    def get_rule_statistics(self, workspace_id: Optional[str] = None) -> dict:
+        match: dict = {}
+        if workspace_id is not None:
+            match["workspace_id"] = workspace_id
+
+        pipeline = [
+            {"$match": match},
+            {
+                "$group": {
+                    "_id": None,
+                    "total_rules": {"$sum": 1},
+                    "enabled_rules": {"$sum": {"$cond": ["$enabled", 1, 0]}},
+                    "total_hits": {"$sum": {"$ifNull": ["$hit_count", 0]}},
+                    "with_cooldown": {
+                        "$sum": {"$cond": [{"$gt": ["$cooldown_seconds", 0]}, 1, 0]}
+                    },
+                }
+            },
+        ]
+
+        agg = list(self.collection.aggregate(pipeline))
+        summary = agg[0] if agg else {
+            "total_rules": 0,
+            "enabled_rules": 0,
+            "total_hits": 0,
+            "with_cooldown": 0,
+        }
+        summary.pop("_id", None)
+
+        by_type = {}
+        for doc in self.collection.aggregate([
+            {"$match": match},
+            {"$group": {"_id": "$rule_type", "count": {"$sum": 1}}},
+        ]):
+            by_type[doc["_id"] or "UNKNOWN"] = doc["count"]
+
+        by_severity = {}
+        for doc in self.collection.aggregate([
+            {"$match": match},
+            {"$group": {"_id": "$severity", "count": {"$sum": 1}}},
+        ]):
+            by_severity[doc["_id"] or "UNKNOWN"] = doc["count"]
+
+        top_hit_rules = [
+            {"id": d.get("id"), "name": d.get("name"), "hit_count": d.get("hit_count", 0)}
+            for d in self.collection.find(match, {"id": 1, "name": 1, "hit_count": 1})
+            .sort("hit_count", -1)
+            .limit(10)
+        ]
+
+        return {
+            "workspace_id": workspace_id,
+            "summary": summary,
+            "by_type": by_type,
+            "by_severity": by_severity,
+            "top_hit_rules": top_hit_rules,
+            "generated_at": datetime.utcnow().isoformat(),
         }
 
     def bulk_toggle(self, rule_ids: List[str], enabled: bool, workspace_id: Optional[str] = None) -> List[CustomRule]:
