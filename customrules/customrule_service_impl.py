@@ -123,6 +123,8 @@ class CustomRuleServiceImpl(CustomRuleService):
                 {"name": {"$regex": safe_query, "$options": "i"}},
                 {"pattern": {"$regex": safe_query, "$options": "i"}},
                 {"description": {"$regex": safe_query, "$options": "i"}},
+                {"severity": {"$regex": safe_query, "$options": "i"}},
+                {"tags": {"$regex": safe_query, "$options": "i"}},
             ]
         }
 
