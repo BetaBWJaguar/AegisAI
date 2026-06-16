@@ -329,14 +329,7 @@ class CustomRuleEngine:
     ) -> Optional[str]:
         if not triggered:
             return None
-        best: Optional[RuleSeverity] = None
-        for t in triggered:
-            try:
-                sev = RuleSeverity(t.severity)
-            except ValueError:
-                continue
-            if best is None or RuleSeverity.weight(sev) > RuleSeverity.weight(best):
-                best = sev
+        best = RuleSeverity.highest(t.severity for t in triggered)
         return best.value if best else None
 
     @staticmethod

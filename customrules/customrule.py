@@ -62,10 +62,12 @@ class CustomRule:
             raise ValueError("Rule name cannot exceed 255 characters.")
         if not (0 <= self.priority <= 1000):
             raise ValueError("Priority must be between 0 and 1000.")
-        if not isinstance(self.severity, RuleSeverity):
+        resolved_severity = RuleSeverity.from_value(self.severity)
+        if resolved_severity is None:
             raise ValueError(
                 f"Invalid severity. Must be one of: {[s.value for s in RuleSeverity]}"
             )
+        self.severity = resolved_severity
         if self.cooldown_seconds < 0:
             raise ValueError("cooldown_seconds cannot be negative.")
         if self.expires_at is not None and self.expires_at <= datetime.now(timezone.utc):
@@ -132,7 +134,7 @@ class CustomRule:
             last_triggered_at=_parse_datetime(data.get("last_triggered_at")),
             replace_text=data.get("replace_text"),
             expires_at=_parse_datetime(data.get("expires_at")),
-            severity=RuleSeverity(data["severity"]) if isinstance(data.get("severity"), str) else data.get("severity", RuleSeverity.MEDIUM),
+            severity=RuleSeverity.from_value(data.get("severity"), RuleSeverity.MEDIUM),
             cooldown_seconds=data.get("cooldown_seconds", 0),
             exceptions=data.get("exceptions", []),
             last_fired_at=_parse_datetime(data.get("last_fired_at")),

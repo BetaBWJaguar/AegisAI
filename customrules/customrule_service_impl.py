@@ -9,6 +9,7 @@ from pymongo import MongoClient
 from config_loader import ConfigLoader
 from customrules.create.create import RuleCreate
 from customrules.customrule import CustomRule
+from customrules.customrule_severity import RuleSeverity
 from customrules.customrule_service import CustomRuleService
 from customrules.customrule_type import CustomRuleType
 from customrules.customruleengine import CustomRuleEngine, EngineConfig
@@ -241,6 +242,7 @@ class CustomRuleServiceImpl(CustomRuleService):
                 "action": tr.action,
                 "priority": tr.priority,
                 "severity": tr.severity,
+                "severity_color": RuleSeverity.safe(tr.severity).color,
                 "scope": tr.scope,
                 "match_count": tr.match_count,
                 "matches": tr.matches,
@@ -259,6 +261,11 @@ class CustomRuleServiceImpl(CustomRuleService):
             "highlighted_original": engine_result.highlighted_original,
             "verdict": engine_result.verdict.value,
             "max_severity": engine_result.max_severity,
+            "max_severity_color": (
+                RuleSeverity.safe(engine_result.max_severity).color
+                if engine_result.max_severity
+                else None
+            ),
             "scope": engine_result.scope,
         }
 
