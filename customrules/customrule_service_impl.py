@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import List, Optional
 import uuid
 
-from pymongo import MongoClient
+from pymongo import MongoClient, UpdateOne
 
 from config_loader import ConfigLoader
 from customrules.create.create import RuleCreate
@@ -215,19 +215,13 @@ class CustomRuleServiceImpl(CustomRuleService):
                 "scope": scope,
             }
 
+
+        triggered: dict = {}
+
         def _on_rule_triggered(rule: CustomRule, result) -> None:
             rule.record_hit()
-            now_iso = datetime.utcnow().isoformat()
-            self.collection.update_one(
-                {"id": str(rule.id), "workspace_id": workspace_id},
-                {
-                    "$set": {
-                        "hit_count": rule.hit_count,
-                        "last_triggered_at": now_iso,
-                        "last_fired_at": now_iso,
-                    }
-                },
-            )
+            rule_id = str(rule.id)
+            triggered[rule_id] = triggered.get(rule_id, 0) + 1
 
         engine = CustomRuleEngine(
             config=EngineConfig(),
@@ -235,6 +229,31 @@ class CustomRuleServiceImpl(CustomRuleService):
         )
 
         engine_result = engine.evaluate(text, rules, scope=scope)
+
+
+        if triggered:
+            now_iso = datetime.utcnow().isoformat()
+            try:
+                self.collection.bulk_write(
+                    [
+                        UpdateOne(
+                            {"id": rule_id, "workspace_id": workspace_id},
+                            {
+                                "$inc": {"hit_count": count},
+                                "$set": {
+                                    "last_triggered_at": now_iso,
+                                    "last_fired_at": now_iso,
+                                },
+                            },
+                        )
+                        for rule_id, count in triggered.items()
+                    ],
+                    ordered=False,
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to persist hit stats for workspace %s", workspace_id,
+                )
 
         triggered_rules = [
             {
