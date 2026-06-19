@@ -1,3 +1,4 @@
+
 import difflib
 import fnmatch
 import re
@@ -115,24 +116,44 @@ def test_dynamic_match(
 def test_semantic_match(
     pattern: str, test_text: str, case_sensitive: bool, flags: int
 ) -> Tuple[List[dict], Optional[str]]:
-    pattern_words = pattern.split()
-    test_words = test_text.split()
-    if not case_sensitive:
-        pattern_words = [w.lower() for w in pattern_words]
-        test_words = [w.lower() for w in test_words]
+    pattern_words_raw = pattern.split()
+    test_words_raw = test_text.split()
 
-    pattern_lower = [w.lower() for w in pattern.split()]
+    if not case_sensitive:
+        pattern_words = [w.lower() for w in pattern_words_raw]
+        test_words = [w.lower() for w in test_words_raw]
+    else:
+        pattern_words = pattern_words_raw
+        test_words = test_words_raw
+
+    n_test = len(test_words)
+    n_pattern = len(pattern_words)
     matches: List[dict] = []
-    for i in range(len(test_words)):
-        for j in range(i + 1, min(i + len(pattern_words) + 1, len(test_words) + 1)):
+
+    if n_pattern == 0 or n_test == 0:
+        return matches, None
+
+    offsets = [0] * (n_test + 1)
+    for i in range(n_test):
+        offsets[i + 1] = offsets[i] + len(test_words_raw[i]) + (1 if i > 0 else 0)
+
+    pattern_lower = [w.lower() for w in pattern_words_raw]
+
+    matcher = difflib.SequenceMatcher(None)
+    matcher.set_seq2(pattern_lower)
+
+    for i in range(n_test):
+        max_j = min(i + n_pattern + 1, n_test + 1)
+        for j in range(i + 1, max_j):
             segment = test_words[i:j]
-            similarity = difflib.SequenceMatcher(
-                None, pattern_lower, [w.lower() for w in segment]
-            ).ratio()
+            compare_segment = (
+                [w.lower() for w in segment] if case_sensitive else segment
+            )
+            matcher.set_seq1(compare_segment)
+            similarity = matcher.ratio()
             if similarity >= 0.7:
-                original_segment = test_text.split()[i:j]
-                matched_text = " ".join(original_segment)
-                start = len(" ".join(test_text.split()[:i])) + (1 if i > 0 else 0)
+                matched_text = " ".join(test_words_raw[i:j])
+                start = offsets[i] + (1 if i > 0 else 0)
                 end = start + len(matched_text)
                 matches.append(
                     {
@@ -153,12 +174,21 @@ def highlight_matches(
     if not matches:
         return text
 
-    sorted_matches = sorted(matches, key=lambda m: m["start"], reverse=True)
-    result = text
+
+    sorted_matches = sorted(matches, key=lambda m: m["start"])
+    parts: List[str] = []
+    cursor = 0
     for m in sorted_matches:
         start, end = m["start"], m["end"]
-        result = result[:start] + pre_marker + result[start:end] + post_marker + result[end:]
-    return result
+        if start < cursor:
+            continue
+        parts.append(text[cursor:start])
+        parts.append(pre_marker)
+        parts.append(text[start:end])
+        parts.append(post_marker)
+        cursor = end
+    parts.append(text[cursor:])
+    return "".join(parts)
 
 
 def apply_replacement(
