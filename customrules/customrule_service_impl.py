@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import List, Optional
 import uuid
 
-from pymongo import MongoClient, UpdateOne
+from pymongo import IndexModel, MongoClient, ReturnDocument, UpdateOne
 
 from config_loader import ConfigLoader
 from customrules.create.create import RuleCreate
@@ -27,13 +27,17 @@ class CustomRuleServiceImpl(CustomRuleService):
         self.client = MongoClient(uri)
         self.db = self.client[cfg["name"]]
         self.collection = self.db["custom_rules"]
-        self.collection.create_index("id", unique=True)
-        self.collection.create_index("workspace_id")
-        self.collection.create_index("rule_type")
-        self.collection.create_index("tags")
-        self.collection.create_index(
-            [("name", "text"), ("pattern", "text"), ("description", "text")],
-            name="rule_text_search",
+        self.collection.create_indexes(
+            [
+                IndexModel("id", unique=True, name="id_uniq"),
+                IndexModel("workspace_id", name="workspace_id_1"),
+                IndexModel("rule_type", name="rule_type_1"),
+                IndexModel("tags", name="tags_1"),
+                IndexModel(
+                    [("name", "text"), ("pattern", "text"), ("description", "text")],
+                    name="rule_text_search",
+                ),
+            ]
         )
 
         self._engine = CustomRuleEngine(config=EngineConfig())
@@ -88,26 +92,30 @@ class CustomRuleServiceImpl(CustomRuleService):
             return self._from_document(self.collection.find_one(filter_q))
 
         update_fields["updated_at"] = datetime.utcnow().isoformat()
-        self.collection.update_one(filter_q, {"$set": update_fields})
-
-        return self._from_document(self.collection.find_one(filter_q))
+        updated_doc = self.collection.find_one_and_update(
+            filter_q,
+            {"$set": update_fields},
+            return_document=ReturnDocument.AFTER,
+        )
+        return self._from_document(updated_doc) if updated_doc else None
 
     def delete_rule(self, rule_id: str, workspace_id: str) -> bool:
         result = self.collection.delete_one({"id": rule_id, "workspace_id": workspace_id})
         return result.deleted_count > 0
 
     def toggle_rule(self, rule_id: str, workspace_id: str) -> Optional[CustomRule]:
-        doc = self.collection.find_one({"id": rule_id, "workspace_id": workspace_id})
-        if not doc:
-            return None
-
-        new_enabled = not doc.get("enabled", True)
-        self.collection.update_one(
+        updated_doc = self.collection.find_one_and_update(
             {"id": rule_id, "workspace_id": workspace_id},
-            {"$set": {"enabled": new_enabled, "updated_at": datetime.utcnow().isoformat()}},
+            [
+                {
+                    "$set": {
+                        "enabled": {"$not": {"$ifNull": ["$enabled", True]}},
+                        "updated_at": datetime.utcnow().isoformat(),
+                    }
+                }
+            ],
+            return_document=ReturnDocument.AFTER,
         )
-
-        updated_doc = self.collection.find_one({"id": rule_id, "workspace_id": workspace_id})
         return self._from_document(updated_doc) if updated_doc else None
 
     def search_rules(
@@ -298,20 +306,51 @@ class CustomRuleServiceImpl(CustomRuleService):
         pipeline = [
             {"$match": match},
             {
-                "$group": {
-                    "_id": None,
-                    "total_rules": {"$sum": 1},
-                    "enabled_rules": {"$sum": {"$cond": ["$enabled", 1, 0]}},
-                    "total_hits": {"$sum": {"$ifNull": ["$hit_count", 0]}},
-                    "with_cooldown": {
-                        "$sum": {"$cond": [{"$gt": ["$cooldown_seconds", 0]}, 1, 0]}
-                    },
+                "$facet": {
+                    "summary": [
+                        {
+                            "$group": {
+                                "_id": None,
+                                "total_rules": {"$sum": 1},
+                                "enabled_rules": {"$sum": {"$cond": ["$enabled", 1, 0]}},
+                                "total_hits": {"$sum": {"$ifNull": ["$hit_count", 0]}},
+                                "with_cooldown": {
+                                    "$sum": {"$cond": [{"$gt": ["$cooldown_seconds", 0]}, 1, 0]}
+                                },
+                            }
+                        }
+                    ],
+                    "by_type": [
+                        {"$group": {"_id": "$rule_type", "count": {"$sum": 1}}}
+                    ],
+                    "by_severity": [
+                        {"$group": {"_id": "$severity", "count": {"$sum": 1}}}
+                    ],
+                    "top_hit_rules": [
+                        {"$sort": {"hit_count": -1}},
+                        {"$limit": 10},
+                        {
+                            "$project": {
+                                "_id": 0,
+                                "id": 1,
+                                "name": 1,
+                                "hit_count": {"$ifNull": ["$hit_count", 0]},
+                            }
+                        },
+                    ],
                 }
             },
         ]
 
-        agg = list(self.collection.aggregate(pipeline))
-        summary = agg[0] if agg else {
+        result = list(self.collection.aggregate(pipeline))
+        facet = result[0] if result else {
+            "summary": [],
+            "by_type": [],
+            "by_severity": [],
+            "top_hit_rules": [],
+        }
+
+        summary = facet["summary"][0] if facet["summary"] else {
             "total_rules": 0,
             "enabled_rules": 0,
             "total_hits": 0,
@@ -319,33 +358,15 @@ class CustomRuleServiceImpl(CustomRuleService):
         }
         summary.pop("_id", None)
 
-        by_type = {}
-        for doc in self.collection.aggregate([
-            {"$match": match},
-            {"$group": {"_id": "$rule_type", "count": {"$sum": 1}}},
-        ]):
-            by_type[doc["_id"] or "UNKNOWN"] = doc["count"]
-
-        by_severity = {}
-        for doc in self.collection.aggregate([
-            {"$match": match},
-            {"$group": {"_id": "$severity", "count": {"$sum": 1}}},
-        ]):
-            by_severity[doc["_id"] or "UNKNOWN"] = doc["count"]
-
-        top_hit_rules = [
-            {"id": d.get("id"), "name": d.get("name"), "hit_count": d.get("hit_count", 0)}
-            for d in self.collection.find(match, {"id": 1, "name": 1, "hit_count": 1})
-            .sort("hit_count", -1)
-            .limit(10)
-        ]
+        by_type = {doc["_id"] or "UNKNOWN": doc["count"] for doc in facet["by_type"]}
+        by_severity = {doc["_id"] or "UNKNOWN": doc["count"] for doc in facet["by_severity"]}
 
         return {
             "workspace_id": workspace_id,
             "summary": summary,
             "by_type": by_type,
             "by_severity": by_severity,
-            "top_hit_rules": top_hit_rules,
+            "top_hit_rules": facet["top_hit_rules"],
             "generated_at": datetime.utcnow().isoformat(),
         }
 
@@ -462,19 +483,31 @@ class CustomRuleServiceImpl(CustomRuleService):
         skipped: int = 0
         errors: List[dict] = []
 
+        candidates: List[tuple] = []
         for idx, raw in enumerate(raw_rules):
             if not isinstance(raw, dict):
                 errors.append({"index": idx, "error": "Each rule must be a JSON object."})
                 continue
+            if workspace_id is not None:
+                raw["workspace_id"] = workspace_id
+            candidates.append((idx, raw))
 
+        existing_map: dict = {}
+        names = [r.get("name") for _, r in candidates if r.get("name") is not None]
+        if names:
+            existing_query: dict = {"name": {"$in": names}}
+            if workspace_id is not None:
+                existing_query["workspace_id"] = workspace_id
+            for doc in self.collection.find(
+                existing_query,
+                {"id": 1, "name": 1, "workspace_id": 1, "hit_count": 1, "last_triggered_at": 1},
+            ):
+                existing_map[(doc.get("name"), doc.get("workspace_id"))] = doc
+
+        now = datetime.utcnow().isoformat()
+        for idx, raw in candidates:
             try:
-                if workspace_id is not None:
-                    raw["workspace_id"] = workspace_id
-
-                existing = self.collection.find_one({
-                    "name": raw.get("name"),
-                    "workspace_id": raw.get("workspace_id"),
-                })
+                existing = existing_map.get((raw.get("name"), raw.get("workspace_id")))
 
                 if existing and not overwrite:
                     skipped += 1
@@ -483,7 +516,7 @@ class CustomRuleServiceImpl(CustomRuleService):
                 if existing and overwrite:
                     raw.pop("_id", None)
                     raw["id"] = existing["id"]
-                    raw["updated_at"] = datetime.utcnow().isoformat()
+                    raw["updated_at"] = now
                     raw["hit_count"] = existing.get("hit_count", 0)
                     raw["last_triggered_at"] = existing.get("last_triggered_at")
 
@@ -500,8 +533,8 @@ class CustomRuleServiceImpl(CustomRuleService):
                     raw["hit_count"] = 0
                     raw["last_triggered_at"] = None
                     raw["created_by"] = created_by
-                    raw["created_at"] = datetime.utcnow().isoformat()
-                    raw["updated_at"] = datetime.utcnow().isoformat()
+                    raw["created_at"] = now
+                    raw["updated_at"] = now
 
                     rule = CustomRule.from_dict(raw)
                     rule.validate()
