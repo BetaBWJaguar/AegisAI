@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import bisect
 import logging
 import re
 from dataclasses import dataclass, field
@@ -84,6 +85,8 @@ _TRANSFORM_ACTIONS = frozenset({
     CustomRuleAction.MASK.value,
     CustomRuleAction.REDACT.value,
 })
+
+_SEVERITY_WEIGHTS = {sev.value: RuleSeverity.weight(sev) for sev in RuleSeverity}
 
 
 class CustomRuleEngine:
@@ -245,12 +248,15 @@ class CustomRuleEngine:
         if not rule.exceptions:
             return matches
 
+
+        flags = 0 if rule.case_sensitive else re.IGNORECASE
         exception_spans: List[Tuple[int, int]] = []
         for exc_pattern in rule.exceptions:
             try:
-                flags = 0 if rule.case_sensitive else re.IGNORECASE
-                for m in re.finditer(exc_pattern, text, flags):
-                    exception_spans.append((m.start(), m.end()))
+                compiled = re.compile(exc_pattern, flags)
+                exception_spans.extend(
+                    (m.start(), m.end()) for m in compiled.finditer(text)
+                )
             except re.error:
                 logger.warning(
                     "Invalid exception pattern %r on rule %s", exc_pattern, rule.id,
@@ -259,12 +265,21 @@ class CustomRuleEngine:
         if not exception_spans:
             return matches
 
+
+        exception_spans.sort()
+        merged: List[Tuple[int, int]] = []
+        for start, end in exception_spans:
+            if merged and start <= merged[-1][1]:
+                if end > merged[-1][1]:
+                    merged[-1] = (merged[-1][0], end)
+            else:
+                merged.append((start, end))
+        merged_starts = [s for s, _ in merged]
+
         def _overlaps(match: dict) -> bool:
             ms, me = match["start"], match["end"]
-            for es, ee in exception_spans:
-                if ms < ee and es < me:
-                    return True
-            return False
+            idx = bisect.bisect_left(merged_starts, me)
+            return idx > 0 and merged[idx - 1][1] > ms
 
         return [m for m in matches if not _overlaps(m)]
 
@@ -329,8 +344,14 @@ class CustomRuleEngine:
     ) -> Optional[str]:
         if not triggered:
             return None
-        best = RuleSeverity.highest(t.severity for t in triggered)
-        return best.value if best else None
+        best_severity: Optional[str] = None
+        best_weight = -1
+        for t in triggered:
+            weight = _SEVERITY_WEIGHTS.get(t.severity, -1)
+            if weight > best_weight:
+                best_weight = weight
+                best_severity = t.severity
+        return best_severity
 
     @staticmethod
     def _empty_result(text: str) -> EngineResult:
