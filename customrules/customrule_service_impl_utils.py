@@ -34,7 +34,15 @@ def test_regex_match(
     try:
         compiled = re.compile(pattern, flags)
         matches = [
-            {"match": m.group(), "start": m.start(), "end": m.end()}
+            {
+                "match": m.group(),
+                "start": m.start(),
+                "end": m.end(),
+                "groups": [g if g is not None else "" for g in m.groups()],
+                "named_groups": {
+                    k: (v if v is not None else "") for k, v in m.groupdict().items()
+                },
+            }
             for m in compiled.finditer(test_text)
         ]
         return matches, None
@@ -79,7 +87,15 @@ def test_pattern_match(
     try:
         compiled = re.compile(pattern, flags)
         matches = [
-            {"match": m.group(), "start": m.start(), "end": m.end()}
+            {
+                "match": m.group(),
+                "start": m.start(),
+                "end": m.end(),
+                "groups": [g if g is not None else "" for g in m.groups()],
+                "named_groups": {
+                    k: (v if v is not None else "") for k, v in m.groupdict().items()
+                },
+            }
             for m in compiled.finditer(test_text)
         ]
         return matches, None
@@ -105,7 +121,15 @@ def test_dynamic_match(
         wrapped = r"\b(?:%s)\b" % pattern
         compiled = re.compile(wrapped, flags)
         matches = [
-            {"match": m.group(), "start": m.start(), "end": m.end()}
+            {
+                "match": m.group(),
+                "start": m.start(),
+                "end": m.end(),
+                "groups": [g if g is not None else "" for g in m.groups()],
+                "named_groups": {
+                    k: (v if v is not None else "") for k, v in m.groupdict().items()
+                },
+            }
             for m in compiled.finditer(test_text)
         ]
         return matches, None

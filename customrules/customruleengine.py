@@ -191,22 +191,79 @@ class CustomRuleEngine:
         test_text: str,
         case_sensitive: bool = False,
     ) -> dict:
+        import time
+
+        start = time.perf_counter()
         flags = 0 if case_sensitive else re.IGNORECASE
         matches, error = test_pattern_dispatch(
             pattern, test_text, case_sensitive, flags, rule_type,
         )
+        elapsed_ms = round((time.perf_counter() - start) * 1000, 3)
 
         if error:
-            return {"error": error, "matches": []}
+            return {
+                "pattern": pattern,
+                "rule_type": rule_type.value,
+                "test_text": test_text,
+                "case_sensitive": case_sensitive,
+                "valid": False,
+                "error": error,
+                "matches": [],
+                "match_count": 0,
+                "highlighted_text": test_text,
+                "elapsed_ms": elapsed_ms,
+            }
+
+        if matches:
+            lengths = [m["end"] - m["start"] for m in matches]
+            unique_matches = list(dict.fromkeys(m["match"] for m in matches))
+            ordered = sorted(
+                matches, key=lambda m: (m["start"], -(m["end"] - m["start"]))
+            )
+            covered = 0
+            cursor = -1
+            for m in ordered:
+                s, e = m["start"], m["end"]
+                if e <= cursor:
+                    continue
+                seg_start = max(s, cursor) if cursor >= 0 else s
+                covered += e - seg_start
+                cursor = e
+            safe_len = len(test_text) if test_text else 1
+            statistics = {
+                "total_matched_chars": covered,
+                "coverage_ratio": round(covered / safe_len, 4),
+                "unique_matches": unique_matches,
+                "unique_match_count": len(unique_matches),
+                "longest_match_length": max(lengths),
+                "shortest_match_length": min(lengths),
+                "avg_match_length": round(sum(lengths) / len(lengths), 2),
+            }
+        else:
+            statistics = {
+                "total_matched_chars": 0,
+                "coverage_ratio": 0.0,
+                "unique_matches": [],
+                "unique_match_count": 0,
+                "longest_match_length": 0,
+                "shortest_match_length": 0,
+                "avg_match_length": 0.0,
+            }
 
         return {
             "pattern": pattern,
             "rule_type": rule_type.value,
             "test_text": test_text,
             "case_sensitive": case_sensitive,
+            "valid": True,
             "match_count": len(matches),
             "matches": matches,
             "highlighted_text": highlight_matches(test_text, matches),
+            "replaced_text": apply_replacement(
+                test_text, matches, self._config.default_mask
+            ),
+            "statistics": statistics,
+            "elapsed_ms": elapsed_ms,
         }
 
 
