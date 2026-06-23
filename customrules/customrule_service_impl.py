@@ -227,7 +227,6 @@ class CustomRuleServiceImpl(CustomRuleService):
         triggered: dict = {}
 
         def _on_rule_triggered(rule: CustomRule, result) -> None:
-            rule.record_hit()
             rule_id = str(rule.id)
             triggered[rule_id] = triggered.get(rule_id, 0) + 1
 

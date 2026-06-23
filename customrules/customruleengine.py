@@ -125,7 +125,7 @@ class CustomRuleEngine:
 
         current_text = text
         triggered_rules: List[RuleMatchResult] = []
-        all_matches: List[dict] = []
+        triggered_rule_objs: List[CustomRule] = []
         blocked = False
 
         for rule in active_rules:
@@ -148,7 +148,7 @@ class CustomRuleEngine:
             self._fire_callback(rule, result)
 
             triggered_rules.append(result)
-            all_matches.extend(matches)
+            triggered_rule_objs.append(rule)
 
             if self._config.stop_on_first_match:
                 break
@@ -160,11 +160,7 @@ class CustomRuleEngine:
             matched=bool(triggered_rules),
             triggered_rule_count=len(triggered_rules),
             triggered_rules=triggered_rules,
-            highlighted_original=highlight_matches(
-                text, all_matches,
-                self._config.highlight_pre,
-                self._config.highlight_post,
-            ),
+            highlighted_original=self._highlight_original(text, triggered_rule_objs),
             max_severity=self._resolve_max_severity(triggered_rules),
             scope=scope,
         )
@@ -281,6 +277,23 @@ class CustomRuleEngine:
             )
             return None
         return matches or None
+
+    def _highlight_original(
+        self, text: str, rules: List[CustomRule],
+    ) -> str:
+        original_matches: List[dict] = []
+        for rule in rules:
+            flags = 0 if rule.case_sensitive else re.IGNORECASE
+            matches, _ = test_pattern_dispatch(
+                rule.pattern, text, rule.case_sensitive, flags, rule.rule_type,
+            )
+            if matches:
+                matches = self._filter_exceptions(rule, text, matches)
+                original_matches.extend(matches)
+        return highlight_matches(
+            text, original_matches,
+            self._config.highlight_pre, self._config.highlight_post,
+        )
 
     @staticmethod
     def _build_match_result(

@@ -76,7 +76,12 @@ def test_wildcard_match(
     pattern: str, test_text: str, case_sensitive: bool, flags: int
 ) -> Tuple[List[dict], Optional[str]]:
     matches: List[dict] = []
-    if fnmatch.fnmatch(test_text, pattern):
+    matched = (
+        fnmatch.fnmatchcase(test_text, pattern)
+        if case_sensitive
+        else fnmatch.fnmatch(test_text, pattern)
+    )
+    if matched:
         matches.append({"match": test_text, "start": 0, "end": len(test_text)})
     return matches, None
 

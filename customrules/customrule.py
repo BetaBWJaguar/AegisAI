@@ -11,6 +11,12 @@ from customrules.customrule_type import CustomRuleType
 from customrules.customrule_service_impl_utils import test_pattern_dispatch
 
 
+def _now_compatible(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return datetime.utcnow()
+    return datetime.now(timezone.utc)
+
+
 @dataclass
 class CustomRule:
     id: uuid.UUID
@@ -70,7 +76,7 @@ class CustomRule:
         self.severity = resolved_severity
         if self.cooldown_seconds < 0:
             raise ValueError("cooldown_seconds cannot be negative.")
-        if self.expires_at is not None and self.expires_at <= datetime.now(timezone.utc):
+        if self.expires_at is not None and self.expires_at <= _now_compatible(self.expires_at):
             raise ValueError("expires_at must be a future datetime.")
         self.validate_pattern()
         return True
@@ -78,7 +84,7 @@ class CustomRule:
     def is_expired(self) -> bool:
         if self.expires_at is None:
             return False
-        return datetime.now(timezone.utc) >= self.expires_at
+        return _now_compatible(self.expires_at) >= self.expires_at
 
     def is_in_cooldown(self) -> bool:
         if self.cooldown_seconds <= 0 or self.last_fired_at is None:
