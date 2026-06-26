@@ -3,7 +3,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, Iterator, List
 
 logger = logging.getLogger(__name__)
 
@@ -47,11 +47,27 @@ class IronySarcasmAnnotation:
 class IronySarcasmDataset:
     examples: List[IronySarcasmExample] = field(default_factory=list)
 
+    _VALID_LABELS = {
+        IronySarcasmLabel.IRONY,
+        IronySarcasmLabel.SARCASM,
+        IronySarcasmLabel.LITERAL,
+    }
+
     def add(self, text: str, label: str) -> IronySarcasmExample:
+        if label not in self._VALID_LABELS:
+            raise ValueError(
+                f"Invalid label '{label}'. Expected one of {sorted(self._VALID_LABELS)}."
+            )
         example = IronySarcasmExample(text=text, label=label)
         self.examples.append(example)
         logger.debug("Added example with label '%s'.", label)
         return example
+
+    def __len__(self) -> int:
+        return len(self.examples)
+
+    def __iter__(self) -> Iterator[IronySarcasmExample]:
+        return iter(self.examples)
 
     def label_distribution(self) -> dict:
         counts: dict = {}
