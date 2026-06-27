@@ -19,6 +19,7 @@ class IronySarcasmCue:
     QUESTION = "question"
     EMPHASIS = "emphasis"
     EMOJI = "emoji"
+    HASHTAG = "hashtag"
 
 @dataclass
 class IronySarcasmExample:
@@ -53,6 +54,16 @@ class IronySarcasmDataset:
         IronySarcasmLabel.LITERAL,
     }
 
+    _CUE_WEIGHTS = {
+        IronySarcasmCue.HASHTAG: 4.0,
+        IronySarcasmCue.EMOJI: 2.0,
+        IronySarcasmCue.QUOTATION: 1.5,
+        IronySarcasmCue.ELLIPSIS: 1.0,
+        IronySarcasmCue.EXCLAMATION: 1.0,
+        IronySarcasmCue.QUESTION: 1.0,
+        IronySarcasmCue.EMPHASIS: 1.0,
+    }
+
     def add(self, text: str, label: str) -> IronySarcasmExample:
         if label not in self._VALID_LABELS:
             raise ValueError(
@@ -60,7 +71,6 @@ class IronySarcasmDataset:
             )
         example = IronySarcasmExample(text=text, label=label)
         self.examples.append(example)
-        logger.debug("Added example with label '%s'.", label)
         return example
 
     def __len__(self) -> int:
@@ -122,7 +132,17 @@ class IronySarcasmDataset:
         sarcastic_emojis = "🙃😏🙄😂🤣😒😑😬🤔"
         _add(IronySarcasmCue.EMOJI, sum(text.count(e) for e in sarcastic_emojis))
 
+        _add(
+            IronySarcasmCue.HASHTAG,
+            len(re.findall(r"#(?:sarcasm|sarcastic|ironi|irony|tabii)\b", lowered)),
+        )
+
         return cues
+
+    def irony_score(self, text: str) -> float:
+
+        cues = self.detect_cues(text)
+        return sum(self._CUE_WEIGHTS.get(cue, 1.0) * count for cue, count in cues.items())
 
     def annotate(self) -> List[IronySarcasmAnnotation]:
         annotations: List[IronySarcasmAnnotation] = []
